@@ -1,0 +1,31 @@
+# Admin > Site settings > Plugins
+plugins:
+  diskuz_call_enabled:
+    default: true
+    client: true
+  # Chi può vedere e usare diskuz Call. Default: amministratori (1), moderatori (2), staff (3).
+  diskuz_call_allowed_groups:
+    default: "1|2|3"
+    type: group_list
+    list_type: compact
+    client: true
+  # Se true (e discourse-follow è attivo), il destinatario deve seguire il chiamante per ricevere chiamate.
+  diskuz_call_require_follow:
+    default: true
+    type: boolean
+    client: true
+  # Suono per chiamate in arrivo (stessi nomi della chat Discourse dove disponibili).
+  diskuz_call_incoming_sound:
+    default: "default"
+    type: enum
+    client: true
+    choices:
+      - none
+      - default
+      - ding
+      - bell
+      - chat
+  # ICE servers per WebRTC (opzionale). JSON array, es: [{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:turn.example.com","username":"user","credential":"pass"}]. Lascia vuoto per usare solo STUN Google.
+  diskuz_call_ice_servers:
+    default: ""
+    client: true

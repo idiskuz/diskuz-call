@@ -1,0 +1,8 @@
+# Part 3: etichette per le site settings (Admin > Site settings > Plugins)
+en:
+  site_settings:
+    diskuz_call_enabled: "Enable diskuz Call (VoIP calls between users)"
+    diskuz_call_allowed_groups: "Who can see and use diskuz Call (default: Administrators only; you can add Staff, Moderators, or trust level groups)"
+    diskuz_call_require_follow: "Require the callee to follow the caller (when discourse-follow is enabled). If disabled, any allowed user can call any other allowed user."
+    diskuz_call_incoming_sound: "Sound for incoming calls (same names as Discourse chat when available: none, default, ding, bell, chat)"
+    diskuz_call_ice_servers: "ICE servers for WebRTC (optional). JSON array, e.g. [{\"urls\":\"stun:stun.l.google.com:19302\"},{\"urls\":\"turn:turn.example.com\",\"username\":\"user\",\"credential\":\"pass\"}]. Leave empty to use default Google STUN only. Add a TURN server if calls fail on mobile or corporate networks."

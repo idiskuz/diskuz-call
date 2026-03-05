@@ -1,0 +1,7 @@
+it:
+  site_settings:
+    diskuz_call_enabled: "Abilita diskuz Call (chiamate VoIP tra utenti)"
+    diskuz_call_allowed_groups: "Chi può vedere e usare diskuz Call (predefinito: solo Amministratori; puoi aggiungere Staff, Moderatori o gruppi per livello di fiducia)"
+    diskuz_call_require_follow: "Richiedi che il destinatario segua il chiamante (se discourse-follow è attivo). Se disattivato, qualsiasi utente abilitato può chiamare qualsiasi altro utente abilitato."
+    diskuz_call_incoming_sound: "Suono per le chiamate in arrivo (stessi nomi della chat Discourse se disponibili: none, default, ding, bell, chat)"
+    diskuz_call_ice_servers: "Server ICE per WebRTC (opzionale). Array JSON, es. [{\"urls\":\"stun:stun.l.google.com:19302\"},{\"urls\":\"turn:turn.example.com\",\"username\":\"user\",\"credential\":\"pass\"}]. Lascia vuoto per usare solo STUN Google. Aggiungi un server TURN se le chiamate falliscono su reti mobili o aziendali."
