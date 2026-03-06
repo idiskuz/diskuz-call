@@ -61,11 +61,11 @@
   }
 }
 
-/* --- CALL WIDGET --- */
+/* --- CALL WIDGET (default: to the left of floating button, same bottom, 1 inch gap) --- */
 #diskuz-call-widget {
   position: fixed;
-  bottom: 270px;
-  right: 90px;
+  bottom: 190px; /* same as #diskuz-call-btn */
+  right: 178px;  /* 24 + 58 + 96: button right + button width + 1 inch gap */
   width: 320px;
   min-height: 440px;
   background: #ffffff;

@@ -239,15 +239,54 @@ export default apiInitializer("0.8", (api) => {
 
   /* --- AUDIO UNLOCK (browsers require user gesture before playing) --- */
   let incomingCallAudioContext = null;
+
   function unlockAudioForIncomingSound() {
-    if (incomingCallAudioContext) return;
-    try {
-      incomingCallAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-      if (incomingCallAudioContext.state === "suspended") {
-        incomingCallAudioContext.resume();
+    if (!incomingCallAudioContext) {
+      try {
+        incomingCallAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+      } catch (e) {
+        console.warn("diskuz-call: could not create AudioContext", e);
+        return Promise.resolve();
       }
+    }
+    if (incomingCallAudioContext.state === "suspended") {
+      return incomingCallAudioContext.resume().catch((e) => {
+        console.warn("diskuz-call: AudioContext resume failed", e);
+      });
+    }
+    return Promise.resolve();
+  }
+
+  function ensureAudioContextRunning() {
+    return unlockAudioForIncomingSound();
+  }
+
+  function onceDocumentInteractionForAudio() {
+    if (window._diskuzCallAudioUnlockBound) return;
+    window._diskuzCallAudioUnlockBound = true;
+    const unlock = () => unlockAudioForIncomingSound();
+    document.addEventListener("click", unlock, { once: true, passive: true });
+    document.addEventListener("touchstart", unlock, { once: true, passive: true });
+    document.addEventListener("keydown", unlock, { once: true, passive: true });
+  }
+
+  /* --- FALLBACK BEEP (when Web Audio is blocked) --- */
+  function playFallbackBeep(freq, durationMs) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = freq || 440;
+      osc.type = "sine";
+      const d = (durationMs || 150) / 1000;
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + d);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + d);
     } catch (e) {
-      console.warn("diskuz-call: could not create AudioContext", e);
+      console.warn("diskuz-call: fallback beep failed", e);
     }
   }
 
@@ -266,23 +305,33 @@ export default apiInitializer("0.8", (api) => {
           else url = window.location.origin + "/" + url.replace(/^\/+/, "");
         }
         const a = new Audio(url);
-        a.volume = 0.8;
-        a.play().catch((err) => log("diskuz-call: custom ringtone play failed", err));
+        a.volume = 0.85;
+        a.play().catch((err) => {
+          log("diskuz-call: custom ringtone play failed", err);
+          playFallbackBeep(880, 200);
+        });
       } catch (e) {
         console.warn("diskuz-call: could not play custom ringtone", e);
+        playFallbackBeep(880, 200);
       }
       return;
     }
-    try {
-      const ctx = incomingCallAudioContext || new (window.AudioContext || window.webkitAudioContext)();
-      if (ctx.state === "suspended") {
-        ctx.resume().then(() => playIncomingCallBeep(ctx)).catch(() => {});
-      } else {
-        playIncomingCallBeep(ctx);
+    ensureAudioContextRunning().then(() => {
+      const ctx = incomingCallAudioContext;
+      if (!ctx) {
+        playFallbackBeep(880, 200);
+        return;
       }
-    } catch (e) {
-      console.warn("diskuz-call: could not play incoming sound", e);
-    }
+      if (ctx.state === "suspended") {
+        ctx.resume().then(() => playIncomingCallBeep(ctx)).catch(() => playFallbackBeep(880, 200));
+        return;
+      }
+      try {
+        playIncomingCallBeep(ctx);
+      } catch (e) {
+        playFallbackBeep(880, 200);
+      }
+    }).catch(() => playFallbackBeep(880, 200));
   }
 
   function playIncomingCallBeep(ctx) {
@@ -293,12 +342,14 @@ export default apiInitializer("0.8", (api) => {
       gain.connect(ctx.destination);
       osc.frequency.value = 880;
       osc.type = "sine";
-      gain.gain.setValueAtTime(0.2, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.25);
+      const t0 = ctx.currentTime;
+      gain.gain.setValueAtTime(0.35, t0);
+      gain.gain.exponentialRampToValueAtTime(0.01, t0 + 0.35);
+      osc.start(t0);
+      osc.stop(t0 + 0.35);
     } catch (e) {
       console.warn("diskuz-call: beep failed", e);
+      throw e;
     }
   }
 
@@ -355,8 +406,9 @@ export default apiInitializer("0.8", (api) => {
 
   function startIncomingRingLoop() {
     stopIncomingRing();
-    unlockAudioForIncomingSound();
-    playIncomingCallRingOnce();
+    ensureAudioContextRunning().then(() => {
+      playIncomingCallRingOnce();
+    }).catch(() => {});
     incomingRingIntervalId = setInterval(playIncomingCallRingOnce, INCOMING_RING_INTERVAL_MS);
     incomingRingTimeoutId = setTimeout(() => {
       if (!currentCall.active || currentCall.direction !== "incoming" || !currentCall.isRinging) return;
@@ -375,21 +427,30 @@ export default apiInitializer("0.8", (api) => {
   }
 
   function playBusyTone() {
-    try {
-      unlockAudioForIncomingSound();
-      const ctx = incomingCallAudioContext || (function () {
-        const c = new (window.AudioContext || window.webkitAudioContext)();
-        incomingCallAudioContext = c;
-        return c;
-      })();
-      if (ctx.state === "suspended") {
-        ctx.resume().then(() => playBusyToneBeeps(ctx)).catch(() => {});
+    ensureAudioContextRunning().then(() => {
+      const ctx = incomingCallAudioContext;
+      if (!ctx) {
+        playFallbackBusyTone();
         return;
       }
-      playBusyToneBeeps(ctx);
-    } catch (e) {
-      console.warn("diskuz-call: busy tone failed", e);
-    }
+      if (ctx.state === "suspended") {
+        ctx.resume().then(() => {
+          try { playBusyToneBeeps(ctx); } catch (e) { playFallbackBusyTone(); }
+        }).catch(() => playFallbackBusyTone());
+        return;
+      }
+      try {
+        playBusyToneBeeps(ctx);
+      } catch (e) {
+        playFallbackBusyTone();
+      }
+    }).catch(() => playFallbackBusyTone());
+  }
+
+  function playFallbackBusyTone() {
+    playFallbackBeep(400, 180);
+    setTimeout(() => playFallbackBeep(400, 180), 320);
+    setTimeout(() => playFallbackBeep(400, 180), 640);
   }
 
   function playBusyToneBeeps(ctx) {
@@ -397,19 +458,20 @@ export default apiInitializer("0.8", (api) => {
       const gain = ctx.createGain();
       gain.connect(ctx.destination);
       const t0 = ctx.currentTime;
-      gain.gain.setValueAtTime(0.25, t0);
-      [0, 0.3, 0.6].forEach((t) => {
+      gain.gain.setValueAtTime(0.35, t0);
+      [0, 0.32, 0.64].forEach((t) => {
         const osc = ctx.createOscillator();
         osc.connect(gain);
         osc.frequency.value = 400;
         osc.type = "sine";
         osc.start(t0 + t);
-        osc.stop(t0 + t + 0.2);
+        osc.stop(t0 + t + 0.22);
       });
-      gain.gain.setValueAtTime(0.25, t0 + 0.9);
-      gain.gain.exponentialRampToValueAtTime(0.01, t0 + 1.4);
+      gain.gain.setValueAtTime(0.35, t0 + 0.95);
+      gain.gain.exponentialRampToValueAtTime(0.01, t0 + 1.5);
     } catch (e) {
       console.warn("diskuz-call: busy beeps failed", e);
+      throw e;
     }
   }
 
@@ -862,9 +924,9 @@ export default apiInitializer("0.8", (api) => {
 
       document.body.appendChild(widget);
 
-      const topBar = widget.querySelector(".diskuz-widget-top-bar");
-      if (topBar && !isMobileDevice()) {
-        topBar.addEventListener("mousedown", function (e) {
+      if (!isMobileDevice()) {
+        widget.addEventListener("mousedown", function (e) {
+          if (e.target.closest("input, button, a, select, textarea, [contenteditable=\"true\"]")) return;
           e.preventDefault();
           const rect = widget.getBoundingClientRect();
           const startX = e.clientX;
@@ -905,6 +967,7 @@ export default apiInitializer("0.8", (api) => {
       const notAvailBtn = widget.querySelector("#diskuz-status-not-available");
 
       startBtn.addEventListener("click", async () => {
+        unlockAudioForIncomingSound();
         const username = input.value.trim();
         errorBox.style.display = "none";
         errorBox.textContent = "";
@@ -1320,38 +1383,38 @@ export default apiInitializer("0.8", (api) => {
   let callDurationIntervalId = null;
   let callConnectedAt = null;
   let outgoingCallTimeoutId = null;
-  let calleeNotRespondingTimeoutId = null;
+  let calleeNotRingingTimeoutId = null;
   const OUTGOING_CALL_TIMEOUT_MS = 30000;
-  const CALLEE_NOT_RESPONDING_MS = 5000;
+  const CALLEE_NOT_RINGING_MS = 5000;
 
   function clearOutgoingCallTimeout() {
     if (outgoingCallTimeoutId) {
       clearTimeout(outgoingCallTimeoutId);
       outgoingCallTimeoutId = null;
     }
-    if (calleeNotRespondingTimeoutId) {
-      clearTimeout(calleeNotRespondingTimeoutId);
-      calleeNotRespondingTimeoutId = null;
+    if (calleeNotRingingTimeoutId) {
+      clearTimeout(calleeNotRingingTimeoutId);
+      calleeNotRingingTimeoutId = null;
     }
   }
 
-  function startCalleeNotRespondingTimeout() {
-    if (calleeNotRespondingTimeoutId) clearTimeout(calleeNotRespondingTimeoutId);
-    calleeNotRespondingTimeoutId = setTimeout(() => {
+  function startCalleeNotRingingTimeout() {
+    if (calleeNotRingingTimeoutId) clearTimeout(calleeNotRingingTimeoutId);
+    calleeNotRingingTimeoutId = setTimeout(() => {
       if (!currentCall.active || currentCall.direction !== "outgoing" || currentCall.isRinging !== true) return;
-      calleeNotRespondingTimeoutId = null;
+      calleeNotRingingTimeoutId = null;
       clearOutgoingCallTimeout();
       const msg = document.documentElement.lang === "it" ? "L'utente chiamato non è disponibile." : "The user you're calling is not available.";
       playBusyTone();
       setCallUIStatusMessage(msg);
       showToast(msg);
       endCurrentCall("not_available");
-    }, CALLEE_NOT_RESPONDING_MS);
+    }, CALLEE_NOT_RINGING_MS);
   }
 
   function startOutgoingCallTimeout() {
     clearOutgoingCallTimeout();
-    startCalleeNotRespondingTimeout();
+    startCalleeNotRingingTimeout();
     outgoingCallTimeoutId = setTimeout(() => {
       if (!currentCall.active || currentCall.direction !== "outgoing" || currentCall.isRinging !== true) return;
       clearOutgoingCallTimeout();
@@ -1853,6 +1916,9 @@ export default apiInitializer("0.8", (api) => {
     startIncomingRingLoop();
     showBrowserNotification(data.from_username || "Someone");
     showIncomingCallUI(data.from_username, data.avatar_template);
+    if (window.DiskuzCallSend && data.from_user_id) {
+      window.DiskuzCallSend({ type: "call_ringing", to_user_id: data.from_user_id });
+    }
   }
 
   function showIncomingCallUI(username, avatarTemplate) {
@@ -2043,6 +2109,18 @@ export default apiInitializer("0.8", (api) => {
         rtcHandleOffer({ ...data, sdp });
         break;
 
+      case "call_ringing":
+        if (
+          currentCall.active &&
+          currentCall.direction === "outgoing" &&
+          currentCall.userId === data.from_user_id &&
+          calleeNotRingingTimeoutId
+        ) {
+          clearTimeout(calleeNotRingingTimeoutId);
+          calleeNotRingingTimeoutId = null;
+        }
+        break;
+
       case "call_answer":
         if (
           currentCall.active &&
@@ -2187,6 +2265,7 @@ export default apiInitializer("0.8", (api) => {
         loadWidgetRectFromStorage();
         updateNotificationsBadge();
         updateCallFeatureVisibility();
+        onceDocumentInteractionForAudio();
       })
       .catch(() => {
         log("initPage: status check failed, plugin not loaded");
