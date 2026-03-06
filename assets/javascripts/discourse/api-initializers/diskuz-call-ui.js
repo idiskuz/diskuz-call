@@ -2160,7 +2160,6 @@ export default apiInitializer("0.8", (api) => {
   function initPage() {
     const currentUser = api.getCurrentUser();
     if (!currentUser) {
-      log("initPage: no current user, plugin not loaded");
       currentUserId = null;
       currentUserUsername = null;
       return;
@@ -2168,39 +2167,30 @@ export default apiInitializer("0.8", (api) => {
     currentUserId = currentUser.id;
     currentUserUsername = (currentUser.username || "").toLowerCase();
 
-    const statusLoaded = !!(typeof window.DiskuzCallStatusLoaded !== "undefined" && window.DiskuzCallStatusLoaded);
-    const allowed = !!(typeof window.DiskuzCallAllowed !== "undefined" && window.DiskuzCallAllowed);
-
-    if (statusLoaded && !allowed) {
-      log("initPage: user not in Diskuz call allowed groups, plugin not loaded");
-      return;
-    }
-
-    function loadCallFeature() {
-      log("[UI] initPage: loading call feature for user", currentUser.username);
-      subscribeMessageBus();
-      loadHistory();
-      try {
-        const savedStatus = window.localStorage.getItem(STATUS_KEY);
-        if (savedStatus === "busy" || savedStatus === "not_available" || savedStatus === "available") callStatus = savedStatus;
-      } catch (e) {}
-      createFloatingButton();
-      createWidget();
-      loadWidgetRectFromStorage();
-      updateNotificationsBadge();
-      updateCallFeatureVisibility();
-    }
-
-    if (statusLoaded && allowed) {
-      loadCallFeature();
-      return;
-    }
-
-    const onceAllowed = (e) => {
-      window.removeEventListener("diskuz-call-allowed-changed", onceAllowed);
-      if (e.detail && e.detail.allowed) loadCallFeature();
-    };
-    window.addEventListener("diskuz-call-allowed-changed", onceAllowed);
+    ajax("/diskuz-call/status")
+      .then((data) => {
+        if (data.enabled !== true) {
+          log("initPage: user not in allowed groups, plugin not loaded");
+          return;
+        }
+        if (data.incoming_sound != null && data.incoming_sound !== "") window.DiskuzCallIncomingSound = data.incoming_sound;
+        if (data.custom_ringtone_url != null && data.custom_ringtone_url !== "") window.DiskuzCallCustomRingtoneUrl = data.custom_ringtone_url;
+        if (Array.isArray(data.ice_servers) && data.ice_servers.length > 0) window.DiskuzCallIceServers = data.ice_servers;
+        subscribeMessageBus();
+        loadHistory();
+        try {
+          const savedStatus = window.localStorage.getItem(STATUS_KEY);
+          if (savedStatus === "busy" || savedStatus === "not_available" || savedStatus === "available") callStatus = savedStatus;
+        } catch (e) {}
+        createFloatingButton();
+        createWidget();
+        loadWidgetRectFromStorage();
+        updateNotificationsBadge();
+        updateCallFeatureVisibility();
+      })
+      .catch(() => {
+        log("initPage: status check failed, plugin not loaded");
+      });
   }
 
   api.onPageChange(initPage);
