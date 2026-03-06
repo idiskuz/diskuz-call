@@ -69,26 +69,69 @@ export default apiInitializer("0.8", (api) => {
   const WIDGET_PAGE_HOME = "home";
   const WIDGET_PAGE_NOTIFICATIONS = "notifications";
   let lastWidgetRect = null;
+  const WIDGET_RECT_STORAGE_KEY = "diskuz_call_widget_rect";
+
+  function clampRectToViewport(rect) {
+    if (!rect || rect.width <= 0 || rect.height <= 0) return rect;
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    let { left, top, width, height } = rect;
+    const right = left + width;
+    const bottom = top + height;
+    const offScreen = left < 0 || top < 0 || right > W || bottom > H;
+    if (offScreen) {
+      top = Math.max(0, Math.min(H - height, (H - height) / 2));
+      left = Math.max(0, Math.min(W - width, left));
+    }
+    return { left, top, width, height };
+  }
+
+  function saveWidgetRectToStorage() {
+    if (!lastWidgetRect || lastWidgetRect.width <= 0) return;
+    try {
+      window.localStorage.setItem(WIDGET_RECT_STORAGE_KEY, JSON.stringify({
+        left: lastWidgetRect.left,
+        top: lastWidgetRect.top,
+        width: lastWidgetRect.width,
+        height: lastWidgetRect.height,
+      }));
+    } catch (e) { /* ignore */ }
+  }
+
+  function loadWidgetRectFromStorage() {
+    try {
+      const raw = window.localStorage.getItem(WIDGET_RECT_STORAGE_KEY);
+      if (!raw) return;
+      const o = JSON.parse(raw);
+      if (o && typeof o.left === "number" && typeof o.top === "number" && o.width > 0 && o.height > 0) {
+        lastWidgetRect = clampRectToViewport({ left: o.left, top: o.top, width: o.width, height: o.height });
+        saveWidgetRectToStorage();
+      }
+    } catch (e) { /* ignore */ }
+  }
 
   function captureWidgetRect() {
     if (widget && widget.offsetParent != null) {
       lastWidgetRect = widget.getBoundingClientRect();
+      saveWidgetRectToStorage();
     }
   }
 
   function captureCallUIRect() {
     if (callUI && callUI.offsetParent != null) {
       lastWidgetRect = callUI.getBoundingClientRect();
+      saveWidgetRectToStorage();
     }
   }
 
   function applyLastRectToWidget() {
     if (!widget || isMobileDevice()) return;
     if (lastWidgetRect && lastWidgetRect.width > 0) {
-      widget.style.left = lastWidgetRect.left + "px";
-      widget.style.top = lastWidgetRect.top + "px";
-      widget.style.width = lastWidgetRect.width + "px";
-      widget.style.height = lastWidgetRect.height + "px";
+      const rect = clampRectToViewport(lastWidgetRect);
+      widget.style.left = rect.left + "px";
+      widget.style.top = rect.top + "px";
+      widget.style.width = rect.width + "px";
+      widget.style.height = rect.height + "px";
       widget.style.right = "auto";
       widget.style.bottom = "auto";
     }
@@ -136,6 +179,9 @@ export default apiInitializer("0.8", (api) => {
   const STATUS_KEY = "diskuz_call_status";
   const NOTIFICATIONS_READ_KEY = "diskuz_call_notifications_read_at";
   const USER_RESOLVE_CACHE_TTL_MS = 60000;
+  const CALL_RATE_LIMIT_WINDOW_MS = 60000;
+  const CALL_RATE_LIMIT_MAX_PER_USER = 2;
+  let callRateLimitEntries = [];
   const userResolveCache = {};
   function resolveUserByUsername(username) {
     let key = (username || "").toLowerCase().trim().replace(/\.json$/i, "");
@@ -330,7 +376,12 @@ export default apiInitializer("0.8", (api) => {
 
   function playBusyTone() {
     try {
-      const ctx = incomingCallAudioContext || new (window.AudioContext || window.webkitAudioContext)();
+      unlockAudioForIncomingSound();
+      const ctx = incomingCallAudioContext || (function () {
+        const c = new (window.AudioContext || window.webkitAudioContext)();
+        incomingCallAudioContext = c;
+        return c;
+      })();
       if (ctx.state === "suspended") {
         ctx.resume().then(() => playBusyToneBeeps(ctx)).catch(() => {});
         return;
@@ -345,17 +396,18 @@ export default apiInitializer("0.8", (api) => {
     try {
       const gain = ctx.createGain();
       gain.connect(ctx.destination);
-      gain.gain.setValueAtTime(0.2, ctx.currentTime);
-      const times = [0, 0.3, 0.6];
-      times.forEach((t, i) => {
+      const t0 = ctx.currentTime;
+      gain.gain.setValueAtTime(0.25, t0);
+      [0, 0.3, 0.6].forEach((t) => {
         const osc = ctx.createOscillator();
         osc.connect(gain);
         osc.frequency.value = 400;
         osc.type = "sine";
-        osc.start(ctx.currentTime + t);
-        osc.stop(ctx.currentTime + t + 0.15);
+        osc.start(t0 + t);
+        osc.stop(t0 + t + 0.2);
       });
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 1);
+      gain.gain.setValueAtTime(0.25, t0 + 0.9);
+      gain.gain.exponentialRampToValueAtTime(0.01, t0 + 1.4);
     } catch (e) {
       console.warn("diskuz-call: busy beeps failed", e);
     }
@@ -670,7 +722,7 @@ export default apiInitializer("0.8", (api) => {
   function updateCallFeatureVisibility() {
     const statusLoaded = !!(typeof window.DiskuzCallStatusLoaded !== "undefined" && window.DiskuzCallStatusLoaded);
     const allowed = !!(typeof window.DiskuzCallAllowed !== "undefined" && window.DiskuzCallAllowed);
-    const show = !statusLoaded || allowed;
+    const show = statusLoaded && allowed;
     if (btn) btn.style.display = show ? "" : "none";
     if (widget) {
       widget.style.display = show ? "" : "none";
@@ -821,11 +873,17 @@ export default apiInitializer("0.8", (api) => {
           const startY = e.clientY;
           const startLeft = rect.left;
           const startTop = rect.top;
+          const w = rect.width;
+          const h = rect.height;
+          const W = window.innerWidth;
+          const H = window.innerHeight;
           function onWMove(ev) {
             const dx = ev.clientX - startX;
             const dy = ev.clientY - startY;
-            widget.style.left = Math.max(0, startLeft + dx) + "px";
-            widget.style.top = Math.max(0, startTop + dy) + "px";
+            const newLeft = Math.max(0, Math.min(W - w, startLeft + dx));
+            const newTop = Math.max(0, Math.min(H - h, startTop + dy));
+            widget.style.left = newLeft + "px";
+            widget.style.top = newTop + "px";
             widget.style.right = "auto";
             widget.style.bottom = "auto";
           }
@@ -876,8 +934,16 @@ export default apiInitializer("0.8", (api) => {
             showError(document.documentElement.lang === "it" ? "Non puoi chiamare te stesso." : "You cannot call yourself.");
             return;
           }
+          const now = Date.now();
+          const recentToUser = callRateLimitEntries.filter((e) => e.userId === userId && e.at > now - CALL_RATE_LIMIT_WINDOW_MS);
+          if (recentToUser.length >= CALL_RATE_LIMIT_MAX_PER_USER) {
+            showError(document.documentElement.lang === "it" ? "Rallenta: puoi avviare al massimo 2 chiamate allo stesso utente al minuto." : "Slow down. You can only place 2 calls to this user per minute.");
+            return;
+          }
           log("Starting call to", username, "userId", userId);
           startOutgoingCall(username, userId, data.user.avatar_template);
+          callRateLimitEntries.push({ userId, at: now });
+          callRateLimitEntries = callRateLimitEntries.filter((e) => e.at > now - CALL_RATE_LIMIT_WINDOW_MS);
           toggleWidgetForceClose();
         } catch (e) {
           if (e.message === "RATE_LIMIT") {
@@ -1138,12 +1204,16 @@ export default apiInitializer("0.8", (api) => {
         if (isMobileDevice()) {
           topBar.style.cursor = "";
         } else {
-          let dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragStartTop = 0;
+          let dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragStartTop = 0, dragW = 320, dragH = 440;
           function onDragMove(e) {
             const dx = e.clientX - dragStartX;
             const dy = e.clientY - dragStartY;
-            callUI.style.left = Math.max(0, dragStartLeft + dx) + "px";
-            callUI.style.top = Math.max(0, dragStartTop + dy) + "px";
+            const W = window.innerWidth;
+            const H = window.innerHeight;
+            const newLeft = Math.max(0, Math.min(W - dragW, dragStartLeft + dx));
+            const newTop = Math.max(0, Math.min(H - dragH, dragStartTop + dy));
+            callUI.style.left = newLeft + "px";
+            callUI.style.top = newTop + "px";
           }
           function onDragEnd() {
             document.removeEventListener("mousemove", onDragMove);
@@ -1152,11 +1222,14 @@ export default apiInitializer("0.8", (api) => {
           }
           topBar.addEventListener("mousedown", function (e) {
             e.preventDefault();
+            const rect = callUI.getBoundingClientRect();
+            dragW = rect.width;
+            dragH = rect.height;
             dragStartX = e.clientX;
             dragStartY = e.clientY;
             const left = parseInt(callUI.style.left, 10);
             const top = parseInt(callUI.style.top, 10);
-            dragStartLeft = isNaN(left) ? (window.innerWidth - 340) : left;
+            dragStartLeft = isNaN(left) ? (window.innerWidth - Math.min(340, dragW)) : left;
             dragStartTop = isNaN(top) ? 60 : top;
             document.addEventListener("mousemove", onDragMove);
             document.addEventListener("mouseup", onDragEnd);
@@ -1249,17 +1322,38 @@ export default apiInitializer("0.8", (api) => {
   let callDurationIntervalId = null;
   let callConnectedAt = null;
   let outgoingCallTimeoutId = null;
+  let calleeNotRespondingTimeoutId = null;
   const OUTGOING_CALL_TIMEOUT_MS = 30000;
+  const CALLEE_NOT_RESPONDING_MS = 5000;
 
   function clearOutgoingCallTimeout() {
     if (outgoingCallTimeoutId) {
       clearTimeout(outgoingCallTimeoutId);
       outgoingCallTimeoutId = null;
     }
+    if (calleeNotRespondingTimeoutId) {
+      clearTimeout(calleeNotRespondingTimeoutId);
+      calleeNotRespondingTimeoutId = null;
+    }
+  }
+
+  function startCalleeNotRespondingTimeout() {
+    if (calleeNotRespondingTimeoutId) clearTimeout(calleeNotRespondingTimeoutId);
+    calleeNotRespondingTimeoutId = setTimeout(() => {
+      if (!currentCall.active || currentCall.direction !== "outgoing" || currentCall.isRinging !== true) return;
+      calleeNotRespondingTimeoutId = null;
+      clearOutgoingCallTimeout();
+      const msg = document.documentElement.lang === "it" ? "L'utente chiamato non è disponibile." : "The user you're calling is not available.";
+      playBusyTone();
+      setCallUIStatusMessage(msg);
+      showToast(msg);
+      endCurrentCall("not_available");
+    }, CALLEE_NOT_RESPONDING_MS);
   }
 
   function startOutgoingCallTimeout() {
     clearOutgoingCallTimeout();
+    startCalleeNotRespondingTimeout();
     outgoingCallTimeoutId = setTimeout(() => {
       if (!currentCall.active || currentCall.direction !== "outgoing" || currentCall.isRinging !== true) return;
       clearOutgoingCallTimeout();
@@ -2084,6 +2178,7 @@ export default apiInitializer("0.8", (api) => {
       } catch (e) {}
     createFloatingButton();
     createWidget();
+    loadWidgetRectFromStorage();
     updateNotificationsBadge();
     updateCallFeatureVisibility();
   }
