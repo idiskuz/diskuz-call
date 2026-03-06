@@ -68,6 +68,54 @@ export default apiInitializer("0.8", (api) => {
   let toastContainer = null;
   const WIDGET_PAGE_HOME = "home";
   const WIDGET_PAGE_NOTIFICATIONS = "notifications";
+  let lastWidgetRect = null;
+
+  function captureWidgetRect() {
+    if (widget && widget.offsetParent != null) {
+      lastWidgetRect = widget.getBoundingClientRect();
+    }
+  }
+
+  function captureCallUIRect() {
+    if (callUI && callUI.offsetParent != null) {
+      lastWidgetRect = callUI.getBoundingClientRect();
+    }
+  }
+
+  function applyLastRectToWidget() {
+    if (!widget || isMobileDevice()) return;
+    if (lastWidgetRect && lastWidgetRect.width > 0) {
+      widget.style.left = lastWidgetRect.left + "px";
+      widget.style.top = lastWidgetRect.top + "px";
+      widget.style.width = lastWidgetRect.width + "px";
+      widget.style.height = lastWidgetRect.height + "px";
+      widget.style.right = "auto";
+      widget.style.bottom = "auto";
+    }
+  }
+
+  function applyWidgetRectToCallUI() {
+    if (!callUI || isMobileDevice()) return;
+    const w = 320;
+    const h = 440;
+    if (lastWidgetRect && lastWidgetRect.width > 0) {
+      callUI.style.left = lastWidgetRect.left + "px";
+      callUI.style.top = lastWidgetRect.top + "px";
+      callUI.style.width = lastWidgetRect.width + "px";
+      callUI.style.height = lastWidgetRect.height + "px";
+      callUI.style.right = "auto";
+      callUI.style.bottom = "auto";
+    } else {
+      const right = 90;
+      const bottom = 270;
+      callUI.style.left = (window.innerWidth - right - w) + "px";
+      callUI.style.top = (window.innerHeight - bottom - h) + "px";
+      callUI.style.width = w + "px";
+      callUI.style.height = h + "px";
+      callUI.style.right = "auto";
+      callUI.style.bottom = "auto";
+    }
+  }
 
   let callStatus = "available"; // "available" | "busy" | "not_available"
   let callHistory = [];
@@ -208,19 +256,109 @@ export default apiInitializer("0.8", (api) => {
     }
   }
 
-  function playIncomingCallRing() {
+  const INCOMING_RING_INTERVAL_MS = 2500;
+  const INCOMING_RING_MAX_MS = 30000;
+  let incomingRingIntervalId = null;
+  let incomingRingTimeoutId = null;
+  let currentRingingAudio = null;
+
+  function stopIncomingRing() {
+    if (incomingRingIntervalId) {
+      clearInterval(incomingRingIntervalId);
+      incomingRingIntervalId = null;
+    }
+    if (incomingRingTimeoutId) {
+      clearTimeout(incomingRingTimeoutId);
+      incomingRingTimeoutId = null;
+    }
+    if (currentRingingAudio) {
+      try {
+        currentRingingAudio.pause();
+        currentRingingAudio.currentTime = 0;
+      } catch (e) { /* ignore */ }
+      currentRingingAudio = null;
+    }
+  }
+
+  function playIncomingCallRingOnce() {
     const sound = (typeof window.DiskuzCallIncomingSound !== "undefined" && window.DiskuzCallIncomingSound) ? window.DiskuzCallIncomingSound : "default";
     if (sound === "none") return;
     const customUrl = (typeof window.DiskuzCallCustomRingtoneUrl !== "undefined" && window.DiskuzCallCustomRingtoneUrl) ? window.DiskuzCallCustomRingtoneUrl : "";
     if (sound === "custom" && customUrl) {
-      playIncomingCallSound();
-      const t2 = setTimeout(playIncomingCallSound, 800);
-      const t3 = setTimeout(playIncomingCallSound, 1600);
+      try {
+        if (currentRingingAudio) {
+          try { currentRingingAudio.pause(); currentRingingAudio.currentTime = 0; } catch (e) { /* ignore */ }
+        }
+        let url = customUrl.trim();
+        if (!/^https?:\/\//i.test(url)) {
+          if (url.startsWith("//")) url = window.location.protocol + url;
+          else if (url.startsWith("/")) url = window.location.origin + url;
+          else if (/^[a-z0-9.-]+\//i.test(url) || !url.includes("/")) url = "https://" + url.replace(/^\/+/, "");
+          else url = window.location.origin + "/" + url.replace(/^\/+/, "");
+        }
+        currentRingingAudio = new Audio(url);
+        currentRingingAudio.volume = 0.8;
+        currentRingingAudio.play().catch((err) => log("diskuz-call: custom ringtone play failed", err));
+      } catch (e) {
+        console.warn("diskuz-call: could not play custom ringtone", e);
+      }
       return;
     }
     playIncomingCallSound();
-    setTimeout(playIncomingCallSound, 400);
-    setTimeout(playIncomingCallSound, 800);
+  }
+
+  function startIncomingRingLoop() {
+    stopIncomingRing();
+    unlockAudioForIncomingSound();
+    playIncomingCallRingOnce();
+    incomingRingIntervalId = setInterval(playIncomingCallRingOnce, INCOMING_RING_INTERVAL_MS);
+    incomingRingTimeoutId = setTimeout(() => {
+      if (!currentCall.active || currentCall.direction !== "incoming" || !currentCall.isRinging) return;
+      stopIncomingRing();
+      currentCall.isRinging = false;
+      setIncomingCallButtonState(false);
+      addHistoryEntry({
+        direction: "incoming",
+        result: "no_answer",
+        username: currentCall.username || "Unknown",
+      });
+      showToast(document.documentElement.lang === "it" ? "Chiamata scaduta." : "Call attempt expired.");
+      resetCurrentCall();
+      closeCallUI();
+    }, INCOMING_RING_MAX_MS);
+  }
+
+  function playBusyTone() {
+    try {
+      const ctx = incomingCallAudioContext || new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === "suspended") {
+        ctx.resume().then(() => playBusyToneBeeps(ctx)).catch(() => {});
+        return;
+      }
+      playBusyToneBeeps(ctx);
+    } catch (e) {
+      console.warn("diskuz-call: busy tone failed", e);
+    }
+  }
+
+  function playBusyToneBeeps(ctx) {
+    try {
+      const gain = ctx.createGain();
+      gain.connect(ctx.destination);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      const times = [0, 0.3, 0.6];
+      times.forEach((t, i) => {
+        const osc = ctx.createOscillator();
+        osc.connect(gain);
+        osc.frequency.value = 400;
+        osc.type = "sine";
+        osc.start(ctx.currentTime + t);
+        osc.stop(ctx.currentTime + t + 0.15);
+      });
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 1);
+    } catch (e) {
+      console.warn("diskuz-call: busy beeps failed", e);
+    }
   }
 
   /* --- BROWSER NOTIFICATION (when user has allowed notifications) --- */
@@ -500,8 +638,12 @@ export default apiInitializer("0.8", (api) => {
 
   function openWidgetToNotificationsPage() {
     if (!widget.classList.contains("open")) {
+      applyLastRectToWidget();
       widget.style.display = "block";
-      setTimeout(() => widget.classList.add("open"), 10);
+      setTimeout(() => {
+        widget.classList.add("open");
+        setTimeout(captureWidgetRect, 50);
+      }, 10);
     }
     showWidgetPage(WIDGET_PAGE_NOTIFICATIONS);
   }
@@ -509,8 +651,10 @@ export default apiInitializer("0.8", (api) => {
   function showWidgetErrorFromCall(msg) {
     if (!widget || !msg) return;
     showWidgetPage(WIDGET_PAGE_HOME);
+    applyLastRectToWidget();
     widget.style.display = "block";
     widget.classList.add("open");
+    setTimeout(captureWidgetRect, 50);
     const errEl = widget.querySelector("#diskuz-call-error");
     if (errEl) {
       errEl.textContent = msg;
@@ -688,6 +832,7 @@ export default apiInitializer("0.8", (api) => {
           function onWEnd() {
             document.removeEventListener("mousemove", onWMove);
             document.removeEventListener("mouseup", onWEnd);
+            captureWidgetRect();
           }
           document.addEventListener("mousemove", onWMove);
           document.addEventListener("mouseup", onWEnd);
@@ -1003,6 +1148,7 @@ export default apiInitializer("0.8", (api) => {
           function onDragEnd() {
             document.removeEventListener("mousemove", onDragMove);
             document.removeEventListener("mouseup", onDragEnd);
+            captureCallUIRect();
           }
           topBar.addEventListener("mousedown", function (e) {
             e.preventDefault();
@@ -1053,14 +1199,7 @@ export default apiInitializer("0.8", (api) => {
     callUI.style.display = "block";
 
     if (!isMobileDevice()) {
-      const left = parseInt(callUI.style.left, 10);
-      const top = parseInt(callUI.style.top, 10);
-      if (isNaN(left) || isNaN(top)) {
-        callUI.style.left = Math.max(0, window.innerWidth - 340) + "px";
-        callUI.style.top = "60px";
-      }
-      callUI.style.right = "auto";
-      callUI.style.bottom = "auto";
+      applyWidgetRectToCallUI();
     }
 
     setTimeout(function () {
@@ -1110,7 +1249,7 @@ export default apiInitializer("0.8", (api) => {
   let callDurationIntervalId = null;
   let callConnectedAt = null;
   let outgoingCallTimeoutId = null;
-  const OUTGOING_CALL_TIMEOUT_MS = 50000;
+  const OUTGOING_CALL_TIMEOUT_MS = 30000;
 
   function clearOutgoingCallTimeout() {
     if (outgoingCallTimeoutId) {
@@ -1124,6 +1263,7 @@ export default apiInitializer("0.8", (api) => {
     outgoingCallTimeoutId = setTimeout(() => {
       if (!currentCall.active || currentCall.direction !== "outgoing" || currentCall.isRinging !== true) return;
       clearOutgoingCallTimeout();
+      playBusyTone();
       setCallUIStatusMessage(MSG_CALL_UNAVAILABLE);
       showToast(MSG_CALL_UNAVAILABLE);
       endCurrentCall("no_answer");
@@ -1549,6 +1689,7 @@ export default apiInitializer("0.8", (api) => {
       return;
     }
 
+    captureWidgetRect();
     initSpeakerStateForCall();
     currentCall.active = true;
     currentCall.direction = "outgoing";
@@ -1617,7 +1758,7 @@ export default apiInitializer("0.8", (api) => {
     currentCall.avatarTemplate = data.avatar_template || null;
 
     setIncomingCallButtonState(true);
-    playIncomingCallRing();
+    startIncomingRingLoop();
     showBrowserNotification(data.from_username || "Someone");
     showIncomingCallUI(data.from_username, data.avatar_template);
   }
@@ -1657,21 +1798,18 @@ export default apiInitializer("0.8", (api) => {
     acceptBtn.className = "diskuz-accept-btn";
     acceptBtn.innerHTML = "Accept <span class=\"accept-dots\"><span class=\"dot\">.</span><span class=\"dot\">.</span><span class=\"dot\">.</span><span class=\"dot\">.</span></span>";
     acceptBtn.style.flex = "1";
-    acceptBtn.style.padding = "8px 10px";
+    acceptBtn.style.padding = "10px 14px";
     acceptBtn.style.borderRadius = "15px";
-    acceptBtn.style.border = "none";
-    acceptBtn.style.background = "#22c55e";
     acceptBtn.style.color = "#fff";
     acceptBtn.style.cursor = "pointer";
     acceptBtn.style.fontSize = "14px";
 
     const rejectBtn = document.createElement("button");
+    rejectBtn.className = "diskuz-reject-btn";
     rejectBtn.textContent = "Reject";
     rejectBtn.style.flex = "1";
-    rejectBtn.style.padding = "8px 10px";
+    rejectBtn.style.padding = "10px 14px";
     rejectBtn.style.borderRadius = "15px";
-    rejectBtn.style.border = "none";
-    rejectBtn.style.background = "#ef4444";
     rejectBtn.style.color = "#fff";
     rejectBtn.style.cursor = "pointer";
     rejectBtn.style.fontSize = "14px";
@@ -1700,14 +1838,7 @@ export default apiInitializer("0.8", (api) => {
     callUI.classList.remove("diskuz-call-minimized");
 
     if (!isMobileDevice()) {
-      const left = parseInt(callUI.style.left, 10);
-      const top = parseInt(callUI.style.top, 10);
-      if (isNaN(left) || isNaN(top)) {
-        callUI.style.left = Math.max(0, window.innerWidth - 340) + "px";
-        callUI.style.top = "60px";
-      }
-      callUI.style.right = "auto";
-      callUI.style.bottom = "auto";
+      applyWidgetRectToCallUI();
     }
 
     if (callUI.parentNode) callUI.parentNode.appendChild(callUI);
@@ -1722,6 +1853,7 @@ export default apiInitializer("0.8", (api) => {
 
   async function acceptIncomingCall() {
     log("[CALLEE] acceptIncomingCall clicked");
+    stopIncomingRing();
     const acceptBtn = callUI && callUI.querySelector(".diskuz-accept-btn");
     if (acceptBtn) acceptBtn.classList.add("answered");
     initSpeakerStateForCall();
@@ -1768,6 +1900,7 @@ export default apiInitializer("0.8", (api) => {
       username: currentCall.username || "Unknown",
     });
 
+    stopIncomingRing();
     showToast("Call rejected.");
     rtcEnd();
     resetCurrentCall();
@@ -1847,6 +1980,7 @@ export default apiInitializer("0.8", (api) => {
           currentCall.userId === data.from_user_id
         ) {
           clearOutgoingCallTimeout();
+          playBusyTone();
           const reason = data.reason || "rejected";
           const rejectMsg =
             reason === "busy"
@@ -1871,6 +2005,7 @@ export default apiInitializer("0.8", (api) => {
 
       case "call_end":
         if (currentCall.active && currentCall.userId === data.from_user_id) {
+          if (currentCall.direction === "incoming") stopIncomingRing();
           const durationSeconds = callConnectedAt != null
             ? Math.floor((Date.now() - callConnectedAt) / 1000)
             : null;
@@ -1906,9 +2041,11 @@ export default apiInitializer("0.8", (api) => {
       }, 200);
     } else {
       showWidgetPage(WIDGET_PAGE_HOME);
+      applyLastRectToWidget();
       widget.style.display = "block";
       setTimeout(function () {
         widget.classList.add("open");
+        setTimeout(captureWidgetRect, 50);
       }, 10);
     }
   }
