@@ -720,13 +720,11 @@ export default apiInitializer("0.8", (api) => {
 
   /* --- FLOATING BUTTON (sempre visibile in basso a destra se loggato; nascosto solo se status ha risposto "non abilitato") --- */
   function updateCallFeatureVisibility() {
-    const statusLoaded = !!(typeof window.DiskuzCallStatusLoaded !== "undefined" && window.DiskuzCallStatusLoaded);
-    const allowed = !!(typeof window.DiskuzCallAllowed !== "undefined" && window.DiskuzCallAllowed);
-    const show = statusLoaded && allowed;
-    if (btn) btn.style.display = show ? "" : "none";
+    /* We only create btn/widget when user is in allowed groups, so when they exist we always show */
+    if (btn) btn.style.display = "";
     if (widget) {
-      widget.style.display = show ? "" : "none";
-      if (!show && widget.classList.contains("open")) widget.classList.remove("open");
+      widget.style.display = "";
+      if (widget.classList.contains("open")) widget.style.display = "block";
     }
   }
 
@@ -2162,27 +2160,49 @@ export default apiInitializer("0.8", (api) => {
   function initPage() {
     const currentUser = api.getCurrentUser();
     if (!currentUser) {
-      log("initPage: no current user, skipping");
+      log("initPage: no current user, plugin not loaded");
       currentUserId = null;
       currentUserUsername = null;
       return;
     }
     currentUserId = currentUser.id;
     currentUserUsername = (currentUser.username || "").toLowerCase();
-    log("[UI] initPage: user", currentUser.username, "id", currentUserId, "– signal listener already on window");
-    subscribeMessageBus();
-    loadHistory();
+
+    const statusLoaded = !!(typeof window.DiskuzCallStatusLoaded !== "undefined" && window.DiskuzCallStatusLoaded);
+    const allowed = !!(typeof window.DiskuzCallAllowed !== "undefined" && window.DiskuzCallAllowed);
+
+    if (statusLoaded && !allowed) {
+      log("initPage: user not in Diskuz call allowed groups, plugin not loaded");
+      return;
+    }
+
+    function loadCallFeature() {
+      log("[UI] initPage: loading call feature for user", currentUser.username);
+      subscribeMessageBus();
+      loadHistory();
       try {
         const savedStatus = window.localStorage.getItem(STATUS_KEY);
         if (savedStatus === "busy" || savedStatus === "not_available" || savedStatus === "available") callStatus = savedStatus;
       } catch (e) {}
-    createFloatingButton();
-    createWidget();
-    loadWidgetRectFromStorage();
-    updateNotificationsBadge();
-    updateCallFeatureVisibility();
+      createFloatingButton();
+      createWidget();
+      loadWidgetRectFromStorage();
+      updateNotificationsBadge();
+      updateCallFeatureVisibility();
+    }
+
+    if (statusLoaded && allowed) {
+      loadCallFeature();
+      return;
+    }
+
+    const onceAllowed = (e) => {
+      window.removeEventListener("diskuz-call-allowed-changed", onceAllowed);
+      if (e.detail && e.detail.allowed) loadCallFeature();
+    };
+    window.addEventListener("diskuz-call-allowed-changed", onceAllowed);
   }
-  window.addEventListener("diskuz-call-allowed-changed", updateCallFeatureVisibility);
+
   api.onPageChange(initPage);
   initPage();
 });
