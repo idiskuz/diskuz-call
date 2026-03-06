@@ -65,8 +65,9 @@ export default apiInitializer("0.8", (api) => {
   let widget = null;
   let callUI = null;
   let proximityOverlay = null;
-  let historyPanel = null;
   let toastContainer = null;
+  const WIDGET_PAGE_HOME = "home";
+  const WIDGET_PAGE_NOTIFICATIONS = "notifications";
 
   let callStatus = "available"; // "available" | "busy" | "not_available"
   let callHistory = [];
@@ -387,79 +388,13 @@ export default apiInitializer("0.8", (api) => {
 
   let notificationsTab = "received";
 
-  /* --- NOTIFICATIONS (ex Call History) UI --- */
-  function createHistoryPanel() {
-    if (historyPanel) return;
-
-    const isIt = document.documentElement.lang === "it";
-    historyPanel = document.createElement("div");
-    historyPanel.id = "diskuz-call-history";
-    historyPanel.innerHTML = `
-      <div class="diskuz-history-header">
-        <strong>${isIt ? "Notifiche" : "Notifications"}</strong>
-        <button id="diskuz-call-history-close" type="button" aria-label="Close" class="diskuz-history-close-btn">✕</button>
-      </div>
-      <div class="diskuz-notifications-tabs">
-        <button type="button" class="diskuz-ntab active" data-tab="received">${isIt ? "Ricevute" : "Received"}</button>
-        <button type="button" class="diskuz-ntab" data-tab="sent">${isIt ? "Inviate" : "Sent"}</button>
-        <button type="button" class="diskuz-ntab" data-tab="recent">${isIt ? "Recenti" : "Recent"}</button>
-        <button type="button" class="diskuz-ntab" data-tab="missed">${isIt ? "Perse" : "Missed"}</button>
-      </div>
-      <div id="diskuz-call-history-list"></div>
-    `;
-
-    document.body.appendChild(historyPanel);
-
-    const closeBtn = historyPanel.querySelector("#diskuz-call-history-close");
-    closeBtn.addEventListener("click", function () {
-      historyPanel.classList.remove("open");
-    });
-
-    const historyHeader = historyPanel.querySelector(".diskuz-history-header");
-    if (historyHeader && !isMobileDevice()) {
-      let dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragStartTop = 0;
-      historyHeader.addEventListener("mousedown", function (e) {
-        if (e.target.closest("#diskuz-call-history-close")) return;
-        e.preventDefault();
-        dragStartX = e.clientX;
-        dragStartY = e.clientY;
-        const left = parseInt(historyPanel.style.left, 10);
-        const top = parseInt(historyPanel.style.top, 10);
-        dragStartLeft = isNaN(left) ? 0 : left;
-        dragStartTop = isNaN(top) ? 0 : top;
-        function onMove(ev) {
-          historyPanel.style.left = Math.max(0, dragStartLeft + ev.clientX - dragStartX) + "px";
-          historyPanel.style.top = Math.max(0, dragStartTop + ev.clientY - dragStartY) + "px";
-          historyPanel.style.right = "auto";
-          historyPanel.style.bottom = "auto";
-          historyPanel.classList.remove("diskuz-notifications-attached");
-        }
-        function onUp() {
-          document.removeEventListener("mousemove", onMove);
-          document.removeEventListener("mouseup", onUp);
-        }
-        document.addEventListener("mousemove", onMove);
-        document.addEventListener("mouseup", onUp);
-      });
-    }
-
-    historyPanel.querySelectorAll(".diskuz-ntab").forEach((t) => {
-      t.addEventListener("click", function () {
-        const tab = this.getAttribute("data-tab");
-        if (!tab) return;
-        notificationsTab = tab;
-        historyPanel.querySelectorAll(".diskuz-ntab").forEach((b) => b.classList.remove("active"));
-        this.classList.add("active");
-        renderHistoryList();
-      });
-    });
-
-    renderHistoryList();
+  /* --- NOTIFICATIONS: rendered inside widget (second page) --- */
+  function getWidgetHistoryListEl() {
+    return widget ? widget.querySelector("#diskuz-widget-history-list") : null;
   }
 
   function renderHistoryList() {
-    if (!historyPanel) return;
-    const listEl = historyPanel.querySelector("#diskuz-call-history-list");
+    const listEl = getWidgetHistoryListEl();
     if (!listEl) return;
 
     const isIt = document.documentElement.lang === "it";
@@ -502,8 +437,11 @@ export default apiInitializer("0.8", (api) => {
         if (h.result === "missed" || h.result === "rejected") icon = "📵";
         const durationStr = h.result === "ended" && h.durationSeconds != null ? formatDuration(h.durationSeconds) : "";
         const metaParts = [dateStr, timeStr];
-        if (durationStr) metaParts.push(durationStr);
-        else metaParts.push(h.result);
+        if (durationStr) {
+          metaParts.push((isIt ? "Durata" : "Duration") + " " + durationStr);
+        } else {
+          metaParts.push(h.result);
+        }
         const meta = metaParts.join(" • ");
 
         return `
@@ -535,40 +473,35 @@ export default apiInitializer("0.8", (api) => {
             return;
           }
           startOutgoingCall(u.username, u.id, u.avatar_template);
-          toggleHistoryPanel();
+          showWidgetPage(WIDGET_PAGE_HOME);
           toggleWidgetForceClose();
         }).catch(() => showToast("Connection error."));
       });
     });
   }
 
-  function toggleHistoryPanel() {
-    createHistoryPanel();
-    if (historyPanel.classList.contains("open")) {
-      historyPanel.classList.remove("open");
-    } else {
-      const widgetVisible = widget && widget.offsetParent != null && widget.getBoundingClientRect().width > 0;
-      if (!isMobileDevice() && widgetVisible) {
-        const wr = widget.getBoundingClientRect();
-        historyPanel.style.position = "fixed";
-        historyPanel.style.left = wr.left + "px";
-        historyPanel.style.right = "auto";
-        historyPanel.style.width = Math.min(wr.width, 320) + "px";
-        historyPanel.style.bottom = "auto";
-        historyPanel.style.top = (wr.bottom + 4) + "px";
-        historyPanel.classList.add("diskuz-notifications-attached");
-      } else {
-        historyPanel.style.position = "fixed";
-        historyPanel.style.left = "";
-        historyPanel.style.right = "20px";
-        historyPanel.style.width = "300px";
-        historyPanel.style.bottom = "100px";
-        historyPanel.style.top = "auto";
-        historyPanel.classList.remove("diskuz-notifications-attached");
-      }
-      historyPanel.classList.add("open");
+  function showWidgetPage(page) {
+    if (!widget) return;
+    const homePage = widget.querySelector(".diskuz-widget-page-home");
+    const notifPage = widget.querySelector(".diskuz-widget-page-notifications");
+    if (!homePage || !notifPage) return;
+    if (page === WIDGET_PAGE_NOTIFICATIONS) {
+      homePage.classList.remove("diskuz-widget-page-active");
+      notifPage.classList.add("diskuz-widget-page-active");
       markNotificationsRead();
+      renderHistoryList();
+    } else {
+      notifPage.classList.remove("diskuz-widget-page-active");
+      homePage.classList.add("diskuz-widget-page-active");
     }
+  }
+
+  function openWidgetToNotificationsPage() {
+    if (!widget.classList.contains("open")) {
+      widget.style.display = "block";
+      setTimeout(() => widget.classList.add("open"), 10);
+    }
+    showWidgetPage(WIDGET_PAGE_NOTIFICATIONS);
   }
 
   /* --- FLOATING BUTTON (sempre visibile in basso a destra se loggato; nascosto solo se status ha risposto "non abilitato") --- */
@@ -641,54 +574,68 @@ export default apiInitializer("0.8", (api) => {
     if (newStatus === "not_available" && notAvailBtn) notAvailBtn.classList.add("active");
   }
 
-  /* --- USERNAME WIDGET --- */
+  /* --- USERNAME WIDGET (two pages: home + notifications) --- */
   function createWidget() {
     if (!widget) {
+      const isIt = document.documentElement.lang === "it";
       widget = document.createElement("div");
       widget.id = "diskuz-call-widget";
 
       widget.innerHTML = `
-        <div class="diskuz-widget-top-bar diskuz-widget-brand-bar" style="display:flex;flex-direction:column;align-items:flex-start;margin:-16px -16px 12px -16px;padding:8px 12px 10px;border-bottom:1px solid rgba(0,0,0,0.08);cursor:move;user-select:none;">
-          <span class="diskuz-widget-drag-handle" style="color:#666;font-size:14px;">⋮⋮</span>
-          <span class="diskuz-widget-brand-title" style="font-size:16px;font-weight:700;color:#13c98c;line-height:1.2;">diskuz Call</span>
-          <span class="diskuz-widget-brand-by" style="font-size:10px;color:#000;font-weight:400;">by diskuz.com</span>
+        <div class="diskuz-widget-top-bar diskuz-widget-brand-bar">
+          <span class="diskuz-widget-drag-handle" aria-hidden="true">⋮⋮</span>
+          <span class="diskuz-widget-brand-title">diskuz Call</span>
+          <span class="diskuz-widget-brand-by">by diskuz.com</span>
         </div>
-        <h3 class="diskuz-widget-title" style="display:flex;align-items:center;justify-content:space-between;margin:0 0 10px 0;font-size:18px;font-weight:600;color:#333;">Call a friend</h3>
-        <div class="diskuz-call-input-wrap" style="position:relative;margin-bottom:12px;">
-          <input id="diskuz-call-input" type="text" placeholder="Enter username" class="diskuz-call-input-animated">
+        <div class="diskuz-widget-page-home diskuz-widget-page diskuz-widget-page-active">
+          <h3 class="diskuz-widget-title">Call a friend</h3>
+          <div class="diskuz-call-input-wrap">
+            <input id="diskuz-call-input" type="text" placeholder="Enter username" class="diskuz-call-input-animated">
+          </div>
+          <button id="diskuz-call-start">Call</button>
+          <div id="diskuz-call-error"></div>
+          <div class="diskuz-widget-status-label">Status:</div>
+          <div class="diskuz-widget-status-btns">
+            <button id="diskuz-status-available" class="diskuz-status-btn">Online</button>
+            <button id="diskuz-status-busy" class="diskuz-status-btn">Busy</button>
+            <button id="diskuz-status-not-available" class="diskuz-status-btn">Offline</button>
+          </div>
+          <button id="diskuz-call-history-btn" class="diskuz-notifications-open-btn">
+            ${isIt ? "Notifiche" : "Notifications"}
+            <span id="diskuz-notifications-badge" class="diskuz-notifications-badge">0</span>
+          </button>
         </div>
-        <button id="diskuz-call-start">Call</button>
-        <div id="diskuz-call-error"></div>
-
-        <div style="margin-top:10px;font-size:13px;color:#555;">Status:</div>
-        <div style="display:flex;gap:6px;margin-top:4px;">
-          <button id="diskuz-status-available" class="diskuz-status-btn">Online</button>
-          <button id="diskuz-status-busy" class="diskuz-status-btn">Busy</button>
-          <button id="diskuz-status-not-available" class="diskuz-status-btn">Offline</button>
+        <div class="diskuz-widget-page-notifications diskuz-widget-page">
+          <div class="diskuz-widget-notifications-header">
+            <button type="button" id="diskuz-widget-notifications-home-btn" class="diskuz-widget-home-btn" aria-label="${isIt ? "Home" : "Home"}">⌂</button>
+            <strong class="diskuz-widget-notifications-title">${isIt ? "Notifiche" : "Notifications"}</strong>
+          </div>
+          <div class="diskuz-notifications-tabs">
+            <button type="button" class="diskuz-ntab active" data-tab="received">${isIt ? "Ricevute" : "Received"}</button>
+            <button type="button" class="diskuz-ntab" data-tab="sent">${isIt ? "Inviate" : "Sent"}</button>
+            <button type="button" class="diskuz-ntab" data-tab="recent">${isIt ? "Recenti" : "Recent"}</button>
+            <button type="button" class="diskuz-ntab" data-tab="missed">${isIt ? "Perse" : "Missed"}</button>
+          </div>
+          <div id="diskuz-widget-history-list" class="diskuz-widget-history-list"></div>
         </div>
-
-        <button id="diskuz-call-history-btn" style="margin-top:10px;width:100%;padding:6px 8px;font-size:13px;border-radius:8px;border:1px solid #ddd;background:#f9fafb;cursor:pointer;">
-          Notifications
-          <span id="diskuz-notifications-badge" class="diskuz-notifications-badge" style="display:none;">0</span>
-        </button>
       `;
 
       document.body.appendChild(widget);
 
       const topBar = widget.querySelector(".diskuz-widget-top-bar");
       if (topBar && !isMobileDevice()) {
-        let wDragStartX = 0, wDragStartY = 0, wDragStartLeft = 0, wDragStartTop = 0;
         topBar.addEventListener("mousedown", function (e) {
           e.preventDefault();
-          wDragStartX = e.clientX;
-          wDragStartY = e.clientY;
-          const left = parseInt(widget.style.left, 10);
-          const top = parseInt(widget.style.top, 10);
-          wDragStartLeft = isNaN(left) ? (window.innerWidth - 300) : left;
-          wDragStartTop = isNaN(top) ? 200 : top;
+          const rect = widget.getBoundingClientRect();
+          const startX = e.clientX;
+          const startY = e.clientY;
+          const startLeft = rect.left;
+          const startTop = rect.top;
           function onWMove(ev) {
-            widget.style.left = Math.max(0, wDragStartLeft + ev.clientX - wDragStartX) + "px";
-            widget.style.top = Math.max(0, wDragStartTop + ev.clientY - wDragStartY) + "px";
+            const dx = ev.clientX - startX;
+            const dy = ev.clientY - startY;
+            widget.style.left = Math.max(0, startLeft + dx) + "px";
+            widget.style.top = Math.max(0, startTop + dy) + "px";
             widget.style.right = "auto";
             widget.style.bottom = "auto";
           }
@@ -759,7 +706,25 @@ export default apiInitializer("0.8", (api) => {
       }
 
       historyBtn.addEventListener("click", function () {
-        toggleHistoryPanel();
+        openWidgetToNotificationsPage();
+      });
+
+      const notifHomeBtn = widget.querySelector("#diskuz-widget-notifications-home-btn");
+      if (notifHomeBtn) {
+        notifHomeBtn.addEventListener("click", function () {
+          showWidgetPage(WIDGET_PAGE_HOME);
+        });
+      }
+
+      widget.querySelectorAll(".diskuz-widget-page-notifications .diskuz-ntab").forEach((t) => {
+        t.addEventListener("click", function () {
+          const tab = this.getAttribute("data-tab");
+          if (!tab) return;
+          notificationsTab = tab;
+          widget.querySelectorAll(".diskuz-widget-page-notifications .diskuz-ntab").forEach((b) => b.classList.remove("active"));
+          this.classList.add("active");
+          renderHistoryList();
+        });
       });
 
       availableBtn.addEventListener("click", function () {
@@ -1846,6 +1811,7 @@ export default apiInitializer("0.8", (api) => {
         widget.style.display = "none";
       }, 200);
     } else {
+      showWidgetPage(WIDGET_PAGE_HOME);
       widget.style.display = "block";
       setTimeout(function () {
         widget.classList.add("open");
