@@ -506,6 +506,22 @@ export default apiInitializer("0.8", (api) => {
     showWidgetPage(WIDGET_PAGE_NOTIFICATIONS);
   }
 
+  function showWidgetErrorFromCall(msg) {
+    if (!widget || !msg) return;
+    showWidgetPage(WIDGET_PAGE_HOME);
+    widget.style.display = "block";
+    widget.classList.add("open");
+    const errEl = widget.querySelector("#diskuz-call-error");
+    if (errEl) {
+      errEl.textContent = msg;
+      errEl.style.display = "block";
+      setTimeout(function () {
+        errEl.style.display = "none";
+        errEl.textContent = "";
+      }, 5000);
+    }
+  }
+
   /* --- FLOATING BUTTON (sempre visibile in basso a destra se loggato; nascosto solo se status ha risposto "non abilitato") --- */
   function updateCallFeatureVisibility() {
     const statusLoaded = !!(typeof window.DiskuzCallStatusLoaded !== "undefined" && window.DiskuzCallStatusLoaded);
@@ -613,16 +629,24 @@ export default apiInitializer("0.8", (api) => {
           </div>
           <button id="diskuz-call-start">Call</button>
           <div id="diskuz-call-error"></div>
-          <div class="diskuz-widget-status-label">Status:</div>
+          <div class="diskuz-widget-status-label">${isIt ? "Stato:" : "Status:"}</div>
           <div class="diskuz-widget-status-btns">
             <button id="diskuz-status-available" class="diskuz-status-btn">Online</button>
-            <button id="diskuz-status-busy" class="diskuz-status-btn">Busy</button>
+            <button id="diskuz-status-busy" class="diskuz-status-btn">${isIt ? "Occupato" : "Busy"}</button>
             <button id="diskuz-status-not-available" class="diskuz-status-btn">Offline</button>
           </div>
           <button id="diskuz-call-history-btn" class="diskuz-notifications-open-btn">
             ${isIt ? "Notifiche" : "Notifications"}
             <span id="diskuz-notifications-badge" class="diskuz-notifications-badge">0</span>
           </button>
+          <p class="diskuz-widget-description">${(isIt
+            ? "Questo widget ti consente di chiamare i tuoi amici su "
+            : "This widget lets you call your friends on ") + (siteName.replace(/</g, "&lt;").replace(/>/g, "&gt;")) + (isIt
+            ? ". Imposta il tuo status su Online per ricevere chiamate, mentre se non vuoi essere disturbato utilizza i tasti Occupato e Offline."
+            : ". Set your status to Online to receive calls, or use Busy and Offline if you don't want to be disturbed.")}</p>
+          <div class="diskuz-widget-footer">
+            <button type="button" id="diskuz-widget-hide-btn" class="diskuz-widget-hide-btn">${isIt ? "Nascondi" : "Hide"}</button>
+          </div>
         </div>
         <div class="diskuz-widget-page-notifications diskuz-widget-page">
           <div class="diskuz-widget-notifications-header">
@@ -636,6 +660,9 @@ export default apiInitializer("0.8", (api) => {
             <button type="button" class="diskuz-ntab" data-tab="missed">${isIt ? "Perse" : "Missed"}</button>
           </div>
           <div id="diskuz-widget-history-list" class="diskuz-widget-history-list"></div>
+          <div class="diskuz-widget-footer">
+            <button type="button" class="diskuz-widget-hide-btn diskuz-widget-hide-btn-notif">${isIt ? "Nascondi" : "Hide"}</button>
+          </div>
         </div>
       `;
 
@@ -716,17 +743,28 @@ export default apiInitializer("0.8", (api) => {
         }
       });
 
+      let widgetErrorTimeoutId = null;
       function showError(msg) {
+        if (widgetErrorTimeoutId) clearTimeout(widgetErrorTimeoutId);
         errorBox.textContent = msg;
         errorBox.style.display = "block";
         widget.classList.add("shake");
-        setTimeout(function () {
-          widget.classList.remove("shake");
-        }, 400);
+        setTimeout(function () { widget.classList.remove("shake"); }, 400);
+        widgetErrorTimeoutId = setTimeout(function () {
+          errorBox.style.display = "none";
+          errorBox.textContent = "";
+          widgetErrorTimeoutId = null;
+        }, 5000);
       }
 
       historyBtn.addEventListener("click", function () {
         openWidgetToNotificationsPage();
+      });
+
+      widget.querySelectorAll(".diskuz-widget-hide-btn").forEach(function (hideBtn) {
+        hideBtn.addEventListener("click", function () {
+          toggleWidgetForceClose();
+        });
       });
 
       const notifHomeBtn = widget.querySelector("#diskuz-widget-notifications-home-btn");
@@ -1285,8 +1323,8 @@ export default apiInitializer("0.8", (api) => {
     }
     if (!sendFn) {
       log("[CALLER] rtcMakeOffer: DiskuzCallSend not found");
-      showToast(MSG_CALL_UNAVAILABLE);
       endCurrentCall("rejected");
+      showWidgetErrorFromCall(MSG_CALL_UNAVAILABLE);
       return;
     }
     if (sdpPayload) {
@@ -1307,9 +1345,9 @@ export default apiInitializer("0.8", (api) => {
             const reason = getSignalErrorReason(err);
             log("[CALLER] rtcMakeOffer: call_offer send FAIL", err, "reason:", reason);
             const msg = messageForSignalReason(reason, currentCall.username);
-            showToast(msg);
-            setCallUIStatusMessage(msg);
-            setTimeout(() => endCurrentCall("rejected"), 1800);
+            clearOutgoingCallTimeout();
+            endCurrentCall("rejected");
+            showWidgetErrorFromCall(msg);
           }
         );
       }

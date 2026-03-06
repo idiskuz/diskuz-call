@@ -27,8 +27,8 @@ Installation is done **on the server** by cloning the GitHub repository into you
 ### Calls
 - **Voice call** between two users (WebRTC audio only, no video).
 - **Floating button** (bottom right): opens the widget to start a call (enter username).
-- **User status:** **Online**, **Busy**, **Offline**. Status is saved in the browser (localStorage) and restored on reload; default on first load is **Online**. Incoming calls can be auto-rejected when status is Busy or Offline.
-- **Widget errors:** entering your own username shows "You cannot call yourself." (not "User not found"); calling a user who doesn't follow you (when require-follow is on) shows "You cannot call a user who doesn't follow you."; other 403 reasons (groups, etc.) show clear messages in the widget and in the call UI.
+- **User status:** **Online**, **Busy**, **Offline** (Italian: **Occupato** for Busy). Status is saved in the browser (localStorage) and restored on reload; default on first load is **Online**. Incoming calls can be auto-rejected when status is Busy or Offline.
+- **Widget errors:** entering your own username shows "You cannot call yourself." (not "User not found"); calling a user who doesn't follow you (when require-follow is on) shows the exact reason at the bottom of the widget ("You cannot call a user who doesn't follow you."). If the signal send fails (403, network), the operation ends immediately and the error is shown at the bottom of the main widget. All errors at the bottom of the widget **disappear automatically after 5 seconds**.
 - **Outgoing call timeout:** if the callee doesn't answer within ~50 seconds, the call ends and the status message shows "User not available or not connected." Reject reasons (busy, not available, rejected) are shown in the call window status line and as a toast before the UI closes.
 - **Notifications** (call history): second page of the main widget (same layout and position). Clicking **Notifications** switches the widget to the Notifications view with tabs **Received**, **Sent**, **Recent**, **Missed**. A **Home** button (⌂) returns to the "Call a friend" page. All nicknames are clickable to start a call. Time in **HH:mm**; for completed calls, **duration** is shown (e.g. **Duration mm:ss** or **hh:mm:ss** if ≥ 1 hour).
 
@@ -50,7 +50,10 @@ Installation is done **on the server** by cloning the GitHub repository into you
 ### Main widget
 - **Top bar** (desktop): draggable by the top bar to move the widget; **diskuz Call** (green) and **by diskuz.com** are on the **same line**. The widget has two pages: "Call a friend" (home) and Notifications; switching between them keeps the same window position.
 - **Center phrase:** the home page shows a line such as "Call people who follow you on [site name]." The site name is taken from the page (e.g. meta og:site_name or document title).
-- **Layout:** the username field is spaced from the Call button (not attached). On desktop the widget has a larger min-height; on mobile it is full width from the top of the screen down to above the floating Call button (covering the site header), with **border-radius 15px**. The Notifications page does not overflow: it keeps the same widget size and the user scrolls inside the widget.
+- **Description:** below the Notifications button, a short text explains the widget: "This widget lets you call your friends on [site]. Set your status to Online to receive calls, or use Busy and Offline if you don't want to be disturbed."
+- **Hide button:** in the bottom right of the widget (on both home and Notifications pages), a **Hide** button (Italian: **Nascondi**) closes the widget completely so the user can see the site again.
+- **Layout:** the username field is spaced from the Call button (not attached). On desktop the widget is slightly wider (320px) and has a larger min-height; the Notifications page does not change the widget size—the user scrolls the call history with the mouse wheel. **Border-radius 15px** on the whole widget. Buttons use a frosted blur style (semi-transparent with backdrop blur).
+- **Mobile:** when the widget is open it is **full page**: it covers the entire screen (including the floating Call button and the current site). The user closes it with **Hide** to see the site again. Buttons are larger and use a stronger frosted effect for easier tapping.
 
 ### Call window
 - **Top bar** (desktop): draggable; shows **diskuz Call** (green) and **by diskuz.com** on the **same line**. Used to move the call window.
