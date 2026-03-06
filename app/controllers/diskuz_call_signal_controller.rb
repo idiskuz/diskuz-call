@@ -11,7 +11,7 @@ class DiskuzCallSignalController < ApplicationController
 
     # Non puoi chiamare te stesso
     if target.id == current_user.id
-      return render json: failed_json.merge(message: I18n.t("diskuz_call.cannot_call_yourself")), status: 403
+      return render json: failed_json.merge(message: I18n.t("diskuz_call.cannot_call_yourself"), reason: "cannot_call_yourself"), status: 403
     end
 
     unless diskuz_call_user_enabled?(current_user)

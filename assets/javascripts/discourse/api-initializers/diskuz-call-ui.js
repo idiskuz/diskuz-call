@@ -128,10 +128,12 @@ export default apiInitializer("0.8", (api) => {
     const it = document.documentElement.lang === "it";
     const name = (nickname || "").trim() || "this user";
     switch (reason) {
+      case "cannot_call_yourself":
+        return it ? "Non puoi chiamare te stesso." : "You cannot call yourself.";
       case "follow_required":
         return it
-          ? "Per chiamare " + name + " dovete seguirvi a vicenda."
-          : "To call " + name + " you need to follow each other.";
+          ? "Non puoi chiamare un utente che non ti segue."
+          : "You cannot call a user who doesn't follow you.";
       case "target_not_in_allowed_groups":
         return it ? "L'utente non può ricevere chiamate (gruppi)." : "User cannot receive calls (groups).";
       case "caller_not_in_allowed_groups":
@@ -574,10 +576,26 @@ export default apiInitializer("0.8", (api) => {
     if (newStatus === "not_available" && notAvailBtn) notAvailBtn.classList.add("active");
   }
 
+  function getSiteName() {
+    try {
+      const og = document.querySelector('meta[property="og:site_name"]');
+      if (og && og.getAttribute("content")) return og.getAttribute("content").trim();
+      const title = document.title || "";
+      const part = title.split(/\s*[-–—|]\s*/)[0];
+      if (part) return part.trim();
+      if (window.location && window.location.hostname) return window.location.hostname;
+    } catch (e) {}
+    return "this site";
+  }
+
   /* --- USERNAME WIDGET (two pages: home + notifications) --- */
   function createWidget() {
     if (!widget) {
       const isIt = document.documentElement.lang === "it";
+      const siteName = getSiteName();
+      const tagline = isIt
+        ? "Chiama le persone che ti seguono su " + siteName + "."
+        : "Call people who follow you on " + siteName + ".";
       widget = document.createElement("div");
       widget.id = "diskuz-call-widget";
 
@@ -588,9 +606,10 @@ export default apiInitializer("0.8", (api) => {
           <span class="diskuz-widget-brand-by">by diskuz.com</span>
         </div>
         <div class="diskuz-widget-page-home diskuz-widget-page diskuz-widget-page-active">
-          <h3 class="diskuz-widget-title">Call a friend</h3>
+          <h3 class="diskuz-widget-title">${isIt ? "Chiama un amico" : "Call a friend"}</h3>
+          <p class="diskuz-widget-tagline">${tagline.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>
           <div class="diskuz-call-input-wrap">
-            <input id="diskuz-call-input" type="text" placeholder="Enter username" class="diskuz-call-input-animated">
+            <input id="diskuz-call-input" type="text" placeholder="${isIt ? "Inserisci username" : "Enter username"}" class="diskuz-call-input-animated">
           </div>
           <button id="diskuz-call-start">Call</button>
           <div id="diskuz-call-error"></div>
@@ -676,12 +695,13 @@ export default apiInitializer("0.8", (api) => {
         try {
           const data = await resolveUserByUsername(username);
           if (!data || !data.user) {
-            showError("User not found.");
+            const isSelf = (username || "").toLowerCase().trim() === (currentUserUsername || "");
+            showError(isSelf ? (document.documentElement.lang === "it" ? "Non puoi chiamare te stesso." : "You cannot call yourself.") : "User not found.");
             return;
           }
           const userId = data.user.id;
           if (userId != null && userId === currentUserId) {
-            showError("You cannot call yourself.");
+            showError(document.documentElement.lang === "it" ? "Non puoi chiamare te stesso." : "You cannot call yourself.");
             return;
           }
           log("Starting call to", username, "userId", userId);
@@ -1051,6 +1071,31 @@ export default apiInitializer("0.8", (api) => {
   let audioOutputDevices = [];
   let callDurationIntervalId = null;
   let callConnectedAt = null;
+  let outgoingCallTimeoutId = null;
+  const OUTGOING_CALL_TIMEOUT_MS = 50000;
+
+  function clearOutgoingCallTimeout() {
+    if (outgoingCallTimeoutId) {
+      clearTimeout(outgoingCallTimeoutId);
+      outgoingCallTimeoutId = null;
+    }
+  }
+
+  function startOutgoingCallTimeout() {
+    clearOutgoingCallTimeout();
+    outgoingCallTimeoutId = setTimeout(() => {
+      if (!currentCall.active || currentCall.direction !== "outgoing" || currentCall.isRinging !== true) return;
+      clearOutgoingCallTimeout();
+      setCallUIStatusMessage(MSG_CALL_UNAVAILABLE);
+      showToast(MSG_CALL_UNAVAILABLE);
+      endCurrentCall("no_answer");
+    }, OUTGOING_CALL_TIMEOUT_MS);
+  }
+
+  function setCallUIStatusMessage(msg) {
+    const statusEl = callUI && callUI.querySelector(".status");
+    if (statusEl) statusEl.textContent = msg || "";
+  }
 
   function ensureRemoteAudio() {
     if (!rtcRemoteAudio) {
@@ -1254,12 +1299,17 @@ export default apiInitializer("0.8", (api) => {
       });
       if (sendPromise && typeof sendPromise.then === "function") {
         sendPromise.then(
-          () => log("[CALLER] rtcMakeOffer: call_offer sent OK"),
+          () => {
+            log("[CALLER] rtcMakeOffer: call_offer sent OK");
+            startOutgoingCallTimeout();
+          },
           (err) => {
             const reason = getSignalErrorReason(err);
             log("[CALLER] rtcMakeOffer: call_offer send FAIL", err, "reason:", reason);
-            showToast(messageForSignalReason(reason, currentCall.username));
-            endCurrentCall("rejected");
+            const msg = messageForSignalReason(reason, currentCall.username);
+            showToast(msg);
+            setCallUIStatusMessage(msg);
+            setTimeout(() => endCurrentCall("rejected"), 1800);
           }
         );
       }
@@ -1431,6 +1481,7 @@ export default apiInitializer("0.8", (api) => {
   }
 
   function endCurrentCall(result) {
+    clearOutgoingCallTimeout();
     if (currentCall.active && currentCall.username) {
       const durationSeconds = callConnectedAt != null
         ? Math.floor((Date.now() - callConnectedAt) / 1000)
@@ -1735,6 +1786,7 @@ export default apiInitializer("0.8", (api) => {
           currentCall.direction === "outgoing" &&
           currentCall.userId === data.from_user_id
         ) {
+          clearOutgoingCallTimeout();
           currentCall.isRinging = false;
           const statusEl = callUI && callUI.querySelector(".status");
           if (statusEl) {
@@ -1756,22 +1808,26 @@ export default apiInitializer("0.8", (api) => {
           currentCall.direction === "outgoing" &&
           currentCall.userId === data.from_user_id
         ) {
+          clearOutgoingCallTimeout();
           const reason = data.reason || "rejected";
+          const rejectMsg =
+            reason === "busy"
+              ? (document.documentElement.lang === "it" ? "Utente occupato." : "User is busy.")
+              : reason === "not_available"
+              ? MSG_CALL_UNAVAILABLE
+              : (document.documentElement.lang === "it" ? "Chiamata rifiutata." : "Call rejected.");
+          setCallUIStatusMessage(rejectMsg);
           addHistoryEntry({
             direction: "outgoing",
             result: reason,
             username: currentCall.username || "Unknown",
           });
-          showToast(
-            reason === "busy"
-              ? "User is busy."
-              : reason === "not_available"
-              ? "User is not available."
-              : "Call rejected."
-          );
-          rtcEnd();
-          resetCurrentCall();
-          closeCallUI();
+          showToast(rejectMsg);
+          setTimeout(() => {
+            rtcEnd();
+            resetCurrentCall();
+            closeCallUI();
+          }, 1500);
         }
         break;
 

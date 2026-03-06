@@ -28,6 +28,8 @@ Installation is done **on the server** by cloning the GitHub repository into you
 - **Voice call** between two users (WebRTC audio only, no video).
 - **Floating button** (bottom right): opens the widget to start a call (enter username).
 - **User status:** **Online**, **Busy**, **Offline**. Status is saved in the browser (localStorage) and restored on reload; default on first load is **Online**. Incoming calls can be auto-rejected when status is Busy or Offline.
+- **Widget errors:** entering your own username shows "You cannot call yourself." (not "User not found"); calling a user who doesn't follow you (when require-follow is on) shows "You cannot call a user who doesn't follow you."; other 403 reasons (groups, etc.) show clear messages in the widget and in the call UI.
+- **Outgoing call timeout:** if the callee doesn't answer within ~50 seconds, the call ends and the status message shows "User not available or not connected." Reject reasons (busy, not available, rejected) are shown in the call window status line and as a toast before the UI closes.
 - **Notifications** (call history): second page of the main widget (same layout and position). Clicking **Notifications** switches the widget to the Notifications view with tabs **Received**, **Sent**, **Recent**, **Missed**. A **Home** button (⌂) returns to the "Call a friend" page. All nicknames are clickable to start a call. Time in **HH:mm**; for completed calls, **duration** is shown (e.g. **Duration mm:ss** or **hh:mm:ss** if ≥ 1 hour).
 
 ### During a call
@@ -47,6 +49,8 @@ Installation is done **on the server** by cloning the GitHub repository into you
 
 ### Main widget
 - **Top bar** (desktop): draggable by the top bar to move the widget; **diskuz Call** (green) and **by diskuz.com** are on the **same line**. The widget has two pages: "Call a friend" (home) and Notifications; switching between them keeps the same window position.
+- **Center phrase:** the home page shows a line such as "Call people who follow you on [site name]." The site name is taken from the page (e.g. meta og:site_name or document title).
+- **Layout:** the username field is spaced from the Call button (not attached). On desktop the widget has a larger min-height; on mobile it is full width from the top of the screen down to above the floating Call button (covering the site header), with **border-radius 15px**. The Notifications page does not overflow: it keeps the same widget size and the user scrolls inside the widget.
 
 ### Call window
 - **Top bar** (desktop): draggable; shows **diskuz Call** (green) and **by diskuz.com** on the **same line**. Used to move the call window.
@@ -63,9 +67,9 @@ Installation is done **on the server** by cloning the GitHub repository into you
 
 ### Permissions and restrictions
 - **Allowed groups:** only users in the configured groups can see and use diskuz Call (default: administrators, moderators, staff).
-- **Require follow:** when enabled (with discourse-follow), the **callee must follow the caller** to receive calls. If the call is not allowed, a toast explains (e.g. "To call NICKNAME you need to follow each other.").
-- **403 reasons:** clear messages (follow_required, target_not_in_allowed_groups, caller_not_in_allowed_groups) in response and toast.
-- Cannot call yourself; server-side checks for groups and follow.
+- **Require follow:** when enabled (with discourse-follow), the **callee must follow the caller** to receive calls. If the call is not allowed, the UI shows "You cannot call a user who doesn't follow you." (or equivalent in Italian).
+- **403 reasons:** clear messages (cannot_call_yourself, follow_required, target_not_in_allowed_groups, caller_not_in_allowed_groups) in response, toast, and in the call window status before it closes.
+- Cannot call yourself (widget shows "You cannot call yourself."); server-side checks for groups and follow.
 
 ### Admin settings (Plugins)
 - **Enable diskuz Call:** turn the plugin on or off.
