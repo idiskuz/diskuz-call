@@ -71,11 +71,11 @@ export default apiInitializer("0.8", (api) => {
   let lastWidgetRect = null;
   let widgetWasOpenBeforeCall = false;
   const WIDGET_RECT_STORAGE_KEY = "diskuz_call_widget_rect";
-  /* Default position/size matching #diskuz-call-widget CSS (bottom: 190px, right: 178px, width: 336px, min-height: 440px) */
+  /* Default position/size uguale alla UI chiamata (320x440) */
   function getDefaultWidgetRect() {
     const W = window.innerWidth;
     const H = window.innerHeight;
-    const width = 336;
+    const width = 320;
     const height = 440;
     return clampRectToViewport({
       left: W - 178 - width,
