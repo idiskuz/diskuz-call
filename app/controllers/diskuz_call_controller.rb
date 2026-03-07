@@ -15,20 +15,42 @@ class DiskuzCallController < ApplicationController
 
   def status
     ice_servers = parse_ice_servers_setting
+    custom_ringtones = build_custom_ringtones_list
+    selected_index = current_user.custom_fields["diskuz_call_selected_custom_ringtone_index"]
+    selected_index = selected_index.to_i if selected_index.is_a?(String)
+    selected_index = nil if selected_index.nil? || selected_index < 0 || selected_index > 9
+    selected_entry = selected_index && custom_ringtones.find { |r| r[:index] == selected_index }
+    selected_url = selected_entry ? selected_entry[:url] : (custom_ringtones.first&.dig(:url))
     render json: {
       enabled: diskuz_call_user_enabled?(current_user),
       incoming_sound: SiteSetting.diskuz_call_incoming_sound.presence || "default",
-      custom_ringtone_url: SiteSetting.diskuz_call_custom_ringtone_url.presence,
+      custom_ringtones: custom_ringtones,
+      custom_ringtone_url: selected_url,
+      selected_custom_ringtone_index: selected_index,
       alternative_ringtone: SiteSetting.diskuz_call_alternative_ringtone.presence || "classic",
       ice_servers: ice_servers,
     }
   end
 
   def preferences
-    enabled = ActiveModel::Type::Boolean.new.cast(params[:enabled])
-    current_user.custom_fields["diskuz_call_enabled"] = enabled
+    if params.key?(:enabled)
+      enabled = ActiveModel::Type::Boolean.new.cast(params[:enabled])
+      current_user.custom_fields["diskuz_call_enabled"] = enabled
+    end
+    if params.key?(:selected_custom_ringtone_index)
+      idx = params[:selected_custom_ringtone_index].to_i
+      current_user.custom_fields["diskuz_call_selected_custom_ringtone_index"] = (idx >= 0 && idx <= 9) ? idx : nil
+    end
     current_user.save_custom_fields(true)
-    render json: success_json.merge(enabled: diskuz_call_user_enabled?(current_user))
+    custom_ringtones = build_custom_ringtones_list
+    selected_index = current_user.custom_fields["diskuz_call_selected_custom_ringtone_index"]&.to_i
+    selected_entry = selected_index && custom_ringtones.find { |r| r[:index] == selected_index }
+    selected_url = selected_entry ? selected_entry[:url] : (custom_ringtones.first&.dig(:url))
+    render json: success_json.merge(
+      enabled: diskuz_call_user_enabled?(current_user),
+      custom_ringtone_url: selected_url,
+      selected_custom_ringtone_index: selected_index,
+    )
   end
 
   def can_call
@@ -54,5 +76,15 @@ class DiskuzCallController < ApplicationController
     JSON.parse(raw)
   rescue JSON::ParserError
     nil
+  end
+
+  def build_custom_ringtones_list
+    list = []
+    (1..10).each do |i|
+      url = SiteSetting.public_send(:"diskuz_call_custom_ringtone_#{i}").to_s.strip
+      next if url.blank?
+      list << { index: i - 1, label: I18n.t("diskuz_call.custom_ringtone_n", n: i), url: url }
+    end
+    list
   end
 end

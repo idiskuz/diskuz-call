@@ -27,11 +27,38 @@ plugins:
       - chat
       - custom
       - alternative
-  # URL suoneria personalizzata (MP3). Usato quando "Suono chiamate in arrivo" è "custom". Max consigliato 500 KB.
-  diskuz_call_custom_ringtone_url:
+  # Fino a 10 suonerie personalizzate (MP3). L'admin inserisce gli URL; l'utente ne sceglie una dal widget (con anteprima).
+  diskuz_call_custom_ringtone_1:
     default: ""
     client: true
-  # Suoneria alternativa (usata quando "Suono chiamate in arrivo" è "alternative"). Scegli una delle 10 suonerie.
+  diskuz_call_custom_ringtone_2:
+    default: ""
+    client: true
+  diskuz_call_custom_ringtone_3:
+    default: ""
+    client: true
+  diskuz_call_custom_ringtone_4:
+    default: ""
+    client: true
+  diskuz_call_custom_ringtone_5:
+    default: ""
+    client: true
+  diskuz_call_custom_ringtone_6:
+    default: ""
+    client: true
+  diskuz_call_custom_ringtone_7:
+    default: ""
+    client: true
+  diskuz_call_custom_ringtone_8:
+    default: ""
+    client: true
+  diskuz_call_custom_ringtone_9:
+    default: ""
+    client: true
+  diskuz_call_custom_ringtone_10:
+    default: ""
+    client: true
+  # Suoneria alternativa (usata quando "Suono chiamate in arrivo" è "alternative"). Suonerie movimentate + Relaz (rilassanti).
   diskuz_call_alternative_ringtone:
     default: "classic"
     type: enum
@@ -47,6 +74,21 @@ plugins:
       - pulse
       - star
       - cascade
+      - festivo
+      - allegro
+      - vivace
+      - brillante
+      - energico
+      - dinamico
+      - scintilla
+      - campanella
+      - trillo
+      - marimba
+      - relax1
+      - relax2
+      - relax3
+      - relax4
+      - relax5
   # ICE servers per WebRTC (opzionale). JSON array, es: [{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:turn.example.com","username":"user","credential":"pass"}]. Lascia vuoto per usare solo STUN Google.
   diskuz_call_ice_servers:
     default: ""

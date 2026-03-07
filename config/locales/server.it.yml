@@ -1,9 +1,20 @@
 it:
+  diskuz_call:
+    custom_ringtone_n: "Suoneria %{n}"
   site_settings:
     diskuz_call_enabled: "Abilita diskuz Call (chiamate VoIP tra utenti)"
     diskuz_call_allowed_groups: "Chi può vedere e usare diskuz Call (predefinito: solo Amministratori; puoi aggiungere Staff, Moderatori o gruppi per livello di fiducia)"
     diskuz_call_require_follow: "Richiedi che il destinatario segua il chiamante (se discourse-follow è attivo). Se disattivato, qualsiasi utente abilitato può chiamare qualsiasi altro utente abilitato."
-    diskuz_call_incoming_sound: "Suono per le chiamate in arrivo: Discourse (none/default/ding/bell/chat), custom (URL MP3 sotto), oppure alternative (scegli una delle 10 suonerie sotto)"
-    diskuz_call_custom_ringtone_url: "URL suoneria personalizzata (MP3). Usato quando il suono chiamate in arrivo è impostato su custom. Incolla l'URL completo (es. da upload del sito). Max consigliato 500 KB."
-    diskuz_call_alternative_ringtone: "Suoneria alternativa. Usata quando il suono chiamate in arrivo è impostato su alternative. Scegli: Classic, Modern, Soft, Double, Melodic, Retro, Digital, Pulse, Star, Cascade."
+    diskuz_call_incoming_sound: "Suono per le chiamate in arrivo: Discourse (none/default/ding/bell/chat), custom (fino a 10 suonerie MP3 sotto; l'utente ne sceglie una dal widget con anteprima), oppure alternative (suonerie built-in). La suoneria suona fino a 48 secondi."
+    diskuz_call_custom_ringtone_1: "Suoneria personalizzata 1 (URL MP3). L'utente può sceglierla dal widget e ascoltare l'anteprima."
+    diskuz_call_custom_ringtone_2: "Suoneria personalizzata 2 (URL MP3)"
+    diskuz_call_custom_ringtone_3: "Suoneria personalizzata 3 (URL MP3)"
+    diskuz_call_custom_ringtone_4: "Suoneria personalizzata 4 (URL MP3)"
+    diskuz_call_custom_ringtone_5: "Suoneria personalizzata 5 (URL MP3)"
+    diskuz_call_custom_ringtone_6: "Suoneria personalizzata 6 (URL MP3)"
+    diskuz_call_custom_ringtone_7: "Suoneria personalizzata 7 (URL MP3)"
+    diskuz_call_custom_ringtone_8: "Suoneria personalizzata 8 (URL MP3)"
+    diskuz_call_custom_ringtone_9: "Suoneria personalizzata 9 (URL MP3)"
+    diskuz_call_custom_ringtone_10: "Suoneria personalizzata 10 (URL MP3). Fino a 48 secondi per riprodurre l'intera suoneria."
+    diskuz_call_alternative_ringtone: "Suoneria alternativa (tutte movimentate). Usata quando il suono chiamate in arrivo è impostato su alternative. Originali: classic, modern, soft, double, melodic, retro, digital, pulse, star, cascade. Nuove movimentate: festivo, allegro, vivace, brillante, energico, dinamico, scintilla, campanella, trillo, marimba. Rilassanti (Chiamate Relaz): relax1, relax2, relax3, relax4, relax5."
     diskuz_call_ice_servers: "Server ICE per WebRTC (opzionale). Array JSON, es. [{\"urls\":\"stun:stun.l.google.com:19302\"},{\"urls\":\"turn:turn.example.com\",\"username\":\"user\",\"credential\":\"pass\"}]. Lascia vuoto per usare solo STUN Google. Aggiungi un server TURN se le chiamate falliscono su reti mobili o aziendali."

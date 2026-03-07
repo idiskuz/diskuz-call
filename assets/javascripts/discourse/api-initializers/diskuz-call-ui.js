@@ -387,20 +387,22 @@ export default apiInitializer("0.8", (api) => {
     }
   }
 
-  /* Suonerie alternative (10 preset: classic, modern, soft, double, melodic + retro, digital, pulse, star, cascade) */
+  /* Suonerie alternative: tutte movimentate e ricche; + 5 Relaz (rilassanti). */
   function playAlternativeRingtonePreset(ctx, preset) {
     const t0 = ctx.currentTime;
     const g = ctx.createGain();
     g.connect(ctx.destination);
     const vol = 0.28;
-    const tone = (freq, start, dur) => {
+    const volSoft = 0.18;
+    const tone = (freq, start, dur, v) => {
       const o = ctx.createOscillator();
       o.connect(g);
       o.frequency.value = freq;
       o.type = "sine";
+      const vv = v != null ? v : vol;
       g.gain.setValueAtTime(0, start);
-      g.gain.linearRampToValueAtTime(vol, start + 0.02);
-      g.gain.setValueAtTime(vol, start + dur - 0.02);
+      g.gain.linearRampToValueAtTime(vv, start + 0.02);
+      g.gain.setValueAtTime(vv, start + dur - 0.02);
       g.gain.linearRampToValueAtTime(0, start + dur);
       o.start(start);
       o.stop(start + dur);
@@ -408,66 +410,224 @@ export default apiInitializer("0.8", (api) => {
     try {
       switch (preset) {
         case "modern":
-          tone(880, t0, 0.15);
-          tone(880, t0 + 0.35, 0.15);
+          tone(880, t0, 0.12);
+          tone(1109, t0 + 0.18, 0.12);
+          tone(880, t0 + 0.36, 0.12);
+          tone(1109, t0 + 0.52, 0.12);
+          tone(1319, t0 + 0.68, 0.2);
           break;
         case "soft":
-          tone(660, t0, 0.5);
-          break;
-        case "double":
-          tone(523, t0, 0.35);
-          tone(659, t0 + 0.5, 0.35);
-          break;
-        case "melodic":
           tone(523, t0, 0.2);
           tone(659, t0 + 0.28, 0.2);
-          tone(784, t0 + 0.56, 0.2);
-          tone(1047, t0 + 0.84, 0.25);
+          tone(784, t0 + 0.52, 0.25);
+          tone(659, t0 + 0.82, 0.2);
+          tone(523, t0 + 1.06, 0.3);
+          break;
+        case "double":
+          tone(523, t0, 0.2);
+          tone(659, t0 + 0.28, 0.2);
+          tone(523, t0 + 0.56, 0.15);
+          tone(784, t0 + 0.78, 0.22);
+          tone(659, t0 + 1.06, 0.2);
+          tone(784, t0 + 1.32, 0.25);
+          break;
+        case "melodic":
+          tone(523, t0, 0.16);
+          tone(659, t0 + 0.24, 0.16);
+          tone(784, t0 + 0.48, 0.16);
+          tone(1047, t0 + 0.72, 0.2);
+          tone(784, t0 + 0.98, 0.14);
+          tone(1047, t0 + 1.18, 0.18);
+          tone(1319, t0 + 1.42, 0.28);
           break;
         case "retro":
-          tone(880, t0, 0.12);
-          tone(988, t0 + 0.18, 0.12);
-          tone(1175, t0 + 0.36, 0.12);
-          tone(1319, t0 + 0.54, 0.2);
-          tone(1175, t0 + 0.82, 0.12);
-          tone(988, t0 + 1.0, 0.12);
-          tone(880, t0 + 1.18, 0.25);
+          tone(880, t0, 0.1);
+          tone(988, t0 + 0.16, 0.1);
+          tone(1175, t0 + 0.32, 0.1);
+          tone(1319, t0 + 0.48, 0.14);
+          tone(1175, t0 + 0.68, 0.1);
+          tone(1319, t0 + 0.84, 0.12);
+          tone(1568, t0 + 1.02, 0.2);
+          tone(1175, t0 + 1.28, 0.12);
+          tone(988, t0 + 1.46, 0.25);
           break;
         case "digital":
-          tone(622, t0, 0.08);
-          tone(622, t0 + 0.2, 0.08);
-          tone(622, t0 + 0.32, 0.08);
-          tone(784, t0 + 0.48, 0.12);
-          tone(784, t0 + 0.68, 0.12);
-          tone(1047, t0 + 0.88, 0.2);
+          tone(622, t0, 0.06);
+          tone(622, t0 + 0.14, 0.06);
+          tone(784, t0 + 0.24, 0.08);
+          tone(622, t0 + 0.36, 0.06);
+          tone(784, t0 + 0.46, 0.08);
+          tone(1047, t0 + 0.58, 0.1);
+          tone(784, t0 + 0.74, 0.08);
+          tone(1047, t0 + 0.88, 0.12);
+          tone(1319, t0 + 1.06, 0.22);
           break;
         case "pulse":
-          tone(659, t0, 0.15);
-          tone(523, t0 + 0.25, 0.15);
-          tone(659, t0 + 0.5, 0.15);
-          tone(523, t0 + 0.7, 0.15);
-          tone(659, t0 + 0.95, 0.15);
-          tone(784, t0 + 1.15, 0.25);
+          tone(659, t0, 0.12);
+          tone(523, t0 + 0.22, 0.12);
+          tone(659, t0 + 0.42, 0.12);
+          tone(784, t0 + 0.58, 0.12);
+          tone(659, t0 + 0.78, 0.12);
+          tone(523, t0 + 0.98, 0.12);
+          tone(659, t0 + 1.18, 0.14);
+          tone(784, t0 + 1.38, 0.28);
           break;
         case "star":
+          tone(523, t0, 0.1);
+          tone(659, t0 + 0.16, 0.1);
+          tone(784, t0 + 0.32, 0.1);
+          tone(1047, t0 + 0.48, 0.1);
+          tone(1319, t0 + 0.64, 0.18);
+          tone(1047, t0 + 0.88, 0.1);
+          tone(1319, t0 + 1.04, 0.12);
+          tone(1568, t0 + 1.22, 0.12);
+          tone(1319, t0 + 1.4, 0.28);
+          break;
+        case "cascade":
+          tone(1047, t0, 0.08);
+          tone(988, t0 + 0.12, 0.08);
+          tone(880, t0 + 0.24, 0.08);
+          tone(784, t0 + 0.36, 0.08);
+          tone(659, t0 + 0.48, 0.12);
+          tone(784, t0 + 0.66, 0.08);
+          tone(880, t0 + 0.78, 0.08);
+          tone(988, t0 + 0.9, 0.08);
+          tone(1047, t0 + 1.02, 0.1);
+          tone(1175, t0 + 1.16, 0.22);
+          break;
+        case "festivo":
+          tone(523, t0, 0.1);
+          tone(659, t0 + 0.14, 0.1);
+          tone(784, t0 + 0.28, 0.1);
+          tone(1047, t0 + 0.42, 0.12);
+          tone(784, t0 + 0.6, 0.1);
+          tone(1047, t0 + 0.74, 0.12);
+          tone(1319, t0 + 0.92, 0.18);
+          tone(1047, t0 + 1.16, 0.12);
+          tone(1319, t0 + 1.36, 0.28);
+          break;
+        case "allegro":
+          tone(880, t0, 0.08);
+          tone(1109, t0 + 0.14, 0.08);
+          tone(1319, t0 + 0.26, 0.1);
+          tone(1109, t0 + 0.42, 0.08);
+          tone(1319, t0 + 0.56, 0.1);
+          tone(1568, t0 + 0.72, 0.14);
+          tone(1319, t0 + 0.92, 0.1);
+          tone(1568, t0 + 1.08, 0.24);
+          break;
+        case "vivace":
+          tone(659, t0, 0.08);
+          tone(784, t0 + 0.12, 0.08);
+          tone(988, t0 + 0.24, 0.08);
+          tone(784, t0 + 0.36, 0.08);
+          tone(988, t0 + 0.48, 0.1);
+          tone(1175, t0 + 0.62, 0.1);
+          tone(988, t0 + 0.78, 0.08);
+          tone(1175, t0 + 0.9, 0.12);
+          tone(1319, t0 + 1.08, 0.22);
+          break;
+        case "brillante":
+          tone(1047, t0, 0.08);
+          tone(1319, t0 + 0.14, 0.08);
+          tone(1568, t0 + 0.28, 0.1);
+          tone(1319, t0 + 0.44, 0.08);
+          tone(1568, t0 + 0.58, 0.1);
+          tone(2093, t0 + 0.74, 0.12);
+          tone(1568, t0 + 0.92, 0.1);
+          tone(2093, t0 + 1.08, 0.26);
+          break;
+        case "energico":
+          tone(523, t0, 0.1);
+          tone(659, t0 + 0.12, 0.1);
+          tone(523, t0 + 0.28, 0.08);
+          tone(784, t0 + 0.4, 0.1);
+          tone(659, t0 + 0.56, 0.08);
+          tone(784, t0 + 0.68, 0.1);
+          tone(1047, t0 + 0.84, 0.12);
+          tone(784, t0 + 1.02, 0.1);
+          tone(1047, t0 + 1.18, 0.28);
+          break;
+        case "dinamico":
+          tone(622, t0, 0.08);
+          tone(784, t0 + 0.16, 0.08);
+          tone(988, t0 + 0.3, 0.1);
+          tone(784, t0 + 0.46, 0.08);
+          tone(988, t0 + 0.6, 0.1);
+          tone(1245, t0 + 0.76, 0.1);
+          tone(988, t0 + 0.92, 0.08);
+          tone(1245, t0 + 1.06, 0.12);
+          tone(1480, t0 + 1.24, 0.26);
+          break;
+        case "scintilla":
+          tone(1319, t0, 0.06);
+          tone(1568, t0 + 0.1, 0.06);
+          tone(2093, t0 + 0.2, 0.08);
+          tone(1568, t0 + 0.34, 0.06);
+          tone(2093, t0 + 0.44, 0.08);
+          tone(2637, t0 + 0.58, 0.1);
+          tone(2093, t0 + 0.74, 0.08);
+          tone(2637, t0 + 0.88, 0.24);
+          break;
+        case "campanella":
+          tone(784, t0, 0.12);
+          tone(1047, t0 + 0.2, 0.12);
+          tone(1319, t0 + 0.36, 0.12);
+          tone(1047, t0 + 0.52, 0.1);
+          tone(1319, t0 + 0.68, 0.12);
+          tone(1568, t0 + 0.84, 0.14);
+          tone(1319, t0 + 1.04, 0.12);
+          tone(1568, t0 + 1.2, 0.28);
+          break;
+        case "trillo":
+          tone(880, t0, 0.06);
+          tone(988, t0 + 0.1, 0.06);
+          tone(880, t0 + 0.18, 0.06);
+          tone(988, t0 + 0.24, 0.06);
+          tone(880, t0 + 0.32, 0.06);
+          tone(1175, t0 + 0.4, 0.1);
+          tone(988, t0 + 0.56, 0.06);
+          tone(1175, t0 + 0.64, 0.1);
+          tone(1319, t0 + 0.8, 0.22);
+          break;
+        case "marimba":
           tone(523, t0, 0.14);
           tone(659, t0 + 0.22, 0.14);
           tone(784, t0 + 0.4, 0.14);
-          tone(1047, t0 + 0.58, 0.14);
-          tone(1319, t0 + 0.76, 0.28);
-          tone(1047, t0 + 1.1, 0.14);
-          tone(1319, t0 + 1.28, 0.3);
+          tone(523, t0 + 0.58, 0.1);
+          tone(784, t0 + 0.72, 0.14);
+          tone(988, t0 + 0.9, 0.16);
+          tone(659, t0 + 1.12, 0.12);
+          tone(988, t0 + 1.28, 0.28);
           break;
-        case "cascade":
-          tone(1047, t0, 0.1);
-          tone(988, t0 + 0.14, 0.1);
-          tone(880, t0 + 0.28, 0.1);
-          tone(784, t0 + 0.42, 0.1);
-          tone(659, t0 + 0.56, 0.18);
-          tone(784, t0 + 0.82, 0.1);
-          tone(880, t0 + 0.96, 0.1);
-          tone(988, t0 + 1.1, 0.1);
-          tone(1047, t0 + 1.24, 0.22);
+        case "relax1":
+          tone(392, t0, 0.4, volSoft);
+          tone(494, t0 + 0.6, 0.4, volSoft);
+          tone(587, t0 + 1.1, 0.5, volSoft);
+          break;
+        case "relax2":
+          tone(440, t0, 0.35, volSoft);
+          tone(554, t0 + 0.55, 0.35, volSoft);
+          tone(440, t0 + 1.0, 0.3, volSoft);
+          tone(659, t0 + 1.4, 0.45, volSoft);
+          break;
+        case "relax3":
+          tone(523, t0, 0.3, volSoft);
+          tone(659, t0 + 0.5, 0.35, volSoft);
+          tone(523, t0 + 0.95, 0.3, volSoft);
+          tone(784, t0 + 1.35, 0.5, volSoft);
+          break;
+        case "relax4":
+          tone(494, t0, 0.38, volSoft);
+          tone(587, t0 + 0.6, 0.38, volSoft);
+          tone(698, t0 + 1.08, 0.4, volSoft);
+          tone(587, t0 + 1.58, 0.45, volSoft);
+          break;
+        case "relax5":
+          tone(349, t0, 0.45, volSoft);
+          tone(440, t0 + 0.7, 0.45, volSoft);
+          tone(523, t0 + 1.2, 0.5, volSoft);
+          tone(440, t0 + 1.8, 0.55, volSoft);
           break;
         case "classic":
         default:
@@ -481,10 +641,11 @@ export default apiInitializer("0.8", (api) => {
   }
 
   const INCOMING_RING_INTERVAL_MS = 2500;
-  const INCOMING_RING_MAX_MS = 30000;
+  const INCOMING_RING_MAX_MS = 48000;
   let incomingRingIntervalId = null;
   let incomingRingTimeoutId = null;
   let currentRingingAudio = null;
+  let incomingRingStartTime = 0;
 
   function stopIncomingRing() {
     if (incomingRingIntervalId) {
@@ -550,8 +711,15 @@ export default apiInitializer("0.8", (api) => {
             playIncomingCallSound();
           });
         }, { once: true });
+        audio.addEventListener("ended", function onEnded() {
+          if (!currentCall.active || currentCall.direction !== "incoming" || !currentCall.isRinging) return;
+          const elapsed = Date.now() - incomingRingStartTime;
+          if (elapsed < INCOMING_RING_MAX_MS) {
+            currentRingingAudio = null;
+            playIncomingCallRingOnce();
+          }
+        }, { once: true });
         audio.addEventListener("error", function onErr() {
-          audio.removeEventListener("error", onErr);
           currentRingingAudio = null;
           playIncomingCallSound();
         }, { once: true });
@@ -568,10 +736,18 @@ export default apiInitializer("0.8", (api) => {
 
   function startIncomingRingLoop() {
     stopIncomingRing();
-    ensureAudioContextRunning().then(() => {
+    incomingRingStartTime = Date.now();
+    const sound = (typeof window.DiskuzCallIncomingSound !== "undefined" && window.DiskuzCallIncomingSound) ? window.DiskuzCallIncomingSound : "default";
+    const customUrl = (typeof window.DiskuzCallCustomRingtoneUrl !== "undefined" && window.DiskuzCallCustomRingtoneUrl) ? String(window.DiskuzCallCustomRingtoneUrl).trim() : "";
+    const isCustom = sound === "custom" && customUrl;
+    if (isCustom) {
       playIncomingCallRingOnce();
-    }).catch(() => {});
-    incomingRingIntervalId = setInterval(playIncomingCallRingOnce, INCOMING_RING_INTERVAL_MS);
+    } else {
+      ensureAudioContextRunning().then(() => {
+        playIncomingCallRingOnce();
+      }).catch(() => {});
+      incomingRingIntervalId = setInterval(playIncomingCallRingOnce, INCOMING_RING_INTERVAL_MS);
+    }
     incomingRingTimeoutId = setTimeout(() => {
       if (!currentCall.active || currentCall.direction !== "incoming" || !currentCall.isRinging) return;
       stopIncomingRing();
@@ -691,7 +867,7 @@ export default apiInitializer("0.8", (api) => {
   }
 
   /* --- BROWSER NOTIFICATION (when user has allowed notifications) --- */
-  /* L'utente ha 10 secondi per cliccare sulla notifica o aprire diskuz; una volta sulla pagina ha altri 30 secondi (INCOMING_RING_MAX_MS) per rispondere. Per ricevere notifiche a tab chiuso serve Web Push (server + service worker). */
+  /* L'utente ha 10 secondi per cliccare sulla notifica o aprire diskuz; una volta sulla pagina ha 48 secondi (INCOMING_RING_MAX_MS) per rispondere. Per ricevere notifiche a tab chiuso serve Web Push (server + service worker). */
   const NOTIFICATION_VISIBLE_MS = 10000;
   function showBrowserNotification(fromUsername) {
     if (!window.Notification || Notification.permission === "denied") return;
@@ -969,6 +1145,72 @@ export default apiInitializer("0.8", (api) => {
     }
   }
 
+  let previewRingtoneAudio = null;
+  const PREVIEW_MAX_MS = 12000;
+
+  function updateCustomRingtonesUI(ringtones, selectedIndex) {
+    const wrap = widget ? widget.querySelector("#diskuz-call-custom-ringtones-wrap") : null;
+    if (!wrap || !Array.isArray(ringtones) || ringtones.length === 0) return;
+    wrap.style.display = "block";
+    const isIt = document.documentElement.lang === "it";
+    wrap.innerHTML = "";
+    const title = document.createElement("div");
+    title.className = "diskuz-custom-ringtones-title";
+    title.textContent = isIt ? "Suonerie" : "Ringtones";
+    wrap.appendChild(title);
+    const list = document.createElement("div");
+    list.className = "diskuz-custom-ringtones-list";
+    ringtones.forEach((r, i) => {
+      const row = document.createElement("div");
+      row.className = "diskuz-custom-ringtones-row" + (selectedIndex === r.index ? " selected" : "");
+      row.innerHTML = `
+        <span class="diskuz-custom-ringtones-label">${(r.label || ("#" + (r.index + 1))).replace(/</g, "&lt;")}</span>
+        <button type="button" class="diskuz-custom-ringtones-preview-btn">${isIt ? "Anteprima" : "Preview"}</button>
+        <button type="button" class="diskuz-custom-ringtones-select-btn">${isIt ? "Seleziona" : "Select"}</button>
+      `;
+      const previewBtn = row.querySelector(".diskuz-custom-ringtones-preview-btn");
+      const selectBtn = row.querySelector(".diskuz-custom-ringtones-select-btn");
+      let url = (r.url || "").trim();
+      if (url && !/^https?:\/\//i.test(url)) {
+        if (url.startsWith("//")) url = window.location.protocol + url;
+        else if (url.startsWith("/")) url = window.location.origin + url;
+        else url = "https://" + url.replace(/^\/+/, "");
+      }
+      previewBtn.addEventListener("click", function () {
+        if (previewRingtoneAudio) {
+          try { previewRingtoneAudio.pause(); previewRingtoneAudio.currentTime = 0; } catch (e) {}
+          previewRingtoneAudio = null;
+        }
+        if (!url) return;
+        const audio = new Audio(url);
+        audio.volume = 0.85;
+        previewRingtoneAudio = audio;
+        audio.play().catch(() => {});
+        const stopPreview = () => {
+          try { if (previewRingtoneAudio === audio) { audio.pause(); audio.currentTime = 0; } } catch (e) {}
+          previewRingtoneAudio = null;
+        };
+        setTimeout(stopPreview, PREVIEW_MAX_MS);
+        audio.addEventListener("ended", stopPreview, { once: true });
+      });
+      selectBtn.addEventListener("click", function () {
+        if (!url) return;
+        ajax("/diskuz-call/preferences", {
+          type: "PUT",
+          data: { selected_custom_ringtone_index: r.index },
+        }).then(() => {
+          window.DiskuzCallCustomRingtoneUrl = url;
+          window.DiskuzCallSelectedCustomRingtoneIndex = r.index;
+          list.querySelectorAll(".diskuz-custom-ringtones-row").forEach((r) => r.classList.remove("selected"));
+          row.classList.add("selected");
+          showToast(isIt ? "Suoneria salvata." : "Ringtone saved.");
+        }).catch(() => showToast(isIt ? "Errore nel salvataggio." : "Failed to save."));
+      });
+      list.appendChild(row);
+    });
+    wrap.appendChild(list);
+  }
+
   function openWidgetToNotificationsPage() {
     if (!widget.classList.contains("open")) {
       if (!lastWidgetRect || lastWidgetRect.width <= 0) {
@@ -1032,8 +1274,11 @@ export default apiInitializer("0.8", (api) => {
 
   function updateCallFeatureVisibility() {
     if (widget) {
-      widget.style.display = "";
-      if (widget.classList.contains("open")) widget.style.display = "block";
+      if (widget.classList.contains("open")) {
+        widget.style.display = "block";
+      } else {
+        widget.style.display = "none";
+      }
     }
     updateFloatingButtonForComposer();
   }
@@ -1147,6 +1392,7 @@ export default apiInitializer("0.8", (api) => {
               ${isIt ? "Notifiche" : "Notifications"}
               <span id="diskuz-notifications-badge" class="diskuz-notifications-badge">0</span>
             </button>
+            <div id="diskuz-call-custom-ringtones-wrap" class="diskuz-custom-ringtones-wrap" style="display:none;"></div>
             <p class="diskuz-widget-description">${(isIt
               ? "Questo widget ti consente di chiamare i tuoi amici su "
               : "This widget lets you call your friends on ") + (siteName.replace(/</g, "&lt;").replace(/>/g, "&gt;")) + (isIt
@@ -1155,13 +1401,12 @@ export default apiInitializer("0.8", (api) => {
           </div>
           <div class="diskuz-widget-footer">
             <button type="button" id="diskuz-widget-hide-btn" class="diskuz-widget-hide-btn">${isIt ? "Nascondi" : "Hide"}</button>
-            <button type="button" id="diskuz-widget-install-app-btn" class="diskuz-widget-install-app-btn" aria-label="${isIt ? "Installa diskuz Call" : "Install diskuz Call"}">${isIt ? "Installa diskuz Call" : "Install diskuz Call"}</button>
-            <button type="button" id="diskuz-widget-install-site-btn" class="diskuz-widget-install-site-btn" aria-label="${isIt ? "Installa diskuz.com come app" : "Install diskuz.com as app"}">${isIt ? "Installa sito diskuz.com" : "Install diskuz.com site"}</button>
+            <button type="button" id="diskuz-widget-install-site-btn" class="diskuz-widget-install-site-btn" aria-label="${isIt ? "Installa app diskuz.com" : "Install diskuz.com app"}">${isIt ? "Installa app diskuz.com" : "Install diskuz.com app"}</button>
           </div>
         </div>
         <div class="diskuz-widget-page-notifications diskuz-widget-page">
           <div class="diskuz-widget-notifications-header">
-            <button type="button" id="diskuz-widget-notifications-home-btn" class="diskuz-widget-home-btn" aria-label="${isIt ? "Home" : "Home"}">⌂</button>
+            <button type="button" id="diskuz-widget-notifications-home-btn" class="diskuz-widget-home-btn diskuz-widget-back-btn" aria-label="${isIt ? "Indietro" : "Back"}">←</button>
             <strong class="diskuz-widget-notifications-title">${isIt ? "Notifiche" : "Notifications"}</strong>
           </div>
           <div class="diskuz-notifications-tabs">
@@ -1173,8 +1418,7 @@ export default apiInitializer("0.8", (api) => {
           <div id="diskuz-widget-history-list" class="diskuz-widget-history-list"></div>
           <div class="diskuz-widget-footer">
             <button type="button" class="diskuz-widget-hide-btn diskuz-widget-hide-btn-notif">${isIt ? "Nascondi" : "Hide"}</button>
-            <button type="button" class="diskuz-widget-install-app-btn diskuz-widget-install-app-btn-notif">${isIt ? "Installa diskuz Call" : "Install diskuz Call"}</button>
-            <button type="button" class="diskuz-widget-install-site-btn diskuz-widget-install-site-btn-notif">${isIt ? "Installa sito diskuz.com" : "Install diskuz.com site"}</button>
+            <button type="button" class="diskuz-widget-install-site-btn diskuz-widget-install-site-btn-notif">${isIt ? "Installa app diskuz.com" : "Install diskuz.com app"}</button>
           </div>
         </div>
       `;
@@ -1411,25 +1655,6 @@ export default apiInitializer("0.8", (api) => {
         });
       });
 
-      widget.querySelectorAll(".diskuz-widget-install-app-btn").forEach(function (installBtn) {
-        installBtn.addEventListener("click", function () {
-          if (installPromptEvent) {
-            installPromptEvent.prompt();
-            installPromptEvent.userChoice.then(function (choice) {
-              installPromptEvent = null;
-            }).catch(function () { installPromptEvent = null; });
-          } else {
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-            const isIt = document.documentElement.lang === "it";
-            if (isIOS) {
-              showToast(isIt ? "Apri il menu Condividi (↑) e scegli \"Aggiungi a Home\" per installare diskuz Call." : "Open the Share menu (↑) and choose \"Add to Home Screen\" to install diskuz Call.", 8000);
-            } else {
-              showToast(isIt ? "Usa il menu del browser (⋮) > \"Installa app\" o \"Aggiungi a Home\" per installare diskuz Call." : "Use the browser menu (⋮) > \"Install app\" or \"Add to Home\" to install diskuz Call.", 6000);
-            }
-          }
-        });
-      });
-
       function triggerInstallDiskuzSite() {
         const isIt = document.documentElement.lang === "it";
         const onDiskuz = typeof window.location !== "undefined" && window.location.hostname && (window.location.hostname === "diskuz.com" || window.location.hostname.endsWith(".diskuz.com"));
@@ -1440,14 +1665,14 @@ export default apiInitializer("0.8", (api) => {
           } else {
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
             if (isIOS) {
-              showToast(isIt ? "Apri il menu Condividi (↑) e scegli \"Aggiungi a Home\" per installare diskuz.com come app." : "Open the Share menu (↑) and choose \"Add to Home Screen\" to install diskuz.com as app.", 8000);
+              showToast(isIt ? "Apri il menu Condividi (↑) e scegli \"Aggiungi a Home\" per installare l'app diskuz.com." : "Open the Share menu (↑) and choose \"Add to Home Screen\" to install the diskuz.com app.", 8000);
             } else {
-              showToast(isIt ? "Usa il menu del browser (⋮) > \"Installa app\" o \"Aggiungi a Home\" per installare diskuz.com." : "Use the browser menu (⋮) > \"Install app\" or \"Add to Home\" to install diskuz.com.", 6000);
+              showToast(isIt ? "Usa il menu del browser (⋮) > \"Installa app\" o \"Aggiungi a Home\" per installare l'app diskuz.com." : "Use the browser menu (⋮) > \"Install app\" or \"Add to Home\" to install the diskuz.com app.", 6000);
             }
           }
         } else {
           window.open(DISKUZ_SITE_URL, "_blank", "noopener,noreferrer");
-          showToast(isIt ? "Apri diskuz.com e usa \"Installa diskuz Call\" o \"Installa sito diskuz.com\" per installare come app." : "Open diskuz.com and use \"Install diskuz Call\" or \"Install diskuz.com site\" to install as an app.", 7000);
+          showToast(isIt ? "Apri diskuz.com e usa \"Installa app diskuz.com\" per installare come app." : "Open diskuz.com and use \"Install diskuz.com app\" to install as an app.", 7000);
         }
       }
 
@@ -2646,9 +2871,9 @@ export default apiInitializer("0.8", (api) => {
 
     if (widget.classList.contains("open")) {
       if (!isMobileDevice()) captureWidgetRect();
+      widget.style.display = "none";
       widget.classList.remove("open");
       setTimeout(function () {
-        widget.style.display = "none";
         updateBodyScrollLock();
       }, 200);
     } else {
@@ -2670,9 +2895,9 @@ export default apiInitializer("0.8", (api) => {
   function toggleWidgetForceClose() {
     if (!widget) return;
     if (!isMobileDevice()) captureWidgetRect();
+    widget.style.display = "none";
     widget.classList.remove("open");
     setTimeout(function () {
-      widget.style.display = "none";
       updateBodyScrollLock();
     }, 200);
   }
@@ -2702,6 +2927,8 @@ export default apiInitializer("0.8", (api) => {
         }
         window.DiskuzCallIncomingSound = (data.incoming_sound != null && String(data.incoming_sound).trim() !== "") ? String(data.incoming_sound).trim() : "default";
         window.DiskuzCallCustomRingtoneUrl = (data.custom_ringtone_url != null && data.custom_ringtone_url !== "") ? String(data.custom_ringtone_url).trim() : "";
+        window.DiskuzCallCustomRingtones = Array.isArray(data.custom_ringtones) ? data.custom_ringtones : [];
+        window.DiskuzCallSelectedCustomRingtoneIndex = data.selected_custom_ringtone_index != null ? data.selected_custom_ringtone_index : null;
         window.DiskuzCallAlternativeRingtone = (data.alternative_ringtone != null && String(data.alternative_ringtone).trim() !== "") ? String(data.alternative_ringtone).trim() : "classic";
         if (Array.isArray(data.ice_servers) && data.ice_servers.length > 0) window.DiskuzCallIceServers = data.ice_servers;
         subscribeMessageBus();
@@ -2712,6 +2939,9 @@ export default apiInitializer("0.8", (api) => {
         } catch (e) {}
         createFloatingButton();
         createWidget();
+        if (data.incoming_sound === "custom" && window.DiskuzCallCustomRingtones.length > 0) {
+          updateCustomRingtonesUI(window.DiskuzCallCustomRingtones, window.DiskuzCallSelectedCustomRingtoneIndex);
+        }
         loadWidgetRectFromStorage();
         updateNotificationsBadge();
         updateCallFeatureVisibility();

@@ -20,6 +20,7 @@ after_initialize do
   begin
     if User.respond_to?(:register_custom_field_type)
       User.register_custom_field_type("diskuz_call_enabled", :boolean)
+      User.register_custom_field_type("diskuz_call_selected_custom_ringtone_index", :integer)
     end
   rescue NameError, ArgumentError, StandardError => e
     Rails.logger.warn("diskuz-call: skip register_custom_field_type: #{e.message}")

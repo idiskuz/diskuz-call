@@ -71,6 +71,13 @@
 }
 
 /* --- CALL WIDGET (stesso stile e dimensioni della UI chiamata: sfondo dinamico + animazione) --- */
+/* Widget nascosto quando non .open: niente area cliccabile trasparente */
+#diskuz-call-widget:not(.open) {
+  display: none !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
 #diskuz-call-widget {
   position: fixed;
   bottom: 190px; /* same as #diskuz-call-btn */
@@ -95,10 +102,12 @@
 }
 
 #diskuz-call-widget.open {
-  display: flex;
+  display: flex !important;
   flex-direction: column;
   opacity: 1;
   transform: translateY(0);
+  pointer-events: auto;
+  visibility: visible;
 }
 
 /* Desktop: widget con altezza fissa così la pagina Notifications riempie fino in fondo */
@@ -114,6 +123,9 @@
   }
   #diskuz-call-widget .diskuz-widget-page {
     min-height: 0;
+  }
+  #diskuz-call-widget .diskuz-widget-page:not(.diskuz-widget-page-active) {
+    display: none !important;
   }
   #diskuz-call-widget .diskuz-widget-page-home {
     overflow-y: auto;
@@ -132,10 +144,11 @@
   #diskuz-call-widget .diskuz-widget-page-notifications .diskuz-widget-footer {
     flex-shrink: 0;
   }
+  /* Desktop: max 4 notifiche visibili, il resto con scroll a rotella (fino a 10 per tab) */
   #diskuz-call-widget .diskuz-widget-page-notifications .diskuz-widget-history-list {
     flex: 1;
     min-height: 0;
-    max-height: none;
+    max-height: 220px;
     overflow-y: auto;
   }
 }
@@ -363,8 +376,11 @@
   }
 
   /* Solo la pagina attiva è visibile e occupa lo spazio; l’altra resta nascosta (seconda pagina selezionabile da Notifications) */
+  #diskuz-call-widget .diskuz-widget-page:not(.diskuz-widget-page-active) {
+    display: none !important;
+  }
   #diskuz-call-widget .diskuz-widget-page.diskuz-widget-page-active {
-    display: flex;
+    display: flex !important;
     flex: 1;
     min-height: 0;
     overflow: hidden;
@@ -522,6 +538,68 @@
   line-height: 1.4;
   margin: 14px 0 0 0;
   padding: 0 2px;
+}
+
+/* Suonerie personalizzate (scelta + anteprima nel widget) */
+.diskuz-custom-ringtones-wrap {
+  margin-top: 12px;
+  padding: 10px 0 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+.diskuz-custom-ringtones-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  margin-bottom: 8px;
+}
+.diskuz-custom-ringtones-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.diskuz-custom-ringtones-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.diskuz-custom-ringtones-row.selected {
+  background: rgba(19, 201, 140, 0.2);
+  border-color: rgba(19, 201, 140, 0.5);
+}
+.diskuz-custom-ringtones-label {
+  flex: 1;
+  font-size: 13px;
+  color: #ffffff;
+  min-width: 0;
+}
+.diskuz-custom-ringtones-preview-btn,
+.diskuz-custom-ringtones-select-btn {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+.diskuz-custom-ringtones-preview-btn:hover,
+.diskuz-custom-ringtones-select-btn:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+.diskuz-custom-ringtones-select-btn {
+  background: rgba(19, 201, 140, 0.25);
+  border-color: rgba(19, 201, 140, 0.5);
+}
+.diskuz-custom-ringtones-select-btn:hover {
+  background: rgba(19, 201, 140, 0.4);
 }
 .diskuz-widget-description {
   font-size: 11px;
@@ -765,6 +843,30 @@
 }
 #diskuz-call-widget .diskuz-widget-home-btn:hover {
   background: rgba(255, 255, 255, 0.65);
+}
+
+/* Pulsante Indietro in Notifications: come Nascondi (verde + pulsazione), freccia ← */
+#diskuz-call-widget .diskuz-widget-back-btn {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 10px 14px;
+  background: rgba(19, 201, 140, 0.25);
+  border: 1px solid rgba(19, 201, 140, 0.6);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 20px;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 2px 8px rgba(19, 201, 140, 0.25);
+  animation: diskuz-hide-btn-pulse 1.8s ease-in-out infinite;
+  border-radius: 10px;
+}
+#diskuz-call-widget .diskuz-widget-back-btn:hover {
+  background: rgba(19, 201, 140, 0.4);
+  border-color: rgba(19, 201, 140, 0.8);
+  box-shadow: 0 2px 12px rgba(19, 201, 140, 0.35);
 }
 
 #diskuz-call-widget .diskuz-widget-status-label {
