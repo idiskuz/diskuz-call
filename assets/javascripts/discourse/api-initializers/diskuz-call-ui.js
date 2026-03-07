@@ -1178,7 +1178,6 @@ export default apiInitializer("0.8", (api) => {
   function updateCustomRingtonesUI(ringtones, selectedIndex) {
     const wrap = widget ? widget.querySelector("#diskuz-call-custom-ringtones-wrap") : null;
     if (!wrap || !Array.isArray(ringtones) || ringtones.length === 0) return;
-    wrap.style.display = "block";
     const isIt = document.documentElement.lang === "it";
     wrap.innerHTML = "";
     const title = document.createElement("div");
