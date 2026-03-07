@@ -3127,11 +3127,13 @@ export default apiInitializer("0.8", (api) => {
 
       case "video_answer":
         if (currentCall.active && currentCall.userId === data.from_user_id && rtcPeer && data.sdp) {
-          try {
-            await rtcPeer.setRemoteDescription(new RTCSessionDescription(data.sdp));
-          } catch (err) {
-            console.warn("diskuz-call: video_answer handling failed", err);
-          }
+          (async () => {
+            try {
+              await rtcPeer.setRemoteDescription(new RTCSessionDescription(data.sdp));
+            } catch (err) {
+              console.warn("diskuz-call: video_answer handling failed", err);
+            }
+          })();
         }
         break;
 
