@@ -55,7 +55,7 @@ Installation is done **on the server** by cloning the GitHub repository into you
 - **Description:** below the Notifications button, a short text explains the widget: "This widget lets you call your friends on [site]. Set your status to Online to receive calls, or use Busy and Offline if you don't want to be disturbed."
 - **Hide button:** on both home and Notifications pages, a **Hide** (Italian: **Nascondi**) button closes the widget. When the widget is closed it is fully hidden (no transparent clickable area).
 - **Layout:** the username field is spaced from the Call button. **Border-radius 15px** on the whole widget. Buttons use a frosted blur style (semi-transparent with backdrop blur).
-- **Notifications page:** header with a visible **← Indietro / ← Back** button (green, solid) to return to the home page; tabs **Received, Sent, Recent, Missed**; list scrollable with a **minimal styled scrollbar** (thin, green); up to **10 records per tab**; footer with **Hide** and **Installa app diskuz.com** (single install button for the full diskuz.com site).
+- **Notifications page:** header with a visible **← Indietro / ← Back** button (green, solid) to return to the home page; tabs **Received, Sent, Recent, Missed**; list scrollable with a **minimal styled scrollbar** (thin, green); up to **10 records per tab**; footer with **Hide**.
 - **Mobile:** when the widget is open it is **full page**: it covers the entire screen. The user closes it with **Hide** to see the site again. Buttons are larger and use a stronger frosted effect for easier tapping.
 
 ### Call window

@@ -673,61 +673,6 @@
   gap: 8px;
 }
 
-/* Installa App: visibile solo su mobile, vicino a Nascondi */
-.diskuz-widget-install-app-btn {
-  display: none;
-}
-@media (max-width: 700px) {
-  #diskuz-call-widget .diskuz-widget-install-app-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 10px 16px;
-    font-size: 14px;
-    font-weight: 600;
-    border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.4);
-    background: rgba(255, 255, 255, 0.2);
-    color: #ffffff;
-    cursor: pointer;
-    -webkit-backdrop-filter: blur(12px);
-    backdrop-filter: blur(12px);
-    min-height: 44px;
-  }
-  #diskuz-call-widget .diskuz-widget-install-app-btn:hover {
-    background: rgba(255, 255, 255, 0.3);
-  }
-}
-
-/* Pulsante "Installa diskuz.com": intero sito come web app (visibile desktop + mobile) */
-.diskuz-widget-install-site-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 14px;
-  font-size: 13px;
-  font-weight: 600;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  background: rgba(255, 255, 255, 0.18);
-  color: #ffffff;
-  cursor: pointer;
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  min-height: 40px;
-}
-#diskuz-call-widget .diskuz-widget-install-site-btn:hover {
-  background: rgba(255, 255, 255, 0.28);
-  border-color: rgba(255, 255, 255, 0.5);
-}
-@media (max-width: 700px) {
-  #diskuz-call-widget .diskuz-widget-install-site-btn {
-    padding: 10px 14px;
-    font-size: 13px;
-    min-height: 44px;
-  }
-}
-
 .diskuz-widget-hide-btn {
   padding: 6px 12px;
   font-size: 12px;
@@ -1424,11 +1369,15 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition: opacity 0.35s ease, transform 0.35s ease;
   flex-shrink: 0;
 }
+#diskuz-call-ui:not(.diskuz-call-controls-hidden) .diskuz-call-controls-block {
+  opacity: 1;
+  transform: translateY(0);
+}
 #diskuz-call-ui:not(.diskuz-call-controls-hidden) .diskuz-call-controls-block .diskuz-call-hide-btn {
-  display: flex !important;
+  display: inline-flex !important;
 }
 
 #diskuz-call-ui.diskuz-call-controls-hidden .diskuz-call-controls-block {
@@ -1439,16 +1388,22 @@
   bottom: 0;
   left: 0;
   right: 0;
+  transition: opacity 0.35s ease, transform 0.35s ease;
 }
 
-/* Mostra pulsanti: sempre visibile in basso quando i controlli sono nascosti */
+/* Mostra pulsanti: in fondo al footer quando i controlli sono nascosti, appare con fade in */
 #diskuz-call-ui.diskuz-call-controls-hidden .diskuz-call-show-controls {
-  display: flex !important;
+  display: inline-flex !important;
   position: sticky;
   bottom: 0;
   flex-shrink: 0;
   margin-top: auto;
   z-index: 10;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+#diskuz-call-ui.diskuz-call-controls-hidden .diskuz-call-show-controls.diskuz-call-show-visible {
+  opacity: 1;
 }
 
 /* Incoming call: show only Accept/Reject, hide Mute/Speaker/Hang up and Ear mode until accepted */
@@ -1648,27 +1603,36 @@
   border-color: rgba(255, 255, 255, 0.3);
 }
 
+/* Voce discreta sopra i pulsanti (Nascondi/Mostra pulsanti), non aspetto da pulsante */
 #diskuz-call-ui .diskuz-call-hide-btn,
 #diskuz-call-ui .diskuz-call-toggle-controls,
 #diskuz-call-ui .diskuz-call-show-controls {
-  background: rgba(255, 255, 255, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-  color: #ffffff;
-  display: flex;
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: rgba(255, 255, 255, 0.65);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 44px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  min-height: 0;
+  padding: 4px 0 8px 0;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.2s ease;
 }
-
+#diskuz-call-ui .diskuz-call-hide-btn:hover,
+#diskuz-call-ui .diskuz-call-show-controls:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
 #diskuz-call-ui .diskuz-call-toggle-label {
   color: inherit;
   font-size: inherit;
   pointer-events: none;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 #diskuz-call-proximity-overlay {
@@ -1728,24 +1692,21 @@
 
   #diskuz-call-ui .diskuz-call-show-controls {
     margin-top: auto;
-    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0));
-    width: 100%;
-    padding: 12px 16px;
-    min-height: 48px;
-    border-radius: 999px;
-    border: none;
-    background: rgba(15, 23, 42, 0.85);
-    color: #ffffff;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0));
+    width: auto;
+    padding: 4px 0 8px 0;
     display: none;
     justify-content: center;
     align-items: center;
+    background: none;
+    border: none;
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.65);
   }
 
   #diskuz-call-ui.diskuz-call-controls-hidden .diskuz-call-show-controls {
-    display: flex !important;
+    display: inline-flex !important;
   }
 
   /* Video call mobile: full screen vertical, local preview bottom-right, above "Mostra pulsanti" */
@@ -1766,23 +1727,20 @@
 @media (min-width: 701px) {
   #diskuz-call-ui .diskuz-call-show-controls {
     margin-top: auto;
-    width: 100%;
-    padding: 12px 16px;
-    min-height: 44px;
-    border-radius: 999px;
-    border: none;
-    background: rgba(15, 23, 42, 0.85);
-    color: #ffffff;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
+    width: auto;
+    padding: 4px 0 8px 0;
     display: none;
     justify-content: center;
     align-items: center;
+    background: none;
+    border: none;
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.65);
   }
 
   #diskuz-call-ui.diskuz-call-controls-hidden .diskuz-call-show-controls {
-    display: flex !important;
+    display: inline-flex !important;
   }
 }
 
@@ -1792,31 +1750,27 @@
   #diskuz-call-widget .diskuz-notifications-open-btn,
   #diskuz-call-widget #diskuz-call-history-btn,
   #diskuz-call-widget .diskuz-widget-hide-btn,
-  #diskuz-call-widget .diskuz-widget-hide-btn-notif,
-  #diskuz-call-widget .diskuz-widget-install-site-btn {
+  #diskuz-call-widget .diskuz-widget-hide-btn-notif {
     width: calc(100% - 4px);
     max-width: calc(100% - 4px);
   }
   #diskuz-call-ui .diskuz-call-controls-block,
-  #diskuz-call-ui .controls,
-  #diskuz-call-ui .diskuz-call-hide-btn,
-  #diskuz-call-ui .diskuz-call-show-controls {
+  #diskuz-call-ui .controls {
     width: calc(100% - 4px);
   }
 }
 
 #diskuz-call-ui .diskuz-call-hide-btn,
 #diskuz-call-ui .diskuz-call-toggle-controls {
-  margin-bottom: 10px;
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: 999px;
-  font-size: 14px;
-  cursor: pointer;
+  margin-bottom: 6px;
+  width: auto;
+  padding: 4px 0 8px 0;
+  font-size: 12px;
   justify-content: center;
 }
 
 #diskuz-call-ui .diskuz-call-show-controls {
-  font-size: 15px;
-  padding: 12px 16px;
+  font-size: 12px;
+  padding: 4px 0 8px 0;
+  width: auto;
 }

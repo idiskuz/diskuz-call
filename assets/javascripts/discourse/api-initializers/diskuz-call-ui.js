@@ -70,14 +70,7 @@ export default apiInitializer("0.8", (api) => {
   const WIDGET_PAGE_NOTIFICATIONS = "notifications";
   let lastWidgetRect = null;
   let widgetWasOpenBeforeCall = false;
-  let installPromptEvent = null;
   const WIDGET_RECT_STORAGE_KEY = "diskuz_call_widget_rect";
-  const DISKUZ_SITE_URL = "https://diskuz.com";
-
-  window.addEventListener("beforeinstallprompt", function (e) {
-    e.preventDefault();
-    installPromptEvent = e;
-  });
   /* Dimensioni minime widget/call UI su desktop: evitano che si salvi/ripristini un rect ristretto per errore */
   const WIDGET_MIN_WIDTH = 360;
   const WIDGET_MIN_HEIGHT = 560;
@@ -1426,7 +1419,6 @@ export default apiInitializer("0.8", (api) => {
           </div>
           <div class="diskuz-widget-footer">
             <button type="button" id="diskuz-widget-hide-btn" class="diskuz-widget-hide-btn">${isIt ? "Nascondi" : "Hide"}</button>
-            <button type="button" id="diskuz-widget-install-site-btn" class="diskuz-widget-install-site-btn" aria-label="${isIt ? "Installa app diskuz.com" : "Install diskuz.com app"}">${isIt ? "Installa app diskuz.com" : "Install diskuz.com app"}</button>
           </div>
         </div>
         <div class="diskuz-widget-page-notifications diskuz-widget-page">
@@ -1443,7 +1435,6 @@ export default apiInitializer("0.8", (api) => {
           <div id="diskuz-widget-history-list" class="diskuz-widget-history-list"></div>
           <div class="diskuz-widget-footer">
             <button type="button" class="diskuz-widget-hide-btn diskuz-widget-hide-btn-notif">${isIt ? "Nascondi" : "Hide"}</button>
-            <button type="button" class="diskuz-widget-install-site-btn diskuz-widget-install-site-btn-notif">${isIt ? "Installa app diskuz.com" : "Install diskuz.com app"}</button>
           </div>
         </div>
       `;
@@ -1497,8 +1488,6 @@ export default apiInitializer("0.8", (api) => {
       const historyBtn = widget.querySelector("#diskuz-call-history-btn");
       const suggestionsEl = widget.querySelector("#diskuz-call-suggestions");
 
-      let followerUsernamesCache = null;
-
       function getSuggestionsUsernameList() {
         const myUser = (currentUserUsername || "").toLowerCase().trim();
         const fromHistory = new Set();
@@ -1506,46 +1495,7 @@ export default apiInitializer("0.8", (api) => {
           const u = (h.username || "").trim();
           if (u && u.toLowerCase() !== myUser) fromHistory.add(u);
         });
-        const list = Array.from(fromHistory);
-        if (followerUsernamesCache && followerUsernamesCache.length) {
-          followerUsernamesCache.forEach((u) => {
-            const key = u.trim();
-            if (key && key.toLowerCase() !== myUser) fromHistory.add(key);
-          });
-          return Array.from(fromHistory).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
-        }
-        return list.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
-      }
-
-      function loadFollowerUsernamesIfNeeded(cb) {
-        if (followerUsernamesCache !== null) {
-          if (cb) cb();
-          return;
-        }
-        followerUsernamesCache = [];
-        const parseFollowers = (data) => {
-          if (data && Array.isArray(data.followers)) {
-            data.followers.forEach((f) => {
-              const u = f.username || f.name || (f.user && (f.user.username || f.user.name));
-              if (u) followerUsernamesCache.push(String(u).trim());
-            });
-          } else if (data && Array.isArray(data)) {
-            data.forEach((f) => {
-              const u = f.username || f.name || (f.user && (f.user.username || f.user.name));
-              if (u) followerUsernamesCache.push(String(u).trim());
-            });
-          }
-        };
-        const url1 = "/follow/followers.json";
-        const url2 = "/u/" + encodeURIComponent(currentUserUsername || "me") + "/followers.json";
-        fetch(url1, { credentials: "same-origin" })
-          .then((r) => {
-            if (r.ok) return r.json().then(parseFollowers);
-            if (r.status === 404) return fetch(url2, { credentials: "same-origin" }).then((r2) => (r2.ok ? r2.json().then(parseFollowers) : null)).catch(() => null);
-            return null;
-          })
-          .catch(() => fetch(url2, { credentials: "same-origin" }).then((r2) => (r2.ok ? r2.json().then(parseFollowers) : null)).catch(() => null))
-          .then(() => { if (cb) cb(); });
+        return Array.from(fromHistory).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
       }
 
       function showSuggestions(filter) {
@@ -1593,9 +1543,7 @@ export default apiInitializer("0.8", (api) => {
 
       if (input && suggestionsEl) {
         input.addEventListener("focus", function () {
-          loadFollowerUsernamesIfNeeded(() => {
-            showSuggestions(input.value);
-          });
+          showSuggestions(input.value);
         });
         input.addEventListener("input", function () {
           showSuggestions(input.value);
@@ -1698,31 +1646,6 @@ export default apiInitializer("0.8", (api) => {
         });
       });
 
-      function triggerInstallDiskuzSite() {
-        const isIt = document.documentElement.lang === "it";
-        const onDiskuz = typeof window.location !== "undefined" && window.location.hostname && (window.location.hostname === "diskuz.com" || window.location.hostname.endsWith(".diskuz.com"));
-        if (onDiskuz) {
-          if (installPromptEvent) {
-            installPromptEvent.prompt();
-            installPromptEvent.userChoice.then(function () { installPromptEvent = null; }).catch(function () { installPromptEvent = null; });
-          } else {
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-            if (isIOS) {
-              showToast(isIt ? "Apri il menu Condividi (↑) e scegli \"Aggiungi a Home\" per installare l'app diskuz.com." : "Open the Share menu (↑) and choose \"Add to Home Screen\" to install the diskuz.com app.", 8000);
-            } else {
-              showToast(isIt ? "Usa il menu del browser (⋮) > \"Installa app\" o \"Aggiungi a Home\" per installare l'app diskuz.com." : "Use the browser menu (⋮) > \"Install app\" or \"Add to Home\" to install the diskuz.com app.", 6000);
-            }
-          }
-        } else {
-          window.open(DISKUZ_SITE_URL, "_blank", "noopener,noreferrer");
-          showToast(isIt ? "Apri diskuz.com e usa \"Installa app diskuz.com\" per installare come app." : "Open diskuz.com and use \"Install diskuz.com app\" to install as an app.", 7000);
-        }
-      }
-
-      widget.querySelectorAll(".diskuz-widget-install-site-btn").forEach(function (siteBtn) {
-        siteBtn.addEventListener("click", triggerInstallDiskuzSite);
-      });
-
       const notifHomeBtn = widget.querySelector("#diskuz-widget-notifications-home-btn");
       if (notifHomeBtn) {
         notifHomeBtn.addEventListener("click", function () {
@@ -1822,7 +1745,7 @@ export default apiInitializer("0.8", (api) => {
             <div class="controls">
               <button class="btn mute">Mute</button>
               <button class="btn speaker">Speaker</button>
-              <button class="btn video" style="display:none;" aria-label="Video">📹</button>
+              <button type="button" class="btn video" style="display:none;" aria-label="Video">📹</button>
               <button class="btn hangup">Hang up</button>
             </div>
           </div>
@@ -1914,23 +1837,21 @@ export default apiInitializer("0.8", (api) => {
       });
 
       function handleVideoButtonTap() {
+        log("[UI] Video button tapped, localVideoOn=", localVideoOn);
         if (localVideoOn) {
           disableVideo();
         } else {
-          enableVideo();
+          enableVideo().catch((err) => {
+            console.warn("diskuz-call: enableVideo failed in handler", err);
+          });
         }
       }
       if (videoBtn) {
         videoBtn.addEventListener("click", function (e) {
-          if (isMobileDevice()) return;
+          e.preventDefault();
+          e.stopPropagation();
           handleVideoButtonTap();
         });
-        if (isMobileDevice()) {
-          videoBtn.addEventListener("touchend", function (e) {
-            e.preventDefault();
-            handleVideoButtonTap();
-          }, { passive: false });
-        }
       }
 
       const hideBtn = callUI.querySelector(".diskuz-call-hide-btn");
@@ -1943,40 +1864,65 @@ export default apiInitializer("0.8", (api) => {
       if (hideLabel) hideLabel.textContent = hideText;
       if (showLabel) showLabel.textContent = showText;
       if (hideBtn) {
-        hideBtn.style.display = "flex";
+        hideBtn.style.display = "inline-flex";
       }
       if (showBtn) {
         showBtn.style.display = "none";
         showBtn.classList.add("diskuz-call-toggle-controls");
       }
+      const CONTROLS_ANIM_MS = 350;
       function updateToggleVisibility() {
         const hidden = callUI.classList.contains("diskuz-call-controls-hidden");
-        if (hideBtn) hideBtn.style.display = hidden ? "none" : "flex";
+        if (hideBtn) hideBtn.style.display = hidden ? "none" : "inline-flex";
         if (showBtn) {
-          showBtn.style.display = hidden ? "flex" : "none";
+          showBtn.style.display = hidden ? "inline-flex" : "none";
           showBtn.style.marginTop = "auto";
-          showBtn.style.width = "100%";
-          showBtn.style.padding = "10px";
-          showBtn.style.borderRadius = "999px";
-          showBtn.style.border = "none";
-          showBtn.style.background = "rgba(15, 23, 42, 0.85)";
-          showBtn.style.color = "#fff";
-          showBtn.style.fontSize = "14px";
-          showBtn.style.cursor = "pointer";
-          showBtn.style.justifyContent = "center";
         }
       }
-      if (hideBtn) {
-        hideBtn.addEventListener("click", function () {
-          callUI.classList.add("diskuz-call-controls-hidden");
-          updateToggleVisibility();
-        });
+      function hideControls() {
+        callUI.classList.add("diskuz-call-controls-hidden");
+        updateToggleVisibility();
+        if (showBtn) {
+          showBtn.classList.remove("diskuz-call-show-visible");
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              showBtn.classList.add("diskuz-call-show-visible");
+            });
+          });
+        }
       }
-      if (showBtn) {
-        showBtn.addEventListener("click", function () {
+      function showControls() {
+        if (showBtn) showBtn.classList.remove("diskuz-call-show-visible");
+        setTimeout(() => {
           callUI.classList.remove("diskuz-call-controls-hidden");
           updateToggleVisibility();
+        }, CONTROLS_ANIM_MS);
+      }
+      if (hideBtn) {
+        hideBtn.addEventListener("click", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          hideControls();
         });
+        if (isMobileDevice()) {
+          hideBtn.addEventListener("touchend", function (e) {
+            e.preventDefault();
+            hideControls();
+          }, { passive: false });
+        }
+      }
+      if (showBtn) {
+        showBtn.addEventListener("click", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          showControls();
+        });
+        if (isMobileDevice()) {
+          showBtn.addEventListener("touchend", function (e) {
+            e.preventDefault();
+            showControls();
+          }, { passive: false });
+        }
       }
 
       let startY = 0;
@@ -2499,9 +2445,7 @@ export default apiInitializer("0.8", (api) => {
       if (connState === "connected" && rtcRemoteAudio && rtcRemoteAudio.srcObject) {
         rtcRemoteAudio.muted = false;
         applySpeakerSink();
-        rtcRemoteAudio.play().catch((err) => {
-          log("[*] remote audio play() retry on connected failed", err);
-        });
+        scheduleRemoteAudioPlayRetries();
       }
       updateVideoButtonVisibility();
     };
@@ -2534,16 +2478,27 @@ export default apiInitializer("0.8", (api) => {
       }
     };
 
+    function scheduleRemoteAudioPlayRetries() {
+      if (!rtcRemoteAudio || !rtcRemoteAudio.srcObject) return;
+      rtcRemoteAudio.muted = false;
+      const tryPlay = () => {
+        rtcRemoteAudio.play().catch((err) => {
+          log("[*] remote audio play() retry failed", err);
+        });
+      };
+      tryPlay();
+      setTimeout(tryPlay, 100);
+      setTimeout(tryPlay, 400);
+    }
+
     rtcPeer.ontrack = (event) => {
       const stream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream([event.track]);
       if (event.track.kind === "audio" && rtcRemoteAudio) {
         rtcRemoteAudio.srcObject = stream;
         rtcRemoteAudio.muted = false;
-        if (isMobileDevice()) rtcRemoteAudio.volume = 0.25;
+        rtcRemoteAudio.volume = isMobileDevice() ? 0.25 : 1;
         applySpeakerSink();
-        rtcRemoteAudio.play().catch((err) => {
-          log("[*] ontrack audio play() failed (may need user gesture)", err);
-        });
+        scheduleRemoteAudioPlayRetries();
         if (callConnectedAt == null && !callDurationIntervalId) {
           callConnectedAt = Date.now();
           startCallDurationTimer();
