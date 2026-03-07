@@ -1799,6 +1799,20 @@ export default apiInitializer("0.8", (api) => {
           </div>
           <div class="duration" aria-label="Call duration">00:00</div>
 
+          <div class="diskuz-call-voice-effects">
+            <div class="diskuz-call-voice-effects-title"></div>
+            <label class="diskuz-call-voice-effects-row"><input type="checkbox" class="diskuz-call-studio-reverb-cb"> <span class="diskuz-call-studio-reverb-label"></span></label>
+            <div class="diskuz-call-voice-effects-row">
+              <span class="diskuz-call-pitch-label"></span>
+              <select class="diskuz-call-pitch-select" aria-label="Pitch">
+                <option value="normal" class="diskuz-call-pitch-opt-normal"></option>
+                <option value="high" class="diskuz-call-pitch-opt-high"></option>
+                <option value="low" class="diskuz-call-pitch-opt-low"></option>
+              </select>
+            </div>
+            <label class="diskuz-call-voice-effects-row"><input type="checkbox" class="diskuz-call-autotune-cb"> <span class="diskuz-call-autotune-label"></span></label>
+          </div>
+
           <div class="diskuz-call-video-wrap" style="display:none;">
             <video class="diskuz-call-remote-video" autoplay playsinline aria-label="Remote video"></video>
             <div class="diskuz-call-local-preview-wrap">
@@ -1902,6 +1916,46 @@ export default apiInitializer("0.8", (api) => {
           document.exitFullscreen?.();
         }
       });
+
+      const voiceEffectsBlock = callUI.querySelector(".diskuz-call-voice-effects");
+      const studioReverbCb = callUI.querySelector(".diskuz-call-studio-reverb-cb");
+      const pitchSelect = callUI.querySelector(".diskuz-call-pitch-select");
+      if (voiceEffectsBlock) {
+        const titleEl = voiceEffectsBlock.querySelector(".diskuz-call-voice-effects-title");
+        const reverbLabel = voiceEffectsBlock.querySelector(".diskuz-call-studio-reverb-label");
+        const pitchLabel = voiceEffectsBlock.querySelector(".diskuz-call-pitch-label");
+        const optNormal = voiceEffectsBlock.querySelector(".diskuz-call-pitch-opt-normal");
+        const optHigh = voiceEffectsBlock.querySelector(".diskuz-call-pitch-opt-high");
+        const optLow = voiceEffectsBlock.querySelector(".diskuz-call-pitch-opt-low");
+        if (titleEl) titleEl.textContent = isIt ? "Effetti voce" : "Voice effects";
+        if (reverbLabel) reverbLabel.textContent = isIt ? "Studio + Reverb" : "Studio + Reverb";
+        if (pitchLabel) pitchLabel.textContent = isIt ? "Voce:" : "Pitch:";
+        if (optNormal) optNormal.textContent = isIt ? "Normale" : "Normal";
+        if (optHigh) optHigh.textContent = isIt ? "Acuta (elfo/bambino)" : "High (elf/child)";
+        if (optLow) optLow.textContent = isIt ? "Grave" : "Low (deep)";
+        const autotuneLabel = voiceEffectsBlock.querySelector(".diskuz-call-autotune-label");
+        if (autotuneLabel) autotuneLabel.textContent = isIt ? "Autotune" : "Autotune";
+        if (studioReverbCb) {
+          studioReverbCb.addEventListener("change", function () {
+            voiceEffectsStudioReverbOn = studioReverbCb.checked;
+            applyVoiceEffectsToPeer();
+          });
+        }
+        if (pitchSelect) {
+          pitchSelect.addEventListener("change", function () {
+            voiceEffectsPitch = pitchSelect.value || "normal";
+            applyVoiceEffectsToPeer();
+          });
+        }
+        const autotuneCb = voiceEffectsBlock.querySelector(".diskuz-call-autotune-cb");
+        if (autotuneCb) {
+          autotuneCb.addEventListener("change", function () {
+            voiceEffectsAutotuneOn = autotuneCb.checked;
+            applyVoiceEffectsToPeer();
+          });
+        }
+      }
+
       if (videoBtn) videoBtn.addEventListener("click", async function () {
         if (localVideoOn) {
           await disableVideo();
@@ -2126,6 +2180,18 @@ export default apiInitializer("0.8", (api) => {
   let localVideoOn = false;
   let remoteVideoActive = false;
   const VIDEO_MIRROR_STORAGE_KEY = "diskuz_call_video_mirror";
+  let voiceEffectsContext = null;
+  let voiceEffectsSource = null;
+  let voiceEffectsReverb = null;
+  let voiceEffectsCompressor = null;
+  let voiceEffectsDestination = null;
+  let voiceEffectsProcessedTrack = null;
+  let voiceEffectsToneFilter = null;
+  let voiceEffectsStudioReverbOn = false;
+  let voiceEffectsPitch = "normal";
+  let voiceEffectsAutotuneOn = false;
+  let voiceEffectsAutotuneNode = null;
+  let voiceEffectsAutotuneModuleLoaded = false;
   let iceCandidateQueue = [];
   let pendingIceCandidatesToAdd = [];
   let iceAddInProgress = false;
@@ -2285,6 +2351,207 @@ export default apiInitializer("0.8", (api) => {
     }
   }
 
+  function getAutotuneWorkletCode() {
+    return `
+registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this.bufferSize = 8192;
+    this.buf = new Float32Array(this.bufferSize);
+    this.writePos = 0;
+    this.smoothedF0 = 220;
+    this.lastRatio = 1;
+    this.warmup = 0;
+  }
+  process(inputs, outputs, parameters) {
+    const input = inputs[0] && inputs[0][0];
+    const output = outputs[0] && outputs[0][0];
+    if (!input || !output || input.length !== 128) return true;
+    const sr = sampleRate;
+    const len = 128;
+    for (let i = 0; i < len; i++) {
+      this.buf[(this.writePos + i) % this.bufferSize] = input[i];
+    }
+    this.writePos = (this.writePos + len) % this.bufferSize;
+    this.warmup++;
+    if (this.warmup < 12) {
+      for (let i = 0; i < len; i++) output[i] = input[i];
+      return true;
+    }
+    const detectLen = Math.min(2048, this.bufferSize - 1);
+    let bestLag = 0;
+    let bestCorr = -1;
+    const minLag = Math.floor(sr / 500);
+    const maxLag = Math.min(Math.floor(sr / 75), detectLen - 1);
+    for (let lag = minLag; lag <= maxLag; lag++) {
+      let corr = 0;
+      for (let i = 0; i < detectLen - lag; i++) {
+        const idx = (this.writePos - detectLen + i + this.bufferSize) % this.bufferSize;
+        const idx2 = (idx + lag) % this.bufferSize;
+        corr += this.buf[idx] * this.buf[idx2];
+      }
+      if (corr > bestCorr) { bestCorr = corr; bestLag = lag; }
+    }
+    let f0 = bestLag > 0 ? sr / bestLag : this.smoothedF0;
+    if (f0 < 75 || f0 > 520) f0 = this.smoothedF0;
+    this.smoothedF0 = 0.85 * this.smoothedF0 + 0.15 * f0;
+    const n = Math.round(12 * Math.log2(this.smoothedF0 / 440));
+    const targetFreq = 440 * Math.pow(2, n / 12);
+    let ratio = targetFreq / this.smoothedF0;
+    if (ratio < 0.5 || ratio > 2) ratio = this.lastRatio;
+    this.lastRatio = 0.9 * this.lastRatio + 0.1 * ratio;
+    const readStart = (this.writePos - 1024 - len + this.bufferSize * 2) % this.bufferSize;
+    for (let i = 0; i < len; i++) {
+      let r = readStart + i * this.lastRatio;
+      r = ((r % this.bufferSize) + this.bufferSize) % this.bufferSize;
+      const r0 = Math.floor(r) % this.bufferSize;
+      const r1 = (r0 + 1) % this.bufferSize;
+      const t = r - Math.floor(r);
+      output[i] = this.buf[r0] * (1 - t) + this.buf[r1] * t;
+    }
+    return true;
+  }
+});
+`;
+  }
+
+  async function loadAutotuneWorklet(context) {
+    if (voiceEffectsAutotuneModuleLoaded) return true;
+    try {
+      const code = getAutotuneWorkletCode();
+      const blob = new Blob([code], { type: "application/javascript" });
+      const url = URL.createObjectURL(blob);
+      await context.audioWorklet.addModule(url);
+      URL.revokeObjectURL(url);
+      voiceEffectsAutotuneModuleLoaded = true;
+      return true;
+    } catch (e) {
+      console.warn("diskuz-call: autotune worklet load failed", e);
+      return false;
+    }
+  }
+
+  function createReverbIR(context, durationSec, decay) {
+    const sampleRate = context.sampleRate;
+    const length = Math.floor(sampleRate * durationSec);
+    const buffer = context.createBuffer(1, length, sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < length; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (sampleRate * decay));
+    }
+    return buffer;
+  }
+
+  async function buildVoiceEffectsChain() {
+    if (!rtcLocalStream || !rtcPeer) return null;
+    const audioTrack = rtcLocalStream.getAudioTracks()[0];
+    if (!audioTrack) return null;
+    try {
+      if (!voiceEffectsContext) {
+        voiceEffectsContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (voiceEffectsContext.state === "suspended") await voiceEffectsContext.resume();
+      if (voiceEffectsSource) try { voiceEffectsSource.disconnect(); } catch (e) {}
+      if (voiceEffectsReverb) try { voiceEffectsReverb.disconnect(); } catch (e) {}
+      if (voiceEffectsCompressor) try { voiceEffectsCompressor.disconnect(); } catch (e) {}
+      if (voiceEffectsToneFilter) try { voiceEffectsToneFilter.disconnect(); } catch (e) {}
+      if (voiceEffectsAutotuneNode) try { voiceEffectsAutotuneNode.disconnect(); } catch (e) {}
+      voiceEffectsSource = voiceEffectsContext.createMediaStreamSource(rtcLocalStream);
+      if (!voiceEffectsReverb) {
+        voiceEffectsReverb = voiceEffectsContext.createConvolver();
+        voiceEffectsReverb.buffer = createReverbIR(voiceEffectsContext, 0.35, 1.2);
+      }
+      if (!voiceEffectsCompressor) {
+        voiceEffectsCompressor = voiceEffectsContext.createDynamicsCompressor();
+        voiceEffectsCompressor.threshold.value = -24;
+        voiceEffectsCompressor.knee.value = 30;
+        voiceEffectsCompressor.ratio.value = 12;
+        voiceEffectsCompressor.attack.value = 0.003;
+        voiceEffectsCompressor.release.value = 0.25;
+      }
+      voiceEffectsDestination = voiceEffectsContext.createMediaStreamDestination();
+      if (voiceEffectsToneFilter) try { voiceEffectsToneFilter.disconnect(); } catch (e) {}
+      let lastNode = voiceEffectsSource;
+      if (voiceEffectsStudioReverbOn) {
+        voiceEffectsSource.connect(voiceEffectsReverb);
+        voiceEffectsReverb.connect(voiceEffectsCompressor);
+        lastNode = voiceEffectsCompressor;
+      }
+      if (voiceEffectsPitch === "high" || voiceEffectsPitch === "low") {
+        if (!voiceEffectsToneFilter) {
+          voiceEffectsToneFilter = voiceEffectsContext.createBiquadFilter();
+          voiceEffectsToneFilter.Q.value = 0.7;
+        }
+        if (voiceEffectsPitch === "high") {
+          voiceEffectsToneFilter.type = "highshelf";
+          voiceEffectsToneFilter.frequency.value = 2000;
+          voiceEffectsToneFilter.gain.value = 6;
+        } else {
+          voiceEffectsToneFilter.type = "lowshelf";
+          voiceEffectsToneFilter.frequency.value = 400;
+          voiceEffectsToneFilter.gain.value = 5;
+        }
+        lastNode.connect(voiceEffectsToneFilter);
+        lastNode = voiceEffectsToneFilter;
+      }
+      if (voiceEffectsAutotuneOn) {
+        const loaded = await loadAutotuneWorklet(voiceEffectsContext);
+        if (loaded) {
+          try {
+            voiceEffectsAutotuneNode = new AudioWorkletNode(voiceEffectsContext, "diskuz-autotune-processor", { numberOfInputs: 1, numberOfOutputs: 1 });
+            lastNode.connect(voiceEffectsAutotuneNode);
+            lastNode = voiceEffectsAutotuneNode;
+          } catch (e) {
+            console.warn("diskuz-call: autotune node create failed", e);
+          }
+        }
+      }
+      lastNode.connect(voiceEffectsDestination);
+      const outStream = voiceEffectsDestination.stream;
+      voiceEffectsProcessedTrack = outStream.getAudioTracks()[0];
+      return voiceEffectsProcessedTrack;
+    } catch (e) {
+      console.warn("diskuz-call: voice effects chain failed", e);
+      return null;
+    }
+  }
+
+  async function applyVoiceEffectsToPeer() {
+    if (!rtcPeer) return;
+    const sender = rtcPeer.getSenders().find((s) => s.track && s.track.kind === "audio");
+    if (!sender) return;
+    const originalTrack = rtcLocalStream && rtcLocalStream.getAudioTracks()[0];
+    if (voiceEffectsStudioReverbOn || voiceEffectsPitch !== "normal" || voiceEffectsAutotuneOn) {
+      const processed = await buildVoiceEffectsChain();
+      if (processed) {
+        sender.replaceTrack(processed).catch((e) => console.warn("diskuz-call: replaceTrack (effects) failed", e));
+        return;
+      }
+    }
+    destroyVoiceEffects();
+    if (originalTrack) sender.replaceTrack(originalTrack).catch((e) => console.warn("diskuz-call: replaceTrack (raw) failed", e));
+  }
+
+  function destroyVoiceEffects() {
+    if (voiceEffectsSource) {
+      try { voiceEffectsSource.disconnect(); } catch (e) {}
+      voiceEffectsSource = null;
+    }
+    voiceEffectsReverb = null;
+    voiceEffectsCompressor = null;
+    voiceEffectsToneFilter = null;
+    if (voiceEffectsAutotuneNode) {
+      try { voiceEffectsAutotuneNode.disconnect(); } catch (e) {}
+      voiceEffectsAutotuneNode = null;
+    }
+    voiceEffectsDestination = null;
+    voiceEffectsProcessedTrack = null;
+    if (voiceEffectsContext && voiceEffectsContext.state !== "closed") {
+      voiceEffectsContext.close().catch(() => {});
+      voiceEffectsContext = null;
+    }
+  }
+
   function updateVideoLayout() {
     if (!callUI) return;
     const wrap = callUI.querySelector(".diskuz-call-video-wrap");
@@ -2337,6 +2604,7 @@ export default apiInitializer("0.8", (api) => {
       const videoBtn = callUI && callUI.querySelector(".btn.video");
       if (videoBtn) videoBtn.classList.add("active");
       updateVideoLayout();
+      showToast(document.documentElement.lang === "it" ? "Video avviato." : "Video started.");
     } catch (e) {
       console.warn("diskuz-call: enableVideo failed", e);
       showToast(document.documentElement.lang === "it" ? "Impossibile attivare la videocamera." : "Could not enable camera.");
@@ -2442,9 +2710,12 @@ export default apiInitializer("0.8", (api) => {
       if (!stream) return;
       if (event.track.kind === "audio" && rtcRemoteAudio) {
         rtcRemoteAudio.srcObject = stream;
+        rtcRemoteAudio.muted = false;
         if (isMobileDevice()) rtcRemoteAudio.volume = 0.25;
         applySpeakerSink();
-        rtcRemoteAudio.play().catch(() => {});
+        rtcRemoteAudio.play().catch((err) => {
+          log("[*] ontrack audio play() failed (may need user gesture)", err);
+        });
       }
       if (event.track.kind === "video" && callUI) {
         const videoEl = callUI.querySelector(".diskuz-call-remote-video");
@@ -2668,6 +2939,7 @@ export default apiInitializer("0.8", (api) => {
 
   function rtcEnd() {
     stopCallDurationTimer();
+    destroyVoiceEffects();
     if (localVideoTrack) {
       localVideoTrack.stop();
       if (rtcLocalStream) rtcLocalStream.removeTrack(localVideoTrack);
@@ -2683,6 +2955,15 @@ export default apiInitializer("0.8", (api) => {
       if (remoteV) remoteV.srcObject = null;
       if (localP) localP.srcObject = null;
       callUI.classList.remove("diskuz-call-video-active");
+      const studioCb = callUI.querySelector(".diskuz-call-studio-reverb-cb");
+      if (studioCb) studioCb.checked = false;
+      voiceEffectsStudioReverbOn = false;
+      voiceEffectsPitch = "normal";
+      voiceEffectsAutotuneOn = false;
+      const pitchSel = callUI.querySelector(".diskuz-call-pitch-select");
+      if (pitchSel) pitchSel.value = "normal";
+      const autotuneCb = callUI.querySelector(".diskuz-call-autotune-cb");
+      if (autotuneCb) autotuneCb.checked = false;
     }
     if (rtcPeer) {
       rtcPeer.close();
@@ -3032,6 +3313,7 @@ export default apiInitializer("0.8", (api) => {
           clearOutgoingCallTimeout();
           stopOutgoingRingback();
           currentCall.isRinging = false;
+          if (callUI) callUI.classList.remove("diskuz-call-incoming-ringing");
           const statusEl = callUI && callUI.querySelector(".status");
           if (statusEl) {
             statusEl.textContent = "In call...";

@@ -1309,6 +1309,8 @@
   flex: 1;
   min-height: 0;
   justify-content: flex-start;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* Video call: remote full, local preview small bottom-right, mirror overlay, fullscreen (desktop) */
@@ -1399,6 +1401,59 @@
   display: none !important;
 }
 
+/* Voice effects: Studio+Reverb toggle + Pitch selector */
+#diskuz-call-ui .diskuz-call-voice-effects {
+  width: 100%;
+  margin: 12px 0 8px 0;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  flex-shrink: 0;
+}
+
+#diskuz-call-ui .diskuz-call-voice-effects-title {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  margin-bottom: 8px;
+}
+
+#diskuz-call-ui .diskuz-call-voice-effects-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+#diskuz-call-ui .diskuz-call-voice-effects-row:first-of-type {
+  margin-top: 0;
+}
+
+#diskuz-call-ui .diskuz-call-studio-reverb-cb {
+  flex-shrink: 0;
+}
+
+#diskuz-call-ui .diskuz-call-pitch-label {
+  flex-shrink: 0;
+  min-width: 42px;
+}
+
+#diskuz-call-ui .diskuz-call-pitch-select {
+  flex: 1;
+  max-width: 180px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+}
+
 #diskuz-call-ui .diskuz-call-controls-block {
   width: 100%;
   margin-top: auto;
@@ -1407,6 +1462,9 @@
   align-items: center;
   transition: opacity 0.3s ease, transform 0.3s ease;
   flex-shrink: 0;
+}
+#diskuz-call-ui:not(.diskuz-call-controls-hidden) .diskuz-call-controls-block .diskuz-call-hide-btn {
+  display: flex !important;
 }
 
 #diskuz-call-ui.diskuz-call-controls-hidden .diskuz-call-controls-block {
@@ -1424,6 +1482,7 @@
 #diskuz-call-ui.diskuz-call-incoming-ringing .diskuz-call-toggle-controls,
 #diskuz-call-ui.diskuz-call-incoming-ringing .diskuz-call-hide-btn,
 #diskuz-call-ui.diskuz-call-incoming-ringing .diskuz-call-show-controls,
+#diskuz-call-ui.diskuz-call-incoming-ringing .diskuz-call-voice-effects,
 #diskuz-call-ui.diskuz-call-incoming-ringing .ear-mode {
   display: none !important;
 }
