@@ -69,7 +69,21 @@ export default apiInitializer("0.8", (api) => {
   const WIDGET_PAGE_HOME = "home";
   const WIDGET_PAGE_NOTIFICATIONS = "notifications";
   let lastWidgetRect = null;
+  let widgetWasOpenBeforeCall = false;
   const WIDGET_RECT_STORAGE_KEY = "diskuz_call_widget_rect";
+  /* Default position/size matching #diskuz-call-widget CSS (bottom: 190px, right: 178px, width: 336px, min-height: 440px) */
+  function getDefaultWidgetRect() {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const width = 336;
+    const height = 440;
+    return clampRectToViewport({
+      left: W - 178 - width,
+      top: H - 190 - height,
+      width: width,
+      height: height,
+    });
+  }
 
   function clampRectToViewport(rect) {
     if (!rect || rect.width <= 0 || rect.height <= 0) return rect;
@@ -139,25 +153,17 @@ export default apiInitializer("0.8", (api) => {
 
   function applyWidgetRectToCallUI() {
     if (!callUI || isMobileDevice()) return;
-    const w = 320;
-    const h = 440;
-    if (lastWidgetRect && lastWidgetRect.width > 0) {
-      callUI.style.left = lastWidgetRect.left + "px";
-      callUI.style.top = lastWidgetRect.top + "px";
-      callUI.style.width = lastWidgetRect.width + "px";
-      callUI.style.height = lastWidgetRect.height + "px";
-      callUI.style.right = "auto";
-      callUI.style.bottom = "auto";
-    } else {
-      const right = 90;
-      const bottom = 270;
-      callUI.style.left = (window.innerWidth - right - w) + "px";
-      callUI.style.top = (window.innerHeight - bottom - h) + "px";
-      callUI.style.width = w + "px";
-      callUI.style.height = h + "px";
-      callUI.style.right = "auto";
-      callUI.style.bottom = "auto";
+    if (!lastWidgetRect || lastWidgetRect.width <= 0) {
+      lastWidgetRect = getDefaultWidgetRect();
+      saveWidgetRectToStorage();
     }
+    const rect = clampRectToViewport(lastWidgetRect);
+    callUI.style.left = rect.left + "px";
+    callUI.style.top = rect.top + "px";
+    callUI.style.width = rect.width + "px";
+    callUI.style.height = rect.height + "px";
+    callUI.style.right = "auto";
+    callUI.style.bottom = "auto";
   }
 
   let callStatus = "available"; // "available" | "busy" | "not_available"
@@ -1482,17 +1488,28 @@ export default apiInitializer("0.8", (api) => {
       });
 
       const topBar = callUI.querySelector(".call-top-bar");
-      const dragHandle = callUI.querySelector(".call-drag-handle");
-      if (topBar && dragHandle) {
-        if (isMobileDevice()) {
-          topBar.style.cursor = "";
-        } else {
-          let dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragStartTop = 0, dragW = 320, dragH = 440;
-          function onDragMove(e) {
-            const dx = e.clientX - dragStartX;
-            const dy = e.clientY - dragStartY;
-            const W = window.innerWidth;
-            const H = window.innerHeight;
+      if (topBar && isMobileDevice()) topBar.style.cursor = "";
+      if (!isMobileDevice()) {
+        callUI.addEventListener("mousedown", function (e) {
+          if (e.target.closest("button, input, a, select, textarea, [contenteditable=\"true\"]")) return;
+          e.preventDefault();
+          const rect = callUI.getBoundingClientRect();
+          const dragW = rect.width;
+          const dragH = rect.height;
+          const dragStartX = e.clientX;
+          const dragStartY = e.clientY;
+          let dragStartLeft = parseInt(callUI.style.left, 10);
+          let dragStartTop = parseInt(callUI.style.top, 10);
+          if (isNaN(dragStartLeft) || isNaN(dragStartTop)) {
+            const def = getDefaultWidgetRect();
+            dragStartLeft = def.left;
+            dragStartTop = def.top;
+          }
+          const W = window.innerWidth;
+          const H = window.innerHeight;
+          function onDragMove(ev) {
+            const dx = ev.clientX - dragStartX;
+            const dy = ev.clientY - dragStartY;
             const newLeft = Math.max(0, Math.min(W - dragW, dragStartLeft + dx));
             const newTop = Math.max(0, Math.min(H - dragH, dragStartTop + dy));
             callUI.style.left = newLeft + "px";
@@ -1503,21 +1520,9 @@ export default apiInitializer("0.8", (api) => {
             document.removeEventListener("mouseup", onDragEnd);
             captureCallUIRect();
           }
-          topBar.addEventListener("mousedown", function (e) {
-            e.preventDefault();
-            const rect = callUI.getBoundingClientRect();
-            dragW = rect.width;
-            dragH = rect.height;
-            dragStartX = e.clientX;
-            dragStartY = e.clientY;
-            const left = parseInt(callUI.style.left, 10);
-            const top = parseInt(callUI.style.top, 10);
-            dragStartLeft = isNaN(left) ? (window.innerWidth - Math.min(340, dragW)) : left;
-            dragStartTop = isNaN(top) ? 60 : top;
-            document.addEventListener("mousemove", onDragMove);
-            document.addEventListener("mouseup", onDragEnd);
-          });
-        }
+          document.addEventListener("mousemove", onDragMove);
+          document.addEventListener("mouseup", onDragEnd);
+        });
       }
     }
   }
@@ -1555,6 +1560,8 @@ export default apiInitializer("0.8", (api) => {
     callUI.style.display = "block";
 
     if (!isMobileDevice()) {
+      widgetWasOpenBeforeCall = !!(widget && widget.classList.contains("open"));
+      if (widget) widget.style.display = "none";
       applyWidgetRectToCallUI();
     }
 
@@ -1581,9 +1588,14 @@ export default apiInitializer("0.8", (api) => {
     if (proximityOverlay) {
       proximityOverlay.style.display = "none";
     }
+    const wasOpen = widgetWasOpenBeforeCall;
     setTimeout(function () {
       callUI.style.display = "none";
       callUI.style.transform = "";
+      if (!isMobileDevice() && widget && wasOpen) {
+        applyLastRectToWidget();
+        widget.style.display = "block";
+      }
     }, 200);
   }
 
@@ -2218,6 +2230,8 @@ export default apiInitializer("0.8", (api) => {
     callUI.classList.remove("diskuz-call-minimized");
 
     if (!isMobileDevice()) {
+      widgetWasOpenBeforeCall = !!(widget && widget.classList.contains("open"));
+      if (widget) widget.style.display = "none";
       applyWidgetRectToCallUI();
     }
 
