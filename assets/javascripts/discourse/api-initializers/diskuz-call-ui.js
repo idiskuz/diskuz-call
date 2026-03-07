@@ -1800,17 +1800,17 @@ export default apiInitializer("0.8", (api) => {
           <div class="duration" aria-label="Call duration">00:00</div>
 
           <div class="diskuz-call-voice-effects">
-            <div class="diskuz-call-voice-effects-title"></div>
-            <label class="diskuz-call-voice-effects-row"><input type="checkbox" class="diskuz-call-studio-reverb-cb"> <span class="diskuz-call-studio-reverb-label"></span></label>
+            <div class="diskuz-call-voice-effects-title">Voice effects</div>
+            <label class="diskuz-call-voice-effects-row"><input type="checkbox" class="diskuz-call-studio-reverb-cb"> <span class="diskuz-call-studio-reverb-label">Studio + Reverb</span></label>
             <div class="diskuz-call-voice-effects-row">
-              <span class="diskuz-call-pitch-label"></span>
+              <span class="diskuz-call-pitch-label">Pitch:</span>
               <select class="diskuz-call-pitch-select" aria-label="Pitch">
-                <option value="normal" class="diskuz-call-pitch-opt-normal"></option>
-                <option value="high" class="diskuz-call-pitch-opt-high"></option>
-                <option value="low" class="diskuz-call-pitch-opt-low"></option>
+                <option value="normal" class="diskuz-call-pitch-opt-normal">Normal</option>
+                <option value="high" class="diskuz-call-pitch-opt-high">High (elf/child)</option>
+                <option value="low" class="diskuz-call-pitch-opt-low">Low (deep)</option>
               </select>
             </div>
-            <label class="diskuz-call-voice-effects-row"><input type="checkbox" class="diskuz-call-autotune-cb"> <span class="diskuz-call-autotune-label"></span></label>
+            <label class="diskuz-call-voice-effects-row"><input type="checkbox" class="diskuz-call-autotune-cb"> <span class="diskuz-call-autotune-label">Autotune</span></label>
           </div>
 
           <div class="diskuz-call-video-wrap" style="display:none;">
@@ -1988,7 +1988,7 @@ export default apiInitializer("0.8", (api) => {
           showBtn.style.padding = "10px";
           showBtn.style.borderRadius = "999px";
           showBtn.style.border = "none";
-          showBtn.style.background = "rgba(15, 23, 42, 0.7)";
+          showBtn.style.background = "rgba(15, 23, 42, 0.85)";
           showBtn.style.color = "#fff";
           showBtn.style.fontSize = "14px";
           showBtn.style.cursor = "pointer";
@@ -2522,14 +2522,34 @@ registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcess
     if (!sender) return;
     const originalTrack = rtcLocalStream && rtcLocalStream.getAudioTracks()[0];
     if (voiceEffectsStudioReverbOn || voiceEffectsPitch !== "normal" || voiceEffectsAutotuneOn) {
+      if (!voiceEffectsContext) {
+        voiceEffectsContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (voiceEffectsContext.state === "suspended") {
+        await voiceEffectsContext.resume();
+      }
       const processed = await buildVoiceEffectsChain();
       if (processed) {
-        sender.replaceTrack(processed).catch((e) => console.warn("diskuz-call: replaceTrack (effects) failed", e));
+        processed.enabled = true;
+        try {
+          await sender.replaceTrack(processed);
+          showToast(document.documentElement.lang === "it" ? "Effetti voce applicati." : "Voice effects applied.");
+        } catch (e) {
+          console.warn("diskuz-call: replaceTrack (effects) failed", e);
+          showToast(document.documentElement.lang === "it" ? "Impossibile applicare gli effetti." : "Could not apply effects.");
+        }
         return;
       }
+      showToast(document.documentElement.lang === "it" ? "Effetti non disponibili." : "Effects unavailable.");
     }
     destroyVoiceEffects();
-    if (originalTrack) sender.replaceTrack(originalTrack).catch((e) => console.warn("diskuz-call: replaceTrack (raw) failed", e));
+    if (originalTrack) {
+      try {
+        await sender.replaceTrack(originalTrack);
+      } catch (e) {
+        console.warn("diskuz-call: replaceTrack (raw) failed", e);
+      }
+    }
   }
 
   function destroyVoiceEffects() {
@@ -2571,12 +2591,29 @@ registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcess
   }
 
   async function enableVideo() {
-    if (!rtcPeer || !rtcLocalStream || !currentCall.userId || !window.DiskuzCallSend) return;
+    const isIt = document.documentElement.lang === "it";
+    if (!rtcPeer) {
+      showToast(isIt ? "Connessione non pronta." : "Connection not ready.");
+      return;
+    }
+    if (!rtcLocalStream) {
+      showToast(isIt ? "Stream non disponibile." : "Stream not available.");
+      return;
+    }
+    if (!currentCall.userId) {
+      showToast(isIt ? "Chiamata non attiva." : "No active call.");
+      return;
+    }
+    if (typeof window.DiskuzCallSend !== "function") {
+      showToast(isIt ? "Invio segnali non disponibile." : "Signaling not available.");
+      return;
+    }
     try {
       const videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
       const videoTrack = videoStream.getVideoTracks()[0];
       if (!videoTrack) {
         videoStream.getTracks().forEach((t) => t.stop());
+        showToast(isIt ? "Nessun track video." : "No video track.");
         return;
       }
       rtcLocalStream.addTrack(videoTrack);
@@ -2585,13 +2622,21 @@ registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcess
       const offer = await rtcPeer.createOffer();
       await rtcPeer.setLocalDescription(offer);
       const sdpPayload = serializeSdp(offer);
-      if (sdpPayload) {
-        window.DiskuzCallSend({
+      if (!sdpPayload || !sdpPayload.type || !sdpPayload.sdp) {
+        showToast(isIt ? "Impossibile creare offerta video." : "Could not create video offer.");
+        return;
+      }
+      try {
+        await window.DiskuzCallSend({
           type: "video_offer",
           to_user_id: currentCall.userId,
           from_user_id: null,
           sdp: sdpPayload,
         });
+      } catch (sendErr) {
+        console.warn("diskuz-call: video_offer send failed", sendErr);
+        showToast(isIt ? "Invio offerta video fallito." : "Failed to send video offer.");
+        return;
       }
       localVideoOn = true;
       const localPreview = callUI && callUI.querySelector(".diskuz-call-local-preview");
@@ -2604,10 +2649,10 @@ registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcess
       const videoBtn = callUI && callUI.querySelector(".btn.video");
       if (videoBtn) videoBtn.classList.add("active");
       updateVideoLayout();
-      showToast(document.documentElement.lang === "it" ? "Video avviato." : "Video started.");
+      showToast(isIt ? "Video avviato." : "Video started.");
     } catch (e) {
       console.warn("diskuz-call: enableVideo failed", e);
-      showToast(document.documentElement.lang === "it" ? "Impossibile attivare la videocamera." : "Could not enable camera.");
+      showToast(isIt ? "Impossibile attivare la videocamera." : "Could not enable camera.");
     }
   }
 
@@ -3248,7 +3293,7 @@ registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcess
     closeCallUI();
   }
 
-  /* --- MESSAGEBUS: sottoscrizione anche in UI (fallback se il glue non parte sul ricevente) --- */
+  /* --- MESSAGEBUS: sottoscrizione in UI se il glue non ha ancora sottoscritto (es. ordine di caricamento) --- */
   function subscribeMessageBus() {
     if (window.DiskuzCallMessageBusSubscribed) return;
     window.DiskuzCallMessageBusSubscribed = true;
@@ -3266,7 +3311,7 @@ registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcess
       };
       window.dispatchEvent(new CustomEvent("diskuz-call-signal", { detail }));
     });
-    log("[UI] MessageBus subscribed to /diskuz-call/signals (fallback)");
+    log("[diskuz-call] MessageBus subscribed to /diskuz-call/signals");
   }
 
   /* --- SIGNALING LISTENER --- */
@@ -3384,40 +3429,58 @@ registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcess
         rtcHandleIce(data);
         break;
 
-      case "video_offer":
-        if (currentCall.active && currentCall.userId === data.from_user_id && rtcPeer && data.sdp) {
-          (async () => {
-            try {
-              await rtcPeer.setRemoteDescription(new RTCSessionDescription(data.sdp));
-              const answer = await rtcPeer.createAnswer();
-              await rtcPeer.setLocalDescription(answer);
-              const sdpPayload = serializeSdp(answer);
-              if (sdpPayload && window.DiskuzCallSend) {
-                window.DiskuzCallSend({
-                  type: "video_answer",
-                  to_user_id: data.from_user_id,
-                  from_user_id: null,
-                  sdp: sdpPayload,
-                });
-              }
-            } catch (err) {
-              console.warn("diskuz-call: video_offer handling failed", err);
+      case "video_offer": {
+        const videoSdp = data.sdp ?? (data.payload && data.payload.sdp);
+        if (!currentCall.active || !rtcPeer || !videoSdp) break;
+        if (currentCall.userId !== data.from_user_id) break;
+        (async () => {
+          try {
+            const desc = new RTCSessionDescription(
+              typeof videoSdp === "object" && videoSdp !== null && "type" in videoSdp && "sdp" in videoSdp
+                ? videoSdp
+                : { type: "offer", sdp: String(videoSdp) }
+            );
+            await rtcPeer.setRemoteDescription(desc);
+            const answer = await rtcPeer.createAnswer();
+            await rtcPeer.setLocalDescription(answer);
+            const sdpPayload = serializeSdp(answer);
+            if (sdpPayload && typeof window.DiskuzCallSend === "function") {
+              await window.DiskuzCallSend({
+                type: "video_answer",
+                to_user_id: data.from_user_id,
+                from_user_id: null,
+                sdp: sdpPayload,
+              });
+              showToast(document.documentElement.lang === "it" ? "Video ricevuto, risposta inviata." : "Video received, answer sent.");
             }
-          })();
-        }
+          } catch (err) {
+            console.warn("diskuz-call: video_offer handling failed", err);
+            showToast(document.documentElement.lang === "it" ? "Errore negoziazione video." : "Video negotiation error.");
+          }
+        })();
         break;
+      }
 
-      case "video_answer":
-        if (currentCall.active && currentCall.userId === data.from_user_id && rtcPeer && data.sdp) {
-          (async () => {
-            try {
-              await rtcPeer.setRemoteDescription(new RTCSessionDescription(data.sdp));
-            } catch (err) {
-              console.warn("diskuz-call: video_answer handling failed", err);
-            }
-          })();
-        }
+      case "video_answer": {
+        const videoSdp = data.sdp ?? (data.payload && data.payload.sdp);
+        if (!currentCall.active || !rtcPeer || !videoSdp) break;
+        if (currentCall.userId !== data.from_user_id) break;
+        (async () => {
+          try {
+            const desc = new RTCSessionDescription(
+              typeof videoSdp === "object" && videoSdp !== null && "type" in videoSdp && "sdp" in videoSdp
+                ? videoSdp
+                : { type: "answer", sdp: String(videoSdp) }
+            );
+            await rtcPeer.setRemoteDescription(desc);
+            showToast(document.documentElement.lang === "it" ? "Video connesso." : "Video connected.");
+          } catch (err) {
+            console.warn("diskuz-call: video_answer handling failed", err);
+            showToast(document.documentElement.lang === "it" ? "Errore risposta video." : "Video answer error.");
+          }
+        })();
         break;
+      }
 
       default:
         break;
