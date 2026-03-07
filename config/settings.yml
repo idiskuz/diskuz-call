@@ -14,7 +14,7 @@ plugins:
     default: true
     type: boolean
     client: true
-  # Suono per chiamate in arrivo (stessi nomi della chat Discourse dove disponibili).
+  # Suono per chiamate in arrivo: Discourse chat (none/default/ding/bell/chat), custom (URL sotto), oppure alternative (5 suonerie sotto).
   diskuz_call_incoming_sound:
     default: "default"
     type: enum
@@ -26,10 +26,22 @@ plugins:
       - bell
       - chat
       - custom
+      - alternative
   # URL suoneria personalizzata (MP3). Usato quando "Suono chiamate in arrivo" è "custom". Max consigliato 500 KB.
   diskuz_call_custom_ringtone_url:
     default: ""
     client: true
+  # Suoneria alternativa (usata quando "Suono chiamate in arrivo" è "alternative"). Scegli una delle 5 suonerie.
+  diskuz_call_alternative_ringtone:
+    default: "classic"
+    type: enum
+    client: true
+    choices:
+      - classic
+      - modern
+      - soft
+      - double
+      - melodic
   # ICE servers per WebRTC (opzionale). JSON array, es: [{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:turn.example.com","username":"user","credential":"pass"}]. Lascia vuoto per usare solo STUN Google.
   diskuz_call_ice_servers:
     default: ""

@@ -66,7 +66,7 @@
   position: fixed;
   bottom: 190px; /* same as #diskuz-call-btn */
   right: 178px;  /* 24 + 58 + 96: button right + button width + 1 inch gap */
-  width: 320px;
+  width: 336px;  /* 320 + 16: spazio in più per il tasto Call su desktop */
   min-height: 440px;
   background: #ffffff;
   border-radius: 15px;
@@ -116,6 +116,42 @@
   margin-bottom: 18px;
 }
 
+.diskuz-call-input-autocomplete-wrap {
+  position: relative;
+}
+
+.diskuz-call-suggestions {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid rgba(19, 201, 140, 0.4);
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+}
+
+.diskuz-call-suggestion-item {
+  padding: 10px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  transition: background 0.12s ease;
+}
+
+.diskuz-call-suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.diskuz-call-suggestion-item:hover {
+  background: rgba(19, 201, 140, 0.12);
+}
+
 /* Widget top bar: diskuz Call + by diskuz.com on one line */
 .diskuz-widget-brand-bar {
   display: flex;
@@ -152,6 +188,7 @@
   display: none;
   flex-direction: column;
   min-height: 0;
+  min-width: 0; /* contenuti (es. Call) non escono dai margini */
 }
 
 .diskuz-widget-page.diskuz-widget-page-active {
@@ -199,7 +236,7 @@
   min-height: 80px;
 }
 
-/* Mobile: full-page widget covers entire viewport (including floating Call); user closes with Nascondi to see site again */
+/* Mobile: full-page widget, tutto nello schermo visibile, nessuno scroll della pagina */
 @media (max-width: 700px) {
   #diskuz-call-widget {
     top: 0 !important;
@@ -208,29 +245,87 @@
     bottom: 0 !important;
     width: 100% !important;
     height: 100% !important;
+    height: 100vh !important;
+    height: 100dvh !important;
     min-height: 100vh !important;
     min-height: 100dvh !important;
-    max-height: none !important;
-    border-radius: 15px !important;
+    max-height: 100vh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    overflow: hidden !important;
+    padding: 12px 14px !important;
   }
 
   #diskuz-call-widget .diskuz-widget-page {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #diskuz-call-widget .diskuz-widget-page-home {
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 8px 0 12px 0;
+    overflow: hidden;
+  }
+
+  #diskuz-call-widget .diskuz-widget-page-home .diskuz-widget-tagline {
+    margin: 0 0 8px 0;
+    font-size: 11px;
+  }
+
+  #diskuz-call-widget .diskuz-widget-page-home .diskuz-call-input-wrap {
+    margin-bottom: 10px;
+  }
+
+  #diskuz-call-widget .diskuz-widget-page-home .diskuz-widget-status-label {
+    margin-top: 10px;
+  }
+
+  #diskuz-call-widget .diskuz-widget-page-home .diskuz-widget-status-btns {
+    margin-top: 6px;
+  }
+
+  #diskuz-call-widget .diskuz-widget-page-home .diskuz-widget-description {
+    margin: 8px 0 0 0;
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+
+  #diskuz-call-widget .diskuz-widget-page-home .diskuz-widget-footer {
+    margin-top: 10px;
+    flex-shrink: 0;
+  }
+
+  #diskuz-call-widget .diskuz-widget-page-notifications {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  #diskuz-call-widget .diskuz-widget-page-notifications .diskuz-widget-history-list {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
 
-  #diskuz-call-widget .diskuz-widget-page-home {
-    justify-content: center;
-    gap: 20px;
-    padding: 16px 0 24px 0;
+  #diskuz-call-widget .diskuz-widget-page-notifications .diskuz-widget-notifications-header,
+  #diskuz-call-widget .diskuz-widget-page-notifications .diskuz-notifications-tabs,
+  #diskuz-call-widget .diskuz-widget-page-notifications .diskuz-widget-footer {
+    flex-shrink: 0;
   }
 
-  #diskuz-call-widget .diskuz-widget-page-notifications .diskuz-widget-history-list {
-    max-height: none;
-    flex: 1;
-    min-height: 120px;
+  #diskuz-call-widget .diskuz-widget-brand-bar {
+    margin: -12px -14px 10px -14px;
+    padding: 6px 10px 8px;
+  }
+
+  #diskuz-call-widget h3.diskuz-widget-title {
+    font-size: 1.1rem;
+    margin: 0 0 4px 0;
   }
 
   /* Larger tap targets and stronger frosted effect on mobile */
@@ -331,6 +426,7 @@
   background: rgba(255, 255, 255, 0.55);
 }
 #diskuz-call-widget .diskuz-status-btn.active {
+  font-weight: 700;
   background: rgba(19, 201, 140, 0.75);
   border-color: rgba(19, 201, 140, 0.9);
   -webkit-backdrop-filter: blur(12px);
@@ -349,6 +445,8 @@
   box-sizing: border-box;
   max-width: 100%;
   width: 100%;
+  min-width: 0; /* evita overflow in flex */
+  font-weight: 700;
   background: rgba(19, 201, 140, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.4);
   -webkit-backdrop-filter: blur(12px);
@@ -378,6 +476,34 @@
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Hide dentro Notifications: più in alto, pulsante visibile e pulsante */
+#diskuz-call-widget .diskuz-widget-page-notifications .diskuz-widget-footer {
+  margin-top: 12px;
+}
+#diskuz-call-widget .diskuz-widget-page-notifications .diskuz-widget-hide-btn-notif {
+  margin-top: -6px;
+  background: rgba(19, 201, 140, 0.25);
+  border: 1px solid rgba(19, 201, 140, 0.6);
+  color: #0d8a5c;
+  box-shadow: 0 2px 8px rgba(19, 201, 140, 0.25);
+  animation: diskuz-hide-btn-pulse 1.8s ease-in-out infinite;
+}
+#diskuz-call-widget .diskuz-widget-page-notifications .diskuz-widget-hide-btn-notif:hover {
+  background: rgba(19, 201, 140, 0.4);
+  border-color: rgba(19, 201, 140, 0.8);
+  box-shadow: 0 2px 12px rgba(19, 201, 140, 0.35);
+}
+@keyframes diskuz-hide-btn-pulse {
+  0%, 100% {
+    box-shadow: 0 2px 8px rgba(19, 201, 140, 0.25);
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(19, 201, 140, 0.2), 0 2px 8px rgba(19, 201, 140, 0.25);
+    opacity: 0.95;
+  }
 }
 
 #diskuz-call-widget .diskuz-ntab {
@@ -486,6 +612,7 @@
 }
 
 .diskuz-status-btn.active {
+  font-weight: 700;
   color: #ffffff;
 }
 #diskuz-status-available.diskuz-status-btn.active {

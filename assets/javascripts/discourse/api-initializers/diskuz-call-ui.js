@@ -334,22 +334,91 @@ export default apiInitializer("0.8", (api) => {
     }).catch(() => playFallbackBeep(880, 200));
   }
 
+  /* Suoneria predefinita: doppio tono tipo telefono classico (due note alternate) */
   function playIncomingCallBeep(ctx) {
     try {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.value = 880;
-      osc.type = "sine";
       const t0 = ctx.currentTime;
-      gain.gain.setValueAtTime(0.35, t0);
-      gain.gain.exponentialRampToValueAtTime(0.01, t0 + 0.35);
-      osc.start(t0);
-      osc.stop(t0 + 0.35);
+      const gainNode = ctx.createGain();
+      gainNode.connect(ctx.destination);
+      const toneDuration = 0.4;
+      const gap = 0.15;
+      const vol = 0.28;
+
+      /* primo tono (più grave) */
+      const osc1 = ctx.createOscillator();
+      osc1.connect(gainNode);
+      osc1.frequency.value = 440;
+      osc1.type = "sine";
+      gainNode.gain.setValueAtTime(0, t0);
+      gainNode.gain.linearRampToValueAtTime(vol, t0 + 0.02);
+      gainNode.gain.setValueAtTime(vol, t0 + toneDuration - 0.02);
+      gainNode.gain.linearRampToValueAtTime(0, t0 + toneDuration);
+      osc1.start(t0);
+      osc1.stop(t0 + toneDuration);
+
+      /* secondo tono (più acuto) dopo una breve pausa */
+      const t1 = t0 + toneDuration + gap;
+      const osc2 = ctx.createOscillator();
+      osc2.connect(gainNode);
+      osc2.frequency.value = 554; /* Do#5 */
+      osc2.type = "sine";
+      gainNode.gain.setValueAtTime(0, t1);
+      gainNode.gain.linearRampToValueAtTime(vol, t1 + 0.02);
+      gainNode.gain.setValueAtTime(vol, t1 + toneDuration - 0.02);
+      gainNode.gain.linearRampToValueAtTime(0, t1 + toneDuration);
+      osc2.start(t1);
+      osc2.stop(t1 + toneDuration);
     } catch (e) {
-      console.warn("diskuz-call: beep failed", e);
+      console.warn("diskuz-call: ring tone failed", e);
       throw e;
+    }
+  }
+
+  /* Suonerie alternative (5 preset: classic, modern, soft, double, melodic) */
+  function playAlternativeRingtonePreset(ctx, preset) {
+    const t0 = ctx.currentTime;
+    const g = ctx.createGain();
+    g.connect(ctx.destination);
+    const vol = 0.28;
+    const tone = (freq, start, dur) => {
+      const o = ctx.createOscillator();
+      o.connect(g);
+      o.frequency.value = freq;
+      o.type = "sine";
+      g.gain.setValueAtTime(0, start);
+      g.gain.linearRampToValueAtTime(vol, start + 0.02);
+      g.gain.setValueAtTime(vol, start + dur - 0.02);
+      g.gain.linearRampToValueAtTime(0, start + dur);
+      o.start(start);
+      o.stop(start + dur);
+    };
+    try {
+      switch (preset) {
+        case "modern":
+          tone(880, t0, 0.15);
+          tone(880, t0 + 0.35, 0.15);
+          break;
+        case "soft":
+          tone(660, t0, 0.5);
+          break;
+        case "double":
+          tone(523, t0, 0.35);
+          tone(659, t0 + 0.5, 0.35);
+          break;
+        case "melodic":
+          tone(523, t0, 0.2);
+          tone(659, t0 + 0.28, 0.2);
+          tone(784, t0 + 0.56, 0.2);
+          tone(1047, t0 + 0.84, 0.25);
+          break;
+        case "classic":
+        default:
+          playIncomingCallBeep(ctx);
+          return;
+      }
+    } catch (e) {
+      console.warn("diskuz-call: alternative preset failed", e);
+      playIncomingCallBeep(ctx);
     }
   }
 
@@ -380,24 +449,59 @@ export default apiInitializer("0.8", (api) => {
   function playIncomingCallRingOnce() {
     const sound = (typeof window.DiskuzCallIncomingSound !== "undefined" && window.DiskuzCallIncomingSound) ? window.DiskuzCallIncomingSound : "default";
     if (sound === "none") return;
-    const customUrl = (typeof window.DiskuzCallCustomRingtoneUrl !== "undefined" && window.DiskuzCallCustomRingtoneUrl) ? window.DiskuzCallCustomRingtoneUrl : "";
+    const alternativePreset = (typeof window.DiskuzCallAlternativeRingtone !== "undefined" && window.DiskuzCallAlternativeRingtone) ? String(window.DiskuzCallAlternativeRingtone) : "classic";
+    if (sound === "alternative") {
+      ensureAudioContextRunning().then(() => {
+        const ctx = incomingCallAudioContext;
+        if (!ctx) {
+          playFallbackBeep(880, 200);
+          return;
+        }
+        if (ctx.state === "suspended") {
+          ctx.resume().then(() => playAlternativeRingtonePreset(ctx, alternativePreset)).catch(() => playIncomingCallBeep(ctx));
+          return;
+        }
+        try {
+          playAlternativeRingtonePreset(ctx, alternativePreset);
+        } catch (e) {
+          playIncomingCallBeep(ctx);
+        }
+      }).catch(() => playIncomingCallSound());
+      return;
+    }
+    const customUrl = (typeof window.DiskuzCallCustomRingtoneUrl !== "undefined" && window.DiskuzCallCustomRingtoneUrl) ? String(window.DiskuzCallCustomRingtoneUrl).trim() : "";
     if (sound === "custom" && customUrl) {
       try {
         if (currentRingingAudio) {
           try { currentRingingAudio.pause(); currentRingingAudio.currentTime = 0; } catch (e) { /* ignore */ }
+          currentRingingAudio = null;
         }
-        let url = customUrl.trim();
+        let url = customUrl;
         if (!/^https?:\/\//i.test(url)) {
           if (url.startsWith("//")) url = window.location.protocol + url;
           else if (url.startsWith("/")) url = window.location.origin + url;
           else if (/^[a-z0-9.-]+\//i.test(url) || !url.includes("/")) url = "https://" + url.replace(/^\/+/, "");
           else url = window.location.origin + "/" + url.replace(/^\/+/, "");
         }
-        currentRingingAudio = new Audio(url);
-        currentRingingAudio.volume = 0.8;
-        currentRingingAudio.play().catch((err) => log("diskuz-call: custom ringtone play failed", err));
+        const audio = new Audio();
+        audio.volume = 0.85;
+        audio.preload = "auto";
+        audio.addEventListener("canplaythrough", function onCanPlay() {
+          audio.play().catch((err) => {
+            log("diskuz-call: custom ringtone play failed", err);
+            playIncomingCallSound();
+          });
+        }, { once: true });
+        audio.addEventListener("error", function onErr() {
+          audio.removeEventListener("error", onErr);
+          currentRingingAudio = null;
+          playIncomingCallSound();
+        }, { once: true });
+        audio.src = url;
+        currentRingingAudio = audio;
       } catch (e) {
         console.warn("diskuz-call: could not play custom ringtone", e);
+        playIncomingCallSound();
       }
       return;
     }
@@ -866,8 +970,8 @@ export default apiInitializer("0.8", (api) => {
       const isIt = document.documentElement.lang === "it";
       const siteName = getSiteName();
       const tagline = isIt
-        ? "Chiama le persone che ti seguono su " + siteName + "."
-        : "Call people who follow you on " + siteName + ".";
+        ? "Chiama le persone che ti seguono su " + siteName + ". :-) 📱"
+        : "Call people who follow you on " + siteName + ". :-) 📱";
       widget = document.createElement("div");
       widget.id = "diskuz-call-widget";
 
@@ -881,7 +985,10 @@ export default apiInitializer("0.8", (api) => {
           <h3 class="diskuz-widget-title">${isIt ? "Chiama un amico" : "Call a friend"}</h3>
           <p class="diskuz-widget-tagline">${tagline.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>
           <div class="diskuz-call-input-wrap">
-            <input id="diskuz-call-input" type="text" placeholder="${isIt ? "Inserisci username" : "Enter username"}" class="diskuz-call-input-animated">
+            <div class="diskuz-call-input-autocomplete-wrap">
+              <input id="diskuz-call-input" type="text" placeholder="${isIt ? "Inserisci username" : "Enter username"}" class="diskuz-call-input-animated" autocomplete="off">
+              <div id="diskuz-call-suggestions" class="diskuz-call-suggestions" role="listbox" aria-hidden="true"></div>
+            </div>
           </div>
           <button id="diskuz-call-start">Call</button>
           <div id="diskuz-call-error"></div>
@@ -961,6 +1068,121 @@ export default apiInitializer("0.8", (api) => {
       const startBtn = widget.querySelector("#diskuz-call-start");
       const errorBox = widget.querySelector("#diskuz-call-error");
       const historyBtn = widget.querySelector("#diskuz-call-history-btn");
+      const suggestionsEl = widget.querySelector("#diskuz-call-suggestions");
+
+      let followerUsernamesCache = null;
+
+      function getSuggestionsUsernameList() {
+        const myUser = (currentUserUsername || "").toLowerCase().trim();
+        const fromHistory = new Set();
+        callHistory.forEach((h) => {
+          const u = (h.username || "").trim();
+          if (u && u.toLowerCase() !== myUser) fromHistory.add(u);
+        });
+        const list = Array.from(fromHistory);
+        if (followerUsernamesCache && followerUsernamesCache.length) {
+          followerUsernamesCache.forEach((u) => {
+            const key = u.trim();
+            if (key && key.toLowerCase() !== myUser) fromHistory.add(key);
+          });
+          return Array.from(fromHistory).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+        }
+        return list.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+      }
+
+      function loadFollowerUsernamesIfNeeded(cb) {
+        if (followerUsernamesCache !== null) {
+          if (cb) cb();
+          return;
+        }
+        followerUsernamesCache = [];
+        const tryUrl = (url) =>
+          fetch(url, { credentials: "same-origin" })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((data) => {
+              if (data && Array.isArray(data.followers)) {
+                data.followers.forEach((f) => {
+                  const u = f.username || f.name || (f.user && (f.user.username || f.user.name));
+                  if (u) followerUsernamesCache.push(String(u).trim());
+                });
+              } else if (data && Array.isArray(data)) {
+                data.forEach((f) => {
+                  const u = f.username || f.name || (f.user && (f.user.username || f.user.name));
+                  if (u) followerUsernamesCache.push(String(u).trim());
+                });
+              }
+            })
+            .catch(() => {});
+        Promise.all([
+          tryUrl("/follow/followers.json"),
+          tryUrl("/u/" + encodeURIComponent(currentUserUsername || "me") + "/followers.json"),
+        ]).then(() => {
+          if (cb) cb();
+        });
+      }
+
+      function showSuggestions(filter) {
+        const q = (filter || "").toLowerCase().trim();
+        const all = getSuggestionsUsernameList();
+        const matched = q
+          ? all.filter((u) => u.toLowerCase().startsWith(q) || u.toLowerCase().includes(q))
+          : all;
+        const max = 10;
+        const slice = matched.slice(0, max);
+        if (!suggestionsEl) return;
+        if (!slice.length) {
+          suggestionsEl.innerHTML = "";
+          suggestionsEl.setAttribute("aria-hidden", "true");
+          suggestionsEl.style.display = "none";
+          return;
+        }
+        suggestionsEl.innerHTML = slice
+          .map(
+            (username) =>
+              `<div class="diskuz-call-suggestion-item" role="option" data-username="${(username || "").replace(/"/g, "&quot;")}">${(username || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`
+          )
+          .join("");
+        suggestionsEl.setAttribute("aria-hidden", "false");
+        suggestionsEl.style.display = "block";
+        suggestionsEl.querySelectorAll(".diskuz-call-suggestion-item").forEach((el) => {
+          el.addEventListener("click", function () {
+            const u = this.getAttribute("data-username");
+            if (u) {
+              input.value = u;
+              input.focus();
+              suggestionsEl.style.display = "none";
+              suggestionsEl.setAttribute("aria-hidden", "true");
+            }
+          });
+        });
+      }
+
+      function hideSuggestions() {
+        if (suggestionsEl) {
+          suggestionsEl.style.display = "none";
+          suggestionsEl.setAttribute("aria-hidden", "true");
+        }
+      }
+
+      if (input && suggestionsEl) {
+        input.addEventListener("focus", function () {
+          loadFollowerUsernamesIfNeeded(() => {
+            showSuggestions(input.value);
+          });
+        });
+        input.addEventListener("input", function () {
+          showSuggestions(input.value);
+        });
+        input.addEventListener("keydown", function (e) {
+          if (e.key === "Escape") {
+            hideSuggestions();
+            input.blur();
+          }
+        });
+        input.addEventListener("blur", function () {
+          setTimeout(hideSuggestions, 180);
+        });
+      }
 
       const availableBtn = widget.querySelector("#diskuz-status-available");
       const busyBtn = widget.querySelector("#diskuz-status-busy");
@@ -2251,8 +2473,9 @@ export default apiInitializer("0.8", (api) => {
           log("initPage: user not in allowed groups, plugin not loaded");
           return;
         }
-        if (data.incoming_sound != null && data.incoming_sound !== "") window.DiskuzCallIncomingSound = data.incoming_sound;
-        if (data.custom_ringtone_url != null && data.custom_ringtone_url !== "") window.DiskuzCallCustomRingtoneUrl = data.custom_ringtone_url;
+        window.DiskuzCallIncomingSound = (data.incoming_sound != null && String(data.incoming_sound).trim() !== "") ? String(data.incoming_sound).trim() : "default";
+        window.DiskuzCallCustomRingtoneUrl = (data.custom_ringtone_url != null && data.custom_ringtone_url !== "") ? String(data.custom_ringtone_url).trim() : "";
+        window.DiskuzCallAlternativeRingtone = (data.alternative_ringtone != null && String(data.alternative_ringtone).trim() !== "") ? String(data.alternative_ringtone).trim() : "classic";
         if (Array.isArray(data.ice_servers) && data.ice_servers.length > 0) window.DiskuzCallIceServers = data.ice_servers;
         subscribeMessageBus();
         loadHistory();

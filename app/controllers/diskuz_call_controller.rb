@@ -19,6 +19,7 @@ class DiskuzCallController < ApplicationController
       enabled: diskuz_call_user_enabled?(current_user),
       incoming_sound: SiteSetting.diskuz_call_incoming_sound.presence || "default",
       custom_ringtone_url: SiteSetting.diskuz_call_custom_ringtone_url.presence,
+      alternative_ringtone: SiteSetting.diskuz_call_alternative_ringtone.presence || "classic",
       ice_servers: ice_servers,
     }
   end
