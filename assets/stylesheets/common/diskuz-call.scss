@@ -256,11 +256,12 @@
     padding: 12px 14px !important;
   }
 
-  #diskuz-call-widget .diskuz-widget-page {
+  /* Solo la pagina attiva è visibile e occupa lo spazio; l’altra resta nascosta (seconda pagina selezionabile da Notifications) */
+  #diskuz-call-widget .diskuz-widget-page.diskuz-widget-page-active {
+    display: flex;
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    display: flex;
     flex-direction: column;
   }
 
@@ -470,27 +471,17 @@
   background: rgba(255, 255, 255, 0.6);
 }
 
+/* Hide: stile verde + pulse su home e su Notifications (non più sfondo bianco) */
 #diskuz-call-widget .diskuz-widget-hide-btn {
-  background: rgba(255, 255, 255, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
-
-/* Hide dentro Notifications: più in alto, pulsante visibile e pulsante */
-#diskuz-call-widget .diskuz-widget-page-notifications .diskuz-widget-footer {
-  margin-top: 12px;
-}
-#diskuz-call-widget .diskuz-widget-page-notifications .diskuz-widget-hide-btn-notif {
-  margin-top: -6px;
   background: rgba(19, 201, 140, 0.25);
   border: 1px solid rgba(19, 201, 140, 0.6);
   color: #0d8a5c;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
   box-shadow: 0 2px 8px rgba(19, 201, 140, 0.25);
   animation: diskuz-hide-btn-pulse 1.8s ease-in-out infinite;
 }
-#diskuz-call-widget .diskuz-widget-page-notifications .diskuz-widget-hide-btn-notif:hover {
+#diskuz-call-widget .diskuz-widget-hide-btn:hover {
   background: rgba(19, 201, 140, 0.4);
   border-color: rgba(19, 201, 140, 0.8);
   box-shadow: 0 2px 12px rgba(19, 201, 140, 0.35);
@@ -504,6 +495,14 @@
     box-shadow: 0 0 0 4px rgba(19, 201, 140, 0.2), 0 2px 8px rgba(19, 201, 140, 0.25);
     opacity: 0.95;
   }
+}
+
+/* Hide dentro Notifications: più in alto, stesso stile (ereditato da .diskuz-widget-hide-btn) */
+#diskuz-call-widget .diskuz-widget-page-notifications .diskuz-widget-footer {
+  margin-top: 12px;
+}
+#diskuz-call-widget .diskuz-widget-page-notifications .diskuz-widget-hide-btn-notif {
+  margin-top: -6px;
 }
 
 #diskuz-call-widget .diskuz-ntab {
