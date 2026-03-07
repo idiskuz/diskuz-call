@@ -25,7 +25,7 @@
   cursor: pointer;
   font-size: 11px;
   font-weight: 600;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid #13c98c;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
   transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
   z-index: 9999;
@@ -574,7 +574,27 @@
   padding: 0 2px;
 }
 
-/* Suonerie personalizzate (scelta + anteprima nel widget) */
+/* Pulsante Suonerie: apre/chiude la lista suonerie (stile come Notifications) */
+#diskuz-call-widget .diskuz-ringtones-toggle-btn {
+  margin-top: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+#diskuz-call-widget .diskuz-ringtones-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+/* Suonerie personalizzate (scelta + anteprima nel widget, visibile solo se si preme Ringtones) */
 .diskuz-custom-ringtones-wrap {
   margin-top: 12px;
   padding: 10px 0 0 0;
@@ -879,7 +899,7 @@
   background: rgba(255, 255, 255, 0.65);
 }
 
-/* Pulsante Indietro in Notifications: ben visibile (verde pieno + testo), desktop e mobile */
+/* Pulsante Back in Notifications: nessuno sfondo pulsante, si integra con la UI Notifications */
 #diskuz-call-widget .diskuz-widget-back-btn {
   display: inline-flex;
   align-items: center;
@@ -890,18 +910,14 @@
   min-height: 44px;
   height: auto;
   padding: 10px 14px;
-  background: #13c98c;
-  border: 2px solid rgba(255, 255, 255, 0.4);
-  color: #ffffff;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.95);
   font-weight: 700;
   font-size: 15px;
   line-height: 1;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(19, 201, 140, 0.5);
-  animation: diskuz-hide-btn-pulse 1.8s ease-in-out infinite;
-  border-radius: 10px;
+  box-shadow: none;
+  border-radius: 0;
 }
 #diskuz-call-widget .diskuz-widget-back-btn .diskuz-widget-back-arrow {
   font-size: 18px;
@@ -912,12 +928,11 @@
   white-space: nowrap;
 }
 #diskuz-call-widget .diskuz-widget-back-btn:hover {
-  background: #17e09e;
-  border-color: rgba(255, 255, 255, 0.7);
-  box-shadow: 0 2px 14px rgba(19, 201, 140, 0.5), 0 0 0 2px rgba(19, 201, 140, 0.4);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
 }
 #diskuz-call-widget .diskuz-widget-back-btn:active {
-  background: #0f8f6a;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 #diskuz-call-widget .diskuz-widget-status-label {
@@ -1205,9 +1220,11 @@
   animation: shake 0.35s ease;
 }
 
-/* --- CALL UI (DESKTOP PANEL) --- */
+/* --- CALL UI (DESKTOP PANEL): posizione e dimensioni da JS (come widget) --- */
 #diskuz-call-ui {
   position: fixed;
+  left: 0;
+  top: 0;
   bottom: 260px;
   right: 320px;
   width: 320px;
@@ -1401,63 +1418,52 @@
   display: none !important;
 }
 
-/* Voice effects: Studio+Reverb toggle + Pitch selector */
+/* Voice effects: solo Autotune, pulsante stile vetro iOS */
 #diskuz-call-ui .diskuz-call-voice-effects {
   width: 100%;
   margin: 12px 0 8px 0;
-  padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
   flex-shrink: 0;
-}
-
-#diskuz-call-ui .diskuz-call-voice-effects-title {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  color: #fff;
-  margin-bottom: 8px;
-  text-shadow: 0 0 1px rgba(0, 0, 0, 0.5);
-}
-
-#diskuz-call-ui .diskuz-call-voice-effects-row {
   display: flex;
+  justify-content: center;
+}
+
+#diskuz-call-ui .diskuz-call-autotune-btn {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 6px;
-  font-size: 13px;
-  color: #fff;
-  text-shadow: 0 0 1px rgba(0, 0, 0, 0.4);
-}
-
-#diskuz-call-ui .diskuz-call-voice-effects-row:first-of-type {
-  margin-top: 0;
-}
-
-#diskuz-call-ui .diskuz-call-studio-reverb-cb {
-  flex-shrink: 0;
-}
-
-#diskuz-call-ui .diskuz-call-pitch-label {
-  flex-shrink: 0;
-  min-width: 42px;
-}
-
-#diskuz-call-ui .diskuz-call-pitch-select {
-  flex: 1;
-  max-width: 180px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  background: rgba(0, 0, 0, 0.4);
-  color: #fff;
-  font-size: 12px;
+  justify-content: center;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   cursor: pointer;
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
-#diskuz-call-ui .diskuz-call-pitch-select option {
-  background: #1e293b;
-  color: #f1f5f9;
+
+#diskuz-call-ui .diskuz-call-autotune-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+#diskuz-call-ui .diskuz-call-autotune-btn.active {
+  background: rgba(19, 201, 140, 0.35);
+  border-color: rgba(19, 201, 140, 0.6);
+  box-shadow: 0 0 0 1px rgba(19, 201, 140, 0.3), 0 2px 12px rgba(0, 0, 0, 0.2);
+  animation: diskuz-autotune-glass-pulse 2s ease-in-out infinite;
+}
+
+@keyframes diskuz-autotune-glass-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 1px rgba(19, 201, 140, 0.3), 0 2px 12px rgba(0, 0, 0, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(19, 201, 140, 0.25), 0 0 20px rgba(19, 201, 140, 0.15), 0 2px 12px rgba(0, 0, 0, 0.2);
+  }
 }
 
 #diskuz-call-ui .diskuz-call-controls-block {
@@ -1807,6 +1813,25 @@
 
   #diskuz-call-ui.diskuz-call-controls-hidden .diskuz-call-show-controls {
     display: flex !important;
+  }
+}
+
+/* Desktop: pulsanti a larghezza massima ridotti di 4px */
+@media (min-width: 701px) {
+  #diskuz-call-widget #diskuz-call-start,
+  #diskuz-call-widget .diskuz-notifications-open-btn,
+  #diskuz-call-widget #diskuz-call-history-btn,
+  #diskuz-call-widget .diskuz-widget-hide-btn,
+  #diskuz-call-widget .diskuz-widget-hide-btn-notif,
+  #diskuz-call-widget .diskuz-widget-install-site-btn {
+    width: calc(100% - 4px);
+    max-width: calc(100% - 4px);
+  }
+  #diskuz-call-ui .diskuz-call-controls-block,
+  #diskuz-call-ui .controls,
+  #diskuz-call-ui .diskuz-call-hide-btn,
+  #diskuz-call-ui .diskuz-call-show-controls {
+    width: calc(100% - 4px);
   }
 }
 

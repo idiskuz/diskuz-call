@@ -1417,6 +1417,7 @@ export default apiInitializer("0.8", (api) => {
               ${isIt ? "Notifiche" : "Notifications"}
               <span id="diskuz-notifications-badge" class="diskuz-notifications-badge">0</span>
             </button>
+            <button type="button" id="diskuz-call-ringtones-toggle" class="diskuz-ringtones-toggle-btn" aria-expanded="false">${isIt ? "Suonerie" : "Ringtones"}</button>
             <div id="diskuz-call-custom-ringtones-wrap" class="diskuz-custom-ringtones-wrap" style="display:none;"></div>
             <p class="diskuz-widget-description">${(isIt
               ? "Questo widget ti consente di chiamare i tuoi amici su "
@@ -1523,29 +1524,29 @@ export default apiInitializer("0.8", (api) => {
           return;
         }
         followerUsernamesCache = [];
-        const tryUrl = (url) =>
-          fetch(url, { credentials: "same-origin" })
-            .then((r) => (r.ok ? r.json() : null))
-            .then((data) => {
-              if (data && Array.isArray(data.followers)) {
-                data.followers.forEach((f) => {
-                  const u = f.username || f.name || (f.user && (f.user.username || f.user.name));
-                  if (u) followerUsernamesCache.push(String(u).trim());
-                });
-              } else if (data && Array.isArray(data)) {
-                data.forEach((f) => {
-                  const u = f.username || f.name || (f.user && (f.user.username || f.user.name));
-                  if (u) followerUsernamesCache.push(String(u).trim());
-                });
-              }
-            })
-            .catch(() => {});
-        Promise.all([
-          tryUrl("/follow/followers.json"),
-          tryUrl("/u/" + encodeURIComponent(currentUserUsername || "me") + "/followers.json"),
-        ]).then(() => {
-          if (cb) cb();
-        });
+        const parseFollowers = (data) => {
+          if (data && Array.isArray(data.followers)) {
+            data.followers.forEach((f) => {
+              const u = f.username || f.name || (f.user && (f.user.username || f.user.name));
+              if (u) followerUsernamesCache.push(String(u).trim());
+            });
+          } else if (data && Array.isArray(data)) {
+            data.forEach((f) => {
+              const u = f.username || f.name || (f.user && (f.user.username || f.user.name));
+              if (u) followerUsernamesCache.push(String(u).trim());
+            });
+          }
+        };
+        const url1 = "/follow/followers.json";
+        const url2 = "/u/" + encodeURIComponent(currentUserUsername || "me") + "/followers.json";
+        fetch(url1, { credentials: "same-origin" })
+          .then((r) => {
+            if (r.ok) return r.json().then(parseFollowers);
+            if (r.status === 404) return fetch(url2, { credentials: "same-origin" }).then((r2) => (r2.ok ? r2.json().then(parseFollowers) : null)).catch(() => null);
+            return null;
+          })
+          .catch(() => fetch(url2, { credentials: "same-origin" }).then((r2) => (r2.ok ? r2.json().then(parseFollowers) : null)).catch(() => null))
+          .then(() => { if (cb) cb(); });
       }
 
       function showSuggestions(filter) {
@@ -1682,6 +1683,16 @@ export default apiInitializer("0.8", (api) => {
         openWidgetToNotificationsPage();
       });
 
+      const ringtonesToggle = widget.querySelector("#diskuz-call-ringtones-toggle");
+      const ringtonesWrap = widget.querySelector("#diskuz-call-custom-ringtones-wrap");
+      if (ringtonesToggle && ringtonesWrap) {
+        ringtonesToggle.addEventListener("click", function () {
+          const isHidden = ringtonesWrap.style.display === "none" || !ringtonesWrap.style.display;
+          ringtonesWrap.style.display = isHidden ? "block" : "none";
+          ringtonesToggle.setAttribute("aria-expanded", isHidden ? "true" : "false");
+        });
+      }
+
       widget.querySelectorAll(".diskuz-widget-hide-btn").forEach(function (hideBtn) {
         hideBtn.addEventListener("click", function () {
           toggleWidgetForceClose();
@@ -1800,17 +1811,9 @@ export default apiInitializer("0.8", (api) => {
           <div class="duration" aria-label="Call duration">00:00</div>
 
           <div class="diskuz-call-voice-effects">
-            <div class="diskuz-call-voice-effects-title">Voice effects</div>
-            <label class="diskuz-call-voice-effects-row"><input type="checkbox" class="diskuz-call-studio-reverb-cb"> <span class="diskuz-call-studio-reverb-label">Studio + Reverb</span></label>
-            <div class="diskuz-call-voice-effects-row">
-              <span class="diskuz-call-pitch-label">Pitch:</span>
-              <select class="diskuz-call-pitch-select" aria-label="Pitch">
-                <option value="normal" class="diskuz-call-pitch-opt-normal">Normal</option>
-                <option value="high" class="diskuz-call-pitch-opt-high">High (elf/child)</option>
-                <option value="low" class="diskuz-call-pitch-opt-low">Low (deep)</option>
-              </select>
-            </div>
-            <label class="diskuz-call-voice-effects-row"><input type="checkbox" class="diskuz-call-autotune-cb"> <span class="diskuz-call-autotune-label">Autotune</span></label>
+            <button type="button" class="diskuz-call-autotune-btn" aria-pressed="false" aria-label="Autotune">
+              <span class="diskuz-call-autotune-btn-label">Autotune</span>
+            </button>
           </div>
 
           <div class="diskuz-call-video-wrap" style="display:none;">
@@ -1918,42 +1921,16 @@ export default apiInitializer("0.8", (api) => {
       });
 
       const voiceEffectsBlock = callUI.querySelector(".diskuz-call-voice-effects");
-      const studioReverbCb = callUI.querySelector(".diskuz-call-studio-reverb-cb");
-      const pitchSelect = callUI.querySelector(".diskuz-call-pitch-select");
-      if (voiceEffectsBlock) {
-        const titleEl = voiceEffectsBlock.querySelector(".diskuz-call-voice-effects-title");
-        const reverbLabel = voiceEffectsBlock.querySelector(".diskuz-call-studio-reverb-label");
-        const pitchLabel = voiceEffectsBlock.querySelector(".diskuz-call-pitch-label");
-        const optNormal = voiceEffectsBlock.querySelector(".diskuz-call-pitch-opt-normal");
-        const optHigh = voiceEffectsBlock.querySelector(".diskuz-call-pitch-opt-high");
-        const optLow = voiceEffectsBlock.querySelector(".diskuz-call-pitch-opt-low");
-        if (titleEl) titleEl.textContent = isIt ? "Effetti voce" : "Voice effects";
-        if (reverbLabel) reverbLabel.textContent = isIt ? "Studio + Reverb" : "Studio + Reverb";
-        if (pitchLabel) pitchLabel.textContent = isIt ? "Voce:" : "Pitch:";
-        if (optNormal) optNormal.textContent = isIt ? "Normale" : "Normal";
-        if (optHigh) optHigh.textContent = isIt ? "Acuta (elfo/bambino)" : "High (elf/child)";
-        if (optLow) optLow.textContent = isIt ? "Grave" : "Low (deep)";
-        const autotuneLabel = voiceEffectsBlock.querySelector(".diskuz-call-autotune-label");
-        if (autotuneLabel) autotuneLabel.textContent = isIt ? "Autotune" : "Autotune";
-        if (studioReverbCb) {
-          studioReverbCb.addEventListener("change", function () {
-            voiceEffectsStudioReverbOn = studioReverbCb.checked;
-            applyVoiceEffectsToPeer();
-          });
-        }
-        if (pitchSelect) {
-          pitchSelect.addEventListener("change", function () {
-            voiceEffectsPitch = pitchSelect.value || "normal";
-            applyVoiceEffectsToPeer();
-          });
-        }
-        const autotuneCb = voiceEffectsBlock.querySelector(".diskuz-call-autotune-cb");
-        if (autotuneCb) {
-          autotuneCb.addEventListener("change", function () {
-            voiceEffectsAutotuneOn = autotuneCb.checked;
-            applyVoiceEffectsToPeer();
-          });
-        }
+      const autotuneBtn = voiceEffectsBlock && voiceEffectsBlock.querySelector(".diskuz-call-autotune-btn");
+      if (autotuneBtn) {
+        const labelEl = voiceEffectsBlock.querySelector(".diskuz-call-autotune-btn-label");
+        if (labelEl) labelEl.textContent = "Autotune";
+        autotuneBtn.addEventListener("click", function () {
+          voiceEffectsAutotuneOn = !voiceEffectsAutotuneOn;
+          autotuneBtn.classList.toggle("active", voiceEffectsAutotuneOn);
+          autotuneBtn.setAttribute("aria-pressed", String(voiceEffectsAutotuneOn));
+          applyVoiceEffectsToPeer();
+        });
       }
 
       if (videoBtn) videoBtn.addEventListener("click", async function () {
@@ -2121,7 +2098,10 @@ export default apiInitializer("0.8", (api) => {
 
     if (!isMobileDevice()) {
       widgetWasOpenBeforeCall = !!(widget && widget.classList.contains("open"));
-      if (widget) widget.style.display = "none";
+      if (widget) {
+        captureWidgetRect();
+        widget.style.display = "none";
+      }
       applyWidgetRectToCallUI();
       updateBodyScrollLock();
     }
@@ -2182,13 +2162,8 @@ export default apiInitializer("0.8", (api) => {
   const VIDEO_MIRROR_STORAGE_KEY = "diskuz_call_video_mirror";
   let voiceEffectsContext = null;
   let voiceEffectsSource = null;
-  let voiceEffectsReverb = null;
-  let voiceEffectsCompressor = null;
   let voiceEffectsDestination = null;
   let voiceEffectsProcessedTrack = null;
-  let voiceEffectsToneFilter = null;
-  let voiceEffectsStudioReverbOn = false;
-  let voiceEffectsPitch = "normal";
   let voiceEffectsAutotuneOn = false;
   let voiceEffectsAutotuneNode = null;
   let voiceEffectsAutotuneModuleLoaded = false;
@@ -2431,87 +2406,37 @@ registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcess
     }
   }
 
-  function createReverbIR(context, durationSec, decay) {
-    const sampleRate = context.sampleRate;
-    const length = Math.floor(sampleRate * durationSec);
-    const buffer = context.createBuffer(1, length, sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < length; i++) {
-      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (sampleRate * decay));
-    }
-    return buffer;
-  }
-
-  async function buildVoiceEffectsChain() {
+  async function buildAutotuneChain() {
     if (!rtcLocalStream || !rtcPeer) return null;
-    const audioTrack = rtcLocalStream.getAudioTracks()[0];
-    if (!audioTrack) return null;
+    if (!rtcLocalStream.getAudioTracks()[0]) return null;
     try {
       if (!voiceEffectsContext) {
         voiceEffectsContext = new (window.AudioContext || window.webkitAudioContext)();
       }
-      if (voiceEffectsContext.state === "suspended") await voiceEffectsContext.resume();
-      if (voiceEffectsSource) try { voiceEffectsSource.disconnect(); } catch (e) {}
-      if (voiceEffectsReverb) try { voiceEffectsReverb.disconnect(); } catch (e) {}
-      if (voiceEffectsCompressor) try { voiceEffectsCompressor.disconnect(); } catch (e) {}
-      if (voiceEffectsToneFilter) try { voiceEffectsToneFilter.disconnect(); } catch (e) {}
-      if (voiceEffectsAutotuneNode) try { voiceEffectsAutotuneNode.disconnect(); } catch (e) {}
-      voiceEffectsSource = voiceEffectsContext.createMediaStreamSource(rtcLocalStream);
-      if (!voiceEffectsReverb) {
-        voiceEffectsReverb = voiceEffectsContext.createConvolver();
-        voiceEffectsReverb.buffer = createReverbIR(voiceEffectsContext, 0.35, 1.2);
+      if (voiceEffectsContext.state === "suspended") {
+        await voiceEffectsContext.resume();
       }
-      if (!voiceEffectsCompressor) {
-        voiceEffectsCompressor = voiceEffectsContext.createDynamicsCompressor();
-        voiceEffectsCompressor.threshold.value = -24;
-        voiceEffectsCompressor.knee.value = 30;
-        voiceEffectsCompressor.ratio.value = 12;
-        voiceEffectsCompressor.attack.value = 0.003;
-        voiceEffectsCompressor.release.value = 0.25;
+      if (voiceEffectsSource) {
+        try { voiceEffectsSource.disconnect(); } catch (e) {}
+        voiceEffectsSource = null;
+      }
+      if (voiceEffectsAutotuneNode) {
+        try { voiceEffectsAutotuneNode.disconnect(); } catch (e) {}
+        voiceEffectsAutotuneNode = null;
       }
       voiceEffectsDestination = voiceEffectsContext.createMediaStreamDestination();
-      if (voiceEffectsToneFilter) try { voiceEffectsToneFilter.disconnect(); } catch (e) {}
-      let lastNode = voiceEffectsSource;
-      if (voiceEffectsStudioReverbOn) {
-        voiceEffectsSource.connect(voiceEffectsReverb);
-        voiceEffectsReverb.connect(voiceEffectsCompressor);
-        lastNode = voiceEffectsCompressor;
-      }
-      if (voiceEffectsPitch === "high" || voiceEffectsPitch === "low") {
-        if (!voiceEffectsToneFilter) {
-          voiceEffectsToneFilter = voiceEffectsContext.createBiquadFilter();
-          voiceEffectsToneFilter.Q.value = 0.7;
-        }
-        if (voiceEffectsPitch === "high") {
-          voiceEffectsToneFilter.type = "highshelf";
-          voiceEffectsToneFilter.frequency.value = 2000;
-          voiceEffectsToneFilter.gain.value = 6;
-        } else {
-          voiceEffectsToneFilter.type = "lowshelf";
-          voiceEffectsToneFilter.frequency.value = 400;
-          voiceEffectsToneFilter.gain.value = 5;
-        }
-        lastNode.connect(voiceEffectsToneFilter);
-        lastNode = voiceEffectsToneFilter;
-      }
-      if (voiceEffectsAutotuneOn) {
-        const loaded = await loadAutotuneWorklet(voiceEffectsContext);
-        if (loaded) {
-          try {
-            voiceEffectsAutotuneNode = new AudioWorkletNode(voiceEffectsContext, "diskuz-autotune-processor", { numberOfInputs: 1, numberOfOutputs: 1 });
-            lastNode.connect(voiceEffectsAutotuneNode);
-            lastNode = voiceEffectsAutotuneNode;
-          } catch (e) {
-            console.warn("diskuz-call: autotune node create failed", e);
-          }
-        }
-      }
-      lastNode.connect(voiceEffectsDestination);
+      voiceEffectsSource = voiceEffectsContext.createMediaStreamSource(rtcLocalStream);
+      const loaded = await loadAutotuneWorklet(voiceEffectsContext);
+      if (!loaded) return null;
+      voiceEffectsAutotuneNode = new AudioWorkletNode(voiceEffectsContext, "diskuz-autotune-processor", { numberOfInputs: 1, numberOfOutputs: 1 });
+      voiceEffectsSource.connect(voiceEffectsAutotuneNode);
+      voiceEffectsAutotuneNode.connect(voiceEffectsDestination);
       const outStream = voiceEffectsDestination.stream;
       voiceEffectsProcessedTrack = outStream.getAudioTracks()[0];
+      if (!voiceEffectsProcessedTrack) return null;
       return voiceEffectsProcessedTrack;
     } catch (e) {
-      console.warn("diskuz-call: voice effects chain failed", e);
+      console.warn("diskuz-call: autotune chain failed", e);
       return null;
     }
   }
@@ -2521,26 +2446,31 @@ registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcess
     const sender = rtcPeer.getSenders().find((s) => s.track && s.track.kind === "audio");
     if (!sender) return;
     const originalTrack = rtcLocalStream && rtcLocalStream.getAudioTracks()[0];
-    if (voiceEffectsStudioReverbOn || voiceEffectsPitch !== "normal" || voiceEffectsAutotuneOn) {
+    if (voiceEffectsAutotuneOn) {
       if (!voiceEffectsContext) {
         voiceEffectsContext = new (window.AudioContext || window.webkitAudioContext)();
       }
       if (voiceEffectsContext.state === "suspended") {
         await voiceEffectsContext.resume();
       }
-      const processed = await buildVoiceEffectsChain();
+      const processed = await buildAutotuneChain();
       if (processed) {
         processed.enabled = true;
         try {
           await sender.replaceTrack(processed);
-          showToast(document.documentElement.lang === "it" ? "Effetti voce applicati." : "Voice effects applied.");
+          showToast(document.documentElement.lang === "it" ? "Autotune attivo." : "Autotune on.");
         } catch (e) {
-          console.warn("diskuz-call: replaceTrack (effects) failed", e);
-          showToast(document.documentElement.lang === "it" ? "Impossibile applicare gli effetti." : "Could not apply effects.");
+          console.warn("diskuz-call: replaceTrack (autotune) failed", e);
+          showToast(document.documentElement.lang === "it" ? "Impossibile attivare Autotune." : "Could not enable Autotune.");
         }
         return;
       }
-      showToast(document.documentElement.lang === "it" ? "Effetti non disponibili." : "Effects unavailable.");
+      voiceEffectsAutotuneOn = false;
+      if (callUI) {
+        const ab = callUI.querySelector(".diskuz-call-autotune-btn");
+        if (ab) ab.classList.remove("active");
+      }
+      showToast(document.documentElement.lang === "it" ? "Autotune non disponibile." : "Autotune unavailable.");
     }
     destroyVoiceEffects();
     if (originalTrack) {
@@ -2557,9 +2487,6 @@ registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcess
       try { voiceEffectsSource.disconnect(); } catch (e) {}
       voiceEffectsSource = null;
     }
-    voiceEffectsReverb = null;
-    voiceEffectsCompressor = null;
-    voiceEffectsToneFilter = null;
     if (voiceEffectsAutotuneNode) {
       try { voiceEffectsAutotuneNode.disconnect(); } catch (e) {}
       voiceEffectsAutotuneNode = null;
@@ -2570,6 +2497,7 @@ registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcess
       voiceEffectsContext.close().catch(() => {});
       voiceEffectsContext = null;
     }
+    voiceEffectsAutotuneModuleLoaded = false;
   }
 
   function updateVideoLayout() {
@@ -2718,6 +2646,13 @@ registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcess
       if (connState === "connected" && !callDurationIntervalId && callConnectedAt == null) {
         callConnectedAt = Date.now();
         startCallDurationTimer();
+      }
+      if (connState === "connected" && rtcRemoteAudio && rtcRemoteAudio.srcObject) {
+        rtcRemoteAudio.muted = false;
+        applySpeakerSink();
+        rtcRemoteAudio.play().catch((err) => {
+          log("[*] remote audio play() retry on connected failed", err);
+        });
       }
       updateVideoButtonVisibility();
     };
@@ -3000,15 +2935,12 @@ registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcess
       if (remoteV) remoteV.srcObject = null;
       if (localP) localP.srcObject = null;
       callUI.classList.remove("diskuz-call-video-active");
-      const studioCb = callUI.querySelector(".diskuz-call-studio-reverb-cb");
-      if (studioCb) studioCb.checked = false;
-      voiceEffectsStudioReverbOn = false;
-      voiceEffectsPitch = "normal";
       voiceEffectsAutotuneOn = false;
-      const pitchSel = callUI.querySelector(".diskuz-call-pitch-select");
-      if (pitchSel) pitchSel.value = "normal";
-      const autotuneCb = callUI.querySelector(".diskuz-call-autotune-cb");
-      if (autotuneCb) autotuneCb.checked = false;
+      const autotuneBtnEl = callUI.querySelector(".diskuz-call-autotune-btn");
+      if (autotuneBtnEl) {
+        autotuneBtnEl.classList.remove("active");
+        autotuneBtnEl.setAttribute("aria-pressed", "false");
+      }
     }
     if (rtcPeer) {
       rtcPeer.close();
@@ -3222,7 +3154,10 @@ registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcess
 
     if (!isMobileDevice()) {
       widgetWasOpenBeforeCall = !!(widget && widget.classList.contains("open"));
-      if (widget) widget.style.display = "none";
+      if (widget) {
+        captureWidgetRect();
+        widget.style.display = "none";
+      }
       applyWidgetRectToCallUI();
       updateBodyScrollLock();
     }
@@ -3311,7 +3246,7 @@ registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcess
       };
       window.dispatchEvent(new CustomEvent("diskuz-call-signal", { detail }));
     });
-    log("[diskuz-call] MessageBus subscribed to /diskuz-call/signals");
+    log("MessageBus subscribed to /diskuz-call/signals");
   }
 
   /* --- SIGNALING LISTENER --- */
@@ -3565,6 +3500,7 @@ registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcess
           updateCustomRingtonesUI(window.DiskuzCallCustomRingtones, window.DiskuzCallSelectedCustomRingtoneIndex);
         }
         loadWidgetRectFromStorage();
+        if (!isMobileDevice()) applyLastRectToWidget();
         updateNotificationsBadge();
         updateCallFeatureVisibility();
         onceDocumentInteractionForAudio();

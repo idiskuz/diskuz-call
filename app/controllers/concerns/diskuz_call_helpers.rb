@@ -33,7 +33,7 @@ module DiskuzCallHelpers
                     raw.map(&:to_i).reject(&:zero?)
                   when String
                     s = raw.to_s.strip
-                    return false if s.blank?
+                    return true if s.blank?
                     return true if s.casecmp("all").zero?
                     s.split(%r{[|,]}).map(&:to_i).reject(&:zero?)
                   else
