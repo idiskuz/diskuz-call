@@ -24,6 +24,26 @@ module DiskuzCallHelpers
     (user_group_ids & allowed_ids).any?
   end
 
+  def self.diskuz_call_video_allowed?(user)
+    return false if user.blank?
+    return false unless SiteSetting.diskuz_call_enabled?
+    raw = SiteSetting.diskuz_call_video_allowed_groups
+    allowed_ids = case raw
+                  when Array
+                    raw.map(&:to_i).reject(&:zero?)
+                  when String
+                    s = raw.to_s.strip
+                    return false if s.blank?
+                    return true if s.casecmp("all").zero?
+                    s.split(%r{[|,]}).map(&:to_i).reject(&:zero?)
+                  else
+                    []
+                  end
+    return true if allowed_ids.empty?
+    user_group_ids = user_group_ids_for(user)
+    (user_group_ids & allowed_ids).any?
+  end
+
   def self.user_group_ids_for(user)
     return [] if user.blank?
     if user.respond_to?(:group_ids) && user.group_ids.respond_to?(:to_a)
@@ -70,6 +90,10 @@ module DiskuzCallHelpers
 
   def diskuz_call_user_enabled?(user)
     DiskuzCallHelpers.diskuz_call_user_enabled?(user)
+  end
+
+  def diskuz_call_video_allowed?(user)
+    DiskuzCallHelpers.diskuz_call_video_allowed?(user)
   end
 
   # Se discourse-follow è attivo: il destinatario deve seguire il chiamante (così il chiamante vede "Call" solo per chi lo segue).

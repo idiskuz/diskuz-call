@@ -23,11 +23,12 @@ class DiskuzCallController < ApplicationController
     selected_url = selected_entry ? selected_entry[:url] : (custom_ringtones.first&.dig(:url))
     render json: {
       enabled: diskuz_call_user_enabled?(current_user),
+      video_allowed: diskuz_call_video_allowed?(current_user),
       incoming_sound: SiteSetting.diskuz_call_incoming_sound.presence || "default",
       custom_ringtones: custom_ringtones,
       custom_ringtone_url: selected_url,
       selected_custom_ringtone_index: selected_index,
-      alternative_ringtone: SiteSetting.diskuz_call_alternative_ringtone.presence || "classic",
+      alternative_ringtone: SiteSetting.diskuz_call_alternative_ringtone.presence || "soft",
       ice_servers: ice_servers,
     }
   end

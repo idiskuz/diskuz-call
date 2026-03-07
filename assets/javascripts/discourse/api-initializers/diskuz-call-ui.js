@@ -78,18 +78,34 @@ export default apiInitializer("0.8", (api) => {
     e.preventDefault();
     installPromptEvent = e;
   });
-  /* Default position/size uguale alla UI chiamata (320x440) */
+  /* Dimensioni minime widget/call UI su desktop: evitano che si salvi/ripristini un rect ristretto per errore */
+  const WIDGET_MIN_WIDTH = 360;
+  const WIDGET_MIN_HEIGHT = 520;
+
+  /* Default position/size: un po' più largo e alto per evitare scrollbar su desktop */
   function getDefaultWidgetRect() {
     const W = window.innerWidth;
     const H = window.innerHeight;
-    const width = 320;
-    const height = 440;
+    const width = WIDGET_MIN_WIDTH;
+    const height = WIDGET_MIN_HEIGHT;
     return clampRectToViewport({
       left: W - 178 - width,
       top: H - 190 - height,
       width: width,
       height: height,
     });
+  }
+
+  /** Su desktop impone width/height minimi così non si applica mai un widget "schiacciato" da localStorage. */
+  function clampWidgetRectToMinimum(rect) {
+    if (!rect || rect.width <= 0 || rect.height <= 0) return rect;
+    if (isMobileDevice()) return rect;
+    return {
+      left: rect.left,
+      top: rect.top,
+      width: Math.max(rect.width, WIDGET_MIN_WIDTH),
+      height: Math.max(rect.height, WIDGET_MIN_HEIGHT),
+    };
   }
 
   function clampRectToViewport(rect) {
@@ -123,7 +139,8 @@ export default apiInitializer("0.8", (api) => {
       if (!raw) return;
       const o = JSON.parse(raw);
       if (o && typeof o.left === "number" && typeof o.top === "number" && o.width > 0 && o.height > 0) {
-        lastWidgetRect = clampRectToViewport({ left: o.left, top: o.top, width: o.width, height: o.height });
+        const loaded = { left: o.left, top: o.top, width: o.width, height: o.height };
+        lastWidgetRect = clampRectToViewport(clampWidgetRectToMinimum(loaded));
         saveWidgetRectToStorage();
       }
     } catch (e) { /* ignore */ }
@@ -131,14 +148,14 @@ export default apiInitializer("0.8", (api) => {
 
   function captureWidgetRect() {
     if (widget && widget.offsetParent != null) {
-      lastWidgetRect = widget.getBoundingClientRect();
+      lastWidgetRect = clampWidgetRectToMinimum(widget.getBoundingClientRect());
       saveWidgetRectToStorage();
     }
   }
 
   function captureCallUIRect() {
     if (callUI && callUI.offsetParent != null) {
-      lastWidgetRect = callUI.getBoundingClientRect();
+      lastWidgetRect = clampWidgetRectToMinimum(callUI.getBoundingClientRect());
       saveWidgetRectToStorage();
     }
   }
@@ -149,7 +166,7 @@ export default apiInitializer("0.8", (api) => {
       lastWidgetRect = getDefaultWidgetRect();
       saveWidgetRectToStorage();
     }
-    const rect = clampRectToViewport(lastWidgetRect);
+    const rect = clampRectToViewport(clampWidgetRectToMinimum(lastWidgetRect));
     widget.style.left = rect.left + "px";
     widget.style.top = rect.top + "px";
     widget.style.width = rect.width + "px";
@@ -164,7 +181,7 @@ export default apiInitializer("0.8", (api) => {
       lastWidgetRect = getDefaultWidgetRect();
       saveWidgetRectToStorage();
     }
-    const rect = clampRectToViewport(lastWidgetRect);
+    const rect = clampRectToViewport(clampWidgetRectToMinimum(lastWidgetRect));
     callUI.style.left = rect.left + "px";
     callUI.style.top = rect.top + "px";
     callUI.style.width = rect.width + "px";
@@ -668,7 +685,7 @@ export default apiInitializer("0.8", (api) => {
   function playIncomingCallRingOnce() {
     const sound = (typeof window.DiskuzCallIncomingSound !== "undefined" && window.DiskuzCallIncomingSound) ? window.DiskuzCallIncomingSound : "default";
     if (sound === "none") return;
-    const alternativePreset = (typeof window.DiskuzCallAlternativeRingtone !== "undefined" && window.DiskuzCallAlternativeRingtone) ? String(window.DiskuzCallAlternativeRingtone) : "classic";
+    const alternativePreset = (typeof window.DiskuzCallAlternativeRingtone !== "undefined" && window.DiskuzCallAlternativeRingtone) ? String(window.DiskuzCallAlternativeRingtone) : "soft";
     if (sound === "alternative") {
       ensureAudioContextRunning().then(() => {
         const ctx = incomingCallAudioContext;
@@ -1148,6 +1165,16 @@ export default apiInitializer("0.8", (api) => {
   let previewRingtoneAudio = null;
   const PREVIEW_MAX_MS = 12000;
 
+  function stopAllRingtonePreviews() {
+    if (previewRingtoneAudio) {
+      try {
+        previewRingtoneAudio.pause();
+        previewRingtoneAudio.currentTime = 0;
+      } catch (e) {}
+      previewRingtoneAudio = null;
+    }
+  }
+
   function updateCustomRingtonesUI(ringtones, selectedIndex) {
     const wrap = widget ? widget.querySelector("#diskuz-call-custom-ringtones-wrap") : null;
     if (!wrap || !Array.isArray(ringtones) || ringtones.length === 0) return;
@@ -1177,10 +1204,7 @@ export default apiInitializer("0.8", (api) => {
         else url = "https://" + url.replace(/^\/+/, "");
       }
       previewBtn.addEventListener("click", function () {
-        if (previewRingtoneAudio) {
-          try { previewRingtoneAudio.pause(); previewRingtoneAudio.currentTime = 0; } catch (e) {}
-          previewRingtoneAudio = null;
-        }
+        stopAllRingtonePreviews();
         if (!url) return;
         const audio = new Audio(url);
         audio.volume = 0.85;
@@ -1194,6 +1218,7 @@ export default apiInitializer("0.8", (api) => {
         audio.addEventListener("ended", stopPreview, { once: true });
       });
       selectBtn.addEventListener("click", function () {
+        stopAllRingtonePreviews();
         if (!url) return;
         ajax("/diskuz-call/preferences", {
           type: "PUT",
@@ -1406,7 +1431,7 @@ export default apiInitializer("0.8", (api) => {
         </div>
         <div class="diskuz-widget-page-notifications diskuz-widget-page">
           <div class="diskuz-widget-notifications-header">
-            <button type="button" id="diskuz-widget-notifications-home-btn" class="diskuz-widget-home-btn diskuz-widget-back-btn" aria-label="${isIt ? "Indietro" : "Back"}">←</button>
+            <button type="button" id="diskuz-widget-notifications-home-btn" class="diskuz-widget-home-btn diskuz-widget-back-btn" aria-label="${isIt ? "Indietro" : "Back"}"><span class="diskuz-widget-back-arrow" aria-hidden="true">←</span><span class="diskuz-widget-back-label">${isIt ? "Indietro" : "Back"}</span></button>
             <strong class="diskuz-widget-notifications-title">${isIt ? "Notifiche" : "Notifications"}</strong>
           </div>
           <div class="diskuz-notifications-tabs">
@@ -1456,6 +1481,14 @@ export default apiInitializer("0.8", (api) => {
           document.addEventListener("mousemove", onWMove);
           document.addEventListener("mouseup", onWEnd);
         });
+        if (typeof ResizeObserver !== "undefined") {
+          let widgetResizeTimeout;
+          const widgetResizeObserver = new ResizeObserver(function () {
+            clearTimeout(widgetResizeTimeout);
+            widgetResizeTimeout = setTimeout(captureWidgetRect, 200);
+          });
+          widgetResizeObserver.observe(widget);
+        }
       }
 
       const input = widget.querySelector("#diskuz-call-input");
@@ -1766,11 +1799,20 @@ export default apiInitializer("0.8", (api) => {
           </div>
           <div class="duration" aria-label="Call duration">00:00</div>
 
+          <div class="diskuz-call-video-wrap" style="display:none;">
+            <video class="diskuz-call-remote-video" autoplay playsinline aria-label="Remote video"></video>
+            <div class="diskuz-call-local-preview-wrap">
+              <video class="diskuz-call-local-preview" autoplay playsinline muted aria-label="Your camera"></video>
+              <label class="diskuz-call-video-mirror-overlay"><input type="checkbox" class="diskuz-call-video-mirror-cb" checked> <span class="diskuz-call-video-mirror-label"></span></label>
+            </div>
+            <button type="button" class="diskuz-call-fullscreen-btn" aria-label="Fullscreen" style="display:none;">⛶</button>
+          </div>
           <div class="diskuz-call-controls-block">
             <button type="button" class="diskuz-call-toggle-controls diskuz-call-hide-btn" aria-label="Hide call controls"></button>
             <div class="controls">
               <button class="btn mute">Mute</button>
               <button class="btn speaker">Speaker</button>
+              <button class="btn video" style="display:none;" aria-label="Video">📹</button>
               <button class="btn hangup">Hang up</button>
             </div>
           </div>
@@ -1811,18 +1853,61 @@ export default apiInitializer("0.8", (api) => {
           showToast("Audio output is controlled by your device.");
           return;
         }
+        const isIt = document.documentElement.lang === "it";
+        if (isMobileDevice() && selectAudioOutputSupported()) {
+          const applied = await openNativeAudioOutputPicker();
+          speakerBtn.classList.toggle("active", speakerOn);
+          speakerBtn.setAttribute("aria-pressed", String(speakerOn));
+          if (!applied) {
+            showToast(isIt ? "Usa i tasti volume o le impostazioni audio del telefono per scegliere dove sentire la chiamata." : "Use your device's volume keys or sound settings to choose where to hear the call.");
+          }
+          return;
+        }
         await cycleSpeakerOutput();
         const active = speakerOn;
         speakerBtn.classList.toggle("active", active);
         speakerBtn.setAttribute("aria-pressed", String(active));
-        if (isMobileDevice()) {
-          showToast("If the speaker button does not work properly, adjust the call volume manually using your device's volume keys or sound settings.", 10000);
-        }
       });
 
       if (earBtn) earBtn.style.display = isMobileDevice() ? "" : "none";
       earBtn.addEventListener("click", function () {
         activateEarMode();
+      });
+
+      const videoBtn = callUI.querySelector(".btn.video");
+      const videoWrap = callUI.querySelector(".diskuz-call-video-wrap");
+      const localPreview = callUI.querySelector(".diskuz-call-local-preview");
+      const mirrorCb = callUI.querySelector(".diskuz-call-video-mirror-cb");
+      const mirrorLabel = callUI.querySelector(".diskuz-call-video-mirror-label");
+      const fullscreenBtn = callUI.querySelector(".diskuz-call-fullscreen-btn");
+      if (mirrorLabel) mirrorLabel.textContent = isIt ? "Specchio telecamera" : "Mirror camera";
+      try {
+        const saved = window.localStorage.getItem(VIDEO_MIRROR_STORAGE_KEY);
+        if (saved !== null) mirrorCb.checked = saved !== "false";
+      } catch (e) {}
+      function applyMirrorToLocalPreview() {
+        if (!localPreview) return;
+        const checked = mirrorCb && mirrorCb.checked;
+        localPreview.style.transform = checked ? "scaleX(-1)" : "none";
+        try { window.localStorage.setItem(VIDEO_MIRROR_STORAGE_KEY, checked ? "true" : "false"); } catch (e) {}
+      }
+      if (mirrorCb) {
+        mirrorCb.addEventListener("change", applyMirrorToLocalPreview);
+        applyMirrorToLocalPreview();
+      }
+      if (fullscreenBtn) fullscreenBtn.addEventListener("click", function () {
+        if (!document.fullscreenElement) {
+          (callUI || document.documentElement).requestFullscreen?.();
+        } else {
+          document.exitFullscreen?.();
+        }
+      });
+      if (videoBtn) videoBtn.addEventListener("click", async function () {
+        if (localVideoOn) {
+          await disableVideo();
+        } else {
+          await enableVideo();
+        }
       });
 
       const hideBtn = callUI.querySelector(".diskuz-call-hide-btn");
@@ -1936,6 +2021,14 @@ export default apiInitializer("0.8", (api) => {
           document.addEventListener("mousemove", onDragMove);
           document.addEventListener("mouseup", onDragEnd);
         });
+        if (typeof ResizeObserver !== "undefined") {
+          let callUIResizeTimeout;
+          const callUIResizeObserver = new ResizeObserver(function () {
+            clearTimeout(callUIResizeTimeout);
+            callUIResizeTimeout = setTimeout(captureCallUIRect, 200);
+          });
+          callUIResizeObserver.observe(callUI);
+        }
       }
     }
   }
@@ -1994,7 +2087,7 @@ export default apiInitializer("0.8", (api) => {
   function closeCallUI() {
     if (!callUI) return;
     setIncomingCallButtonState(false);
-    callUI.classList.remove("open", "diskuz-call-minimized", "diskuz-call-controls-hidden", "diskuz-call-incoming-ringing");
+    callUI.classList.remove("open", "diskuz-call-minimized", "diskuz-call-controls-hidden", "diskuz-call-incoming-ringing", "diskuz-call-video-active");
     const hideBtn = callUI.querySelector(".diskuz-call-hide-btn");
     const showBtn = callUI.querySelector(".diskuz-call-show-controls");
     if (hideBtn) hideBtn.style.display = "flex";
@@ -2029,6 +2122,10 @@ export default apiInitializer("0.8", (api) => {
   let rtcPeer = null;
   let rtcLocalStream = null;
   let rtcRemoteAudio = null;
+  let localVideoTrack = null;
+  let localVideoOn = false;
+  let remoteVideoActive = false;
+  const VIDEO_MIRROR_STORAGE_KEY = "diskuz_call_video_mirror";
   let iceCandidateQueue = [];
   let pendingIceCandidatesToAdd = [];
   let iceAddInProgress = false;
@@ -2131,6 +2228,31 @@ export default apiInitializer("0.8", (api) => {
     }
   }
 
+  function selectAudioOutputSupported() {
+    return !!(navigator.mediaDevices && typeof navigator.mediaDevices.selectAudioOutput === "function");
+  }
+
+  async function openNativeAudioOutputPicker() {
+    if (!selectAudioOutputSupported() || !setSinkIdSupported()) return false;
+    try {
+      const device = await navigator.mediaDevices.selectAudioOutput();
+      if (device && device.deviceId) {
+        currentSinkId = device.deviceId;
+        speakerOn = true;
+        await applySpeakerSink();
+        await refreshAudioOutputDevices();
+        const label = (device.label || "Speaker").slice(0, 28);
+        showToast(label);
+        return true;
+      }
+    } catch (e) {
+      if (e.name !== "NotAllowedError" && e.name !== "NotFoundError") {
+        console.warn("diskuz-call: selectAudioOutput failed", e);
+      }
+    }
+    return false;
+  }
+
   async function cycleSpeakerOutput() {
     if (!setSinkIdSupported()) return;
     await refreshAudioOutputDevices();
@@ -2161,6 +2283,94 @@ export default apiInitializer("0.8", (api) => {
       currentSinkIndex = 0;
       currentSinkId = "";
     }
+  }
+
+  function updateVideoLayout() {
+    if (!callUI) return;
+    const wrap = callUI.querySelector(".diskuz-call-video-wrap");
+    const fsBtn = callUI.querySelector(".diskuz-call-fullscreen-btn");
+    const show = localVideoOn || remoteVideoActive;
+    if (wrap) wrap.style.display = show ? "block" : "none";
+    callUI.classList.toggle("diskuz-call-video-active", !!show);
+    if (fsBtn) fsBtn.style.display = show && !isMobileDevice() ? "block" : "none";
+  }
+
+  function updateVideoButtonVisibility() {
+    if (!callUI) return;
+    const videoBtn = callUI.querySelector(".btn.video");
+    if (!videoBtn) return;
+    const show = rtcPeer && rtcPeer.connectionState === "connected" && (window.DiskuzCallVideoAllowed === true);
+    videoBtn.style.display = show ? "" : "none";
+  }
+
+  async function enableVideo() {
+    if (!rtcPeer || !rtcLocalStream || !currentCall.userId || !window.DiskuzCallSend) return;
+    try {
+      const videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+      const videoTrack = videoStream.getVideoTracks()[0];
+      if (!videoTrack) {
+        videoStream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      rtcLocalStream.addTrack(videoTrack);
+      localVideoTrack = videoTrack;
+      rtcPeer.addTrack(videoTrack, rtcLocalStream);
+      const offer = await rtcPeer.createOffer();
+      await rtcPeer.setLocalDescription(offer);
+      const sdpPayload = serializeSdp(offer);
+      if (sdpPayload) {
+        window.DiskuzCallSend({
+          type: "video_offer",
+          to_user_id: currentCall.userId,
+          from_user_id: null,
+          sdp: sdpPayload,
+        });
+      }
+      localVideoOn = true;
+      const localPreview = callUI && callUI.querySelector(".diskuz-call-local-preview");
+      const mirrorCb = callUI && callUI.querySelector(".diskuz-call-video-mirror-cb");
+      if (localPreview) {
+        localPreview.srcObject = new MediaStream([videoTrack]);
+        localPreview.play().catch(() => {});
+        localPreview.style.transform = (mirrorCb && mirrorCb.checked) ? "scaleX(-1)" : "none";
+      }
+      const videoBtn = callUI && callUI.querySelector(".btn.video");
+      if (videoBtn) videoBtn.classList.add("active");
+      updateVideoLayout();
+    } catch (e) {
+      console.warn("diskuz-call: enableVideo failed", e);
+      showToast(document.documentElement.lang === "it" ? "Impossibile attivare la videocamera." : "Could not enable camera.");
+    }
+  }
+
+  async function disableVideo() {
+    if (!rtcPeer || !currentCall.userId || !window.DiskuzCallSend) return;
+    const sender = rtcPeer.getSenders().find((s) => s.track && s.track.kind === "video");
+    if (sender) {
+      await sender.replaceTrack(null);
+      const offer = await rtcPeer.createOffer();
+      await rtcPeer.setLocalDescription(offer);
+      const sdpPayload = serializeSdp(offer);
+      if (sdpPayload) {
+        window.DiskuzCallSend({
+          type: "video_offer",
+          to_user_id: currentCall.userId,
+          from_user_id: null,
+          sdp: sdpPayload,
+        });
+      }
+    }
+    if (localVideoTrack) {
+      localVideoTrack.stop();
+      if (rtcLocalStream) rtcLocalStream.removeTrack(localVideoTrack);
+      localVideoTrack = null;
+    }
+    localVideoOn = false;
+    const localPreview = callUI && callUI.querySelector(".diskuz-call-local-preview");
+    if (localPreview) localPreview.srcObject = null;
+    const videoBtn = callUI && callUI.querySelector(".btn.video");
+    if (videoBtn) videoBtn.classList.remove("active");
+    updateVideoLayout();
   }
 
   async function rtcStartLocalAudio() {
@@ -2196,6 +2406,7 @@ export default apiInitializer("0.8", (api) => {
         callConnectedAt = Date.now();
         startCallDurationTimer();
       }
+      updateVideoButtonVisibility();
     };
     rtcPeer.oniceconnectionstatechange = () => {
       const state = rtcPeer?.iceConnectionState;
@@ -2234,6 +2445,19 @@ export default apiInitializer("0.8", (api) => {
         if (isMobileDevice()) rtcRemoteAudio.volume = 0.25;
         applySpeakerSink();
         rtcRemoteAudio.play().catch(() => {});
+      }
+      if (event.track.kind === "video" && callUI) {
+        const videoEl = callUI.querySelector(".diskuz-call-remote-video");
+        if (videoEl) {
+          videoEl.srcObject = stream || new MediaStream([event.track]);
+          videoEl.play().catch(() => {});
+        }
+        remoteVideoActive = true;
+        if (typeof updateVideoLayout === "function") updateVideoLayout();
+        event.track.onended = () => {
+          remoteVideoActive = false;
+          if (typeof updateVideoLayout === "function") updateVideoLayout();
+        };
       }
     };
 
@@ -2444,6 +2668,22 @@ export default apiInitializer("0.8", (api) => {
 
   function rtcEnd() {
     stopCallDurationTimer();
+    if (localVideoTrack) {
+      localVideoTrack.stop();
+      if (rtcLocalStream) rtcLocalStream.removeTrack(localVideoTrack);
+      localVideoTrack = null;
+    }
+    localVideoOn = false;
+    remoteVideoActive = false;
+    if (callUI) {
+      const wrap = callUI.querySelector(".diskuz-call-video-wrap");
+      const remoteV = callUI.querySelector(".diskuz-call-remote-video");
+      const localP = callUI.querySelector(".diskuz-call-local-preview");
+      if (wrap) wrap.style.display = "none";
+      if (remoteV) remoteV.srcObject = null;
+      if (localP) localP.srcObject = null;
+      callUI.classList.remove("diskuz-call-video-active");
+    }
     if (rtcPeer) {
       rtcPeer.close();
       rtcPeer = null;
@@ -2804,6 +3044,7 @@ export default apiInitializer("0.8", (api) => {
           showToast("Call accepted.");
         }
         rtcHandleAnswer(data);
+        updateVideoButtonVisibility();
         break;
 
       case "call_reject":
@@ -2859,6 +3100,39 @@ export default apiInitializer("0.8", (api) => {
 
       case "ice_candidate":
         rtcHandleIce(data);
+        break;
+
+      case "video_offer":
+        if (currentCall.active && currentCall.userId === data.from_user_id && rtcPeer && data.sdp) {
+          (async () => {
+            try {
+              await rtcPeer.setRemoteDescription(new RTCSessionDescription(data.sdp));
+              const answer = await rtcPeer.createAnswer();
+              await rtcPeer.setLocalDescription(answer);
+              const sdpPayload = serializeSdp(answer);
+              if (sdpPayload && window.DiskuzCallSend) {
+                window.DiskuzCallSend({
+                  type: "video_answer",
+                  to_user_id: data.from_user_id,
+                  from_user_id: null,
+                  sdp: sdpPayload,
+                });
+              }
+            } catch (err) {
+              console.warn("diskuz-call: video_offer handling failed", err);
+            }
+          })();
+        }
+        break;
+
+      case "video_answer":
+        if (currentCall.active && currentCall.userId === data.from_user_id && rtcPeer && data.sdp) {
+          try {
+            await rtcPeer.setRemoteDescription(new RTCSessionDescription(data.sdp));
+          } catch (err) {
+            console.warn("diskuz-call: video_answer handling failed", err);
+          }
+        }
         break;
 
       default:
@@ -2926,10 +3200,11 @@ export default apiInitializer("0.8", (api) => {
           return;
         }
         window.DiskuzCallIncomingSound = (data.incoming_sound != null && String(data.incoming_sound).trim() !== "") ? String(data.incoming_sound).trim() : "default";
+        window.DiskuzCallVideoAllowed = !!(data.video_allowed === true);
         window.DiskuzCallCustomRingtoneUrl = (data.custom_ringtone_url != null && data.custom_ringtone_url !== "") ? String(data.custom_ringtone_url).trim() : "";
         window.DiskuzCallCustomRingtones = Array.isArray(data.custom_ringtones) ? data.custom_ringtones : [];
         window.DiskuzCallSelectedCustomRingtoneIndex = data.selected_custom_ringtone_index != null ? data.selected_custom_ringtone_index : null;
-        window.DiskuzCallAlternativeRingtone = (data.alternative_ringtone != null && String(data.alternative_ringtone).trim() !== "") ? String(data.alternative_ringtone).trim() : "classic";
+        window.DiskuzCallAlternativeRingtone = (data.alternative_ringtone != null && String(data.alternative_ringtone).trim() !== "") ? String(data.alternative_ringtone).trim() : "soft";
         if (Array.isArray(data.ice_servers) && data.ice_servers.length > 0) window.DiskuzCallIceServers = data.ice_servers;
         subscribeMessageBus();
         loadHistory();

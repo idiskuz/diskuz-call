@@ -30,35 +30,38 @@ Installation is done **on the server** by cloning the GitHub repository into you
 - **User status:** **Online**, **Busy**, **Offline** (Italian: **Occupato** for Busy). Status is saved in the browser (localStorage) and restored on reload; default on first load is **Online**. Incoming calls can be auto-rejected when status is Busy or Offline.
 - **Widget errors:** entering your own username shows "You cannot call yourself." (not "User not found"); calling a user who doesn't follow you (when require-follow is on) shows the exact reason at the bottom of the widget ("You cannot call a user who doesn't follow you."). If the signal send fails (403, network), the operation ends immediately and the error is shown at the bottom of the main widget. All errors at the bottom of the widget **disappear automatically after 5 seconds**.
 - **Outgoing call timeout:** if the callee doesn't answer within ~50 seconds, the call ends and the status message shows "User not available or not connected." Reject reasons (busy, not available, rejected) are shown in the call window status line and as a toast before the UI closes.
-- **Notifications** (call history): second page of the main widget (same layout and position). Clicking **Notifications** switches the widget to the Notifications view with tabs **Received**, **Sent**, **Recent**, **Missed**. A **Home** button (⌂) returns to the "Call a friend" page. All nicknames are clickable to start a call. Time in **HH:mm**; for completed calls, **duration** is shown (e.g. **Duration mm:ss** or **hh:mm:ss** if ≥ 1 hour).
+- **Notifications** (call history): second page of the main widget (same layout and position). Clicking **Notifications** opens the Notifications view with tabs **Received**, **Sent**, **Recent**, **Missed** (up to 10 entries per tab). A prominent **← Indietro / ← Back** button in the header returns to the "Call a friend" page. All nicknames are clickable to start a call. Time in **HH:mm**; for completed calls, **duration** is shown (e.g. **Duration mm:ss** or **hh:mm:ss** if ≥ 1 hour). Notifications have a time limit to act (e.g. 10 s) and to answer when on the page (e.g. 30 s).
 
 ### During a call
 - **Duration timer** from connection time (MM:SS or HH:MM:SS).
 - **Mute:** turn off microphone; button shows "Muted" when active.
-- **Speaker:** cycle audio outputs (desktop: default → other devices; mobile: earpiece → speaker → others). On mobile, audio can start in earpiece.
+- **Speaker:** on **desktop**, cycles audio outputs (default → other devices). On **mobile**, when the browser supports it, opens the **native audio output picker** (e.g. earpiece, speaker, Bluetooth) so the user chooses where to hear the call from the device UI (similar to Meet); otherwise a message suggests using the device’s volume keys or sound settings.
 - **Hang up:** end the call.
 - **Hide / Show buttons:** hide the control row (Mute, Speaker, Hang up) toward the bottom; one tap/click shows it again.
 - **Ear mode** (mobile): full-screen overlay (dark screen) so you can put the phone to your ear; tap to dismiss. On iPhone the overlay is brought to the front so it stays visible.
 
 ### Incoming call
 - The **floating button** **pulses** (green) to draw attention.
-- **Configurable ringtone:** none, default, ding, bell, chat, or **custom** (URL set by admin; supports relative paths and full URLs like `https://yoursite.com/ring.mp3`).
+- **Configurable ringtone:** **Sound for incoming calls** can be: `none`, `default`, `ding`, `bell`, `chat`, **`custom`** (user picks one of up to 10 admin-configured MP3s in the widget, with preview), or **`alternative`** (built-in presets). Ringtone plays for up to **48 seconds**. Default built-in preset when not set by admin: **ringtone 3 (soft)**.
+- **Custom ringtones (widget):** when Sound is **custom**, the widget shows a **Suonerie / Ringtones** block: each item has **Preview** (plays ~12 s) and **Seleziona / Select**; playback stops immediately when starting another preview or when clicking Select. Selected ringtone is saved per user.
 - **Browser notification** (when permitted) with caller name.
 - **Discourse bell notification** with text such as "Calling you" and icon.
 - **Incoming UI** with **Accept** and **Reject**. If the window does not appear automatically, clicking the flashing floating button opens the screen with Accept/Reject. Only Accept and Reject are shown while ringing; Mute, Speaker, and Hang up appear after accepting.
 
 ### Main widget
-- **Top bar** (desktop): draggable by the top bar to move the widget; **diskuz Call** (green) and **by diskuz.com** are on the **same line**. The widget has two pages: "Call a friend" (home) and Notifications; switching between them keeps the same window position.
+- **Top bar** (desktop): draggable by the top bar to move the widget; **diskuz Call** (green) and **by diskuz.com** are on the **same line**. The widget has two pages: "Call a friend" (home) and Notifications; switching between them keeps the same window position and size.
+- **Desktop size and resize:** default size **360×520** px. Widget is **resizable** like a window (drag the edge/corner); **minimum 360×520** is enforced so a shrunk size is never saved or restored. Position and size are saved to localStorage and restored on reopen; ResizeObserver updates the saved size when the user resizes.
 - **Center phrase:** the home page shows a line such as "Call people who follow you on [site name]." The site name is taken from the page (e.g. meta og:site_name or document title).
 - **Description:** below the Notifications button, a short text explains the widget: "This widget lets you call your friends on [site]. Set your status to Online to receive calls, or use Busy and Offline if you don't want to be disturbed."
-- **Hide button:** in the bottom right of the widget (on both home and Notifications pages), a **Hide** button (Italian: **Nascondi**) closes the widget completely so the user can see the site again.
-- **Layout:** the username field is spaced from the Call button (not attached). On desktop the widget is slightly wider (320px) and has a larger min-height; the Notifications page does not change the widget size—the user scrolls the call history with the mouse wheel. **Border-radius 15px** on the whole widget. Buttons use a frosted blur style (semi-transparent with backdrop blur).
-- **Mobile:** when the widget is open it is **full page**: it covers the entire screen (including the floating Call button and the current site). The user closes it with **Hide** to see the site again. Buttons are larger and use a stronger frosted effect for easier tapping.
+- **Hide button:** on both home and Notifications pages, a **Hide** (Italian: **Nascondi**) button closes the widget. When the widget is closed it is fully hidden (no transparent clickable area).
+- **Layout:** the username field is spaced from the Call button. **Border-radius 15px** on the whole widget. Buttons use a frosted blur style (semi-transparent with backdrop blur).
+- **Notifications page:** header with a visible **← Indietro / ← Back** button (green, solid) to return to the home page; tabs **Received, Sent, Recent, Missed**; list scrollable with a **minimal styled scrollbar** (thin, green); up to **10 records per tab**; footer with **Hide** and **Installa app diskuz.com** (single install button for the full diskuz.com site).
+- **Mobile:** when the widget is open it is **full page**: it covers the entire screen. The user closes it with **Hide** to see the site again. Buttons are larger and use a stronger frosted effect for easier tapping.
 
 ### Call window
 - **Top bar** (desktop): draggable; shows **diskuz Call** (green) and **by diskuz.com** on the **same line**. Used to move the call window.
 - **Content order:** avatar, username, status (e.g. "Calling..." / "In call..."), then **diskuz Call** logo + by diskuz.com + slogan *Real Conversations, No Algorithms :-)*, then duration, then controls at the **bottom** (Hide, Mute, Speaker, Hang up). No fullscreen/video mode.
-- **Desktop:** window is resizable; controls anchored at bottom; when hidden they slide off the bottom.
+- **Desktop:** window is **resizable** like the widget (same min 360×520); position and size follow the widget when opening and are saved (ResizeObserver); when hidden, controls slide off the bottom.
 - **Mobile:** full-screen call UI; controls at bottom; Ear mode available.
 
 ### WebRTC and signaling
@@ -78,14 +81,15 @@ Installation is done **on the server** by cloning the GitHub repository into you
 - **Enable diskuz Call:** turn the plugin on or off.
 - **Who can see and use diskuz Call:** groups that can use calls (default: 1|2|3). Supports "all" or list of group IDs.
 - **Require the callee to follow the caller:** when discourse-follow is enabled. Boolean.
-- **Sound for incoming calls:** `none`, `default`, `ding`, `bell`, `chat`, or **`custom`** (uses Custom ringtone URL).
-- **Custom ringtone URL:** full or relative URL of an MP3 (e.g. `https://yoursite.com/ring.mp3` or `/uploads/...`). Used when Sound is **custom**. Recommended max size ~500 KB.
+- **Sound for incoming calls:** `none`, `default`, `ding`, `bell`, `chat`, **`custom`** (user chooses one of up to 10 MP3s in the widget), or **`alternative`** (built-in presets). Ringtone plays up to 48 seconds.
+- **Custom ringtones (1–10):** up to 10 settings `diskuz_call_custom_ringtone_1` … `diskuz_call_custom_ringtone_10`; each is a full or relative MP3 URL. Used when Sound is **custom**; the user picks one in the widget (Preview + Select). Recommended max size ~500 KB per file.
+- **Alternative ringtone:** used when Sound is **alternative**. Presets: classic, modern, soft, double, melodic, retro, digital, pulse, star, cascade; lively: festivo, allegro, vivace, brillante, energico, dinamico, scintilla, campanella, trillo, marimba; relax: relax1–relax5. **Default when not set: soft (ringtone 3).**
 - **ICE servers:** optional JSON array for STUN/TURN; empty = Google STUN only. Example: `[{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:turn.example.com:3478","username":"user","credential":"pass"}]`.
 
 ### Backend API
-- `GET /diskuz-call/status` — plugin state (enabled, incoming_sound, custom_ringtone_url, ice_servers).
+- `GET /diskuz-call/status` — plugin state: enabled, incoming_sound, **custom_ringtones** (array), **custom_ringtone_url** (selected URL), **alternative_ringtone**, ice_servers.
 - `GET /diskuz-call/watermark.png` — diskuz logo image for the call UI.
-- `PUT /diskuz-call/preferences` — user preferences.
+- `PUT /diskuz-call/preferences` — user preferences (e.g. **selected_custom_ringtone_index** for custom ringtone choice).
 - `GET /diskuz-call/can-call/:user_id` — check if the current user can call the given user (groups + follow).
 - `POST /diskuz-call/signal` — send signal (offer, answer, ice_candidate, call_end, call_reject); delivery to recipient via MessageBus.
 
@@ -118,6 +122,10 @@ Installation is done **on the server** by cloning the GitHub repository into you
 2. **Who can see and use diskuz Call:** your user must be in one of the allowed groups (e.g. add the correct group ID).
 3. **Console (F12):** look for `[diskuz-call]` messages. If none, rebuild and hard refresh (Ctrl+F5).
 
+### If the widget appears too small on desktop
+
+The plugin enforces a **minimum size (360×520 px)** when saving and restoring the widget; a previously saved “shrunk” size is no longer applied. If you still see an old narrow layout, clear the stored rect: **F12 → Application → Local Storage** → select your site → delete the key **diskuz_call_widget_rect**. Reload the page; the widget will open at default size and position.
+
 ---
 
 ## Requirements
@@ -138,4 +146,4 @@ This plugin is provided as-is. If the repository is **public**:
 
 ---
 
-**Version:** 0.3.0-beta · **URL:** https://github.com/idiskuz/diskuz-call
+**Version:** 0.4.0-beta · **URL:** https://github.com/idiskuz/diskuz-call

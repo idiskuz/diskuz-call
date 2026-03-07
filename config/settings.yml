@@ -58,9 +58,9 @@ plugins:
   diskuz_call_custom_ringtone_10:
     default: ""
     client: true
-  # Suoneria alternativa (usata quando "Suono chiamate in arrivo" è "alternative"). Suonerie movimentate + Relaz (rilassanti).
+  # Suoneria alternativa (usata quando "Suono chiamate in arrivo" è "alternative"). Suonerie movimentate + Relaz (rilassanti). Default: ringtone 3 (soft).
   diskuz_call_alternative_ringtone:
-    default: "classic"
+    default: "soft"
     type: enum
     client: true
     choices:
@@ -89,6 +89,12 @@ plugins:
       - relax3
       - relax4
       - relax5
+  # Gruppi che possono abilitare il video durante una chiamata (stesso formato di "Chi può usare diskuz Call"). Solo chi è in questi gruppi vede il tasto Video in chiamata.
+  diskuz_call_video_allowed_groups:
+    default: "1|2|3"
+    type: group_list
+    list_type: compact
+    client: true
   # ICE servers per WebRTC (opzionale). JSON array, es: [{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:turn.example.com","username":"user","credential":"pass"}]. Lascia vuoto per usare solo STUN Google.
   diskuz_call_ice_servers:
     default: ""
