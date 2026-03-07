@@ -70,7 +70,14 @@ export default apiInitializer("0.8", (api) => {
   const WIDGET_PAGE_NOTIFICATIONS = "notifications";
   let lastWidgetRect = null;
   let widgetWasOpenBeforeCall = false;
+  let installPromptEvent = null;
   const WIDGET_RECT_STORAGE_KEY = "diskuz_call_widget_rect";
+  const DISKUZ_SITE_URL = "https://diskuz.com";
+
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    installPromptEvent = e;
+  });
   /* Default position/size uguale alla UI chiamata (320x440) */
   function getDefaultWidgetRect() {
     const W = window.innerWidth;
@@ -90,13 +97,11 @@ export default apiInitializer("0.8", (api) => {
     const W = window.innerWidth;
     const H = window.innerHeight;
     let { left, top, width, height } = rect;
-    const right = left + width;
-    const bottom = top + height;
-    const offScreen = left < 0 || top < 0 || right > W || bottom > H;
-    if (offScreen) {
-      top = Math.max(0, Math.min(H - height, (H - height) / 2));
-      left = Math.max(0, Math.min(W - width, left));
-    }
+    left = Math.max(0, Math.min(left, W - 1));
+    top = Math.max(0, Math.min(top, H - 1));
+    width = Math.min(width, W - left);
+    height = Math.min(height, H - top);
+    if (width <= 0 || height <= 0) return rect;
     return { left, top, width, height };
   }
 
@@ -140,15 +145,17 @@ export default apiInitializer("0.8", (api) => {
 
   function applyLastRectToWidget() {
     if (!widget || isMobileDevice()) return;
-    if (lastWidgetRect && lastWidgetRect.width > 0) {
-      const rect = clampRectToViewport(lastWidgetRect);
-      widget.style.left = rect.left + "px";
-      widget.style.top = rect.top + "px";
-      widget.style.width = rect.width + "px";
-      widget.style.height = rect.height + "px";
-      widget.style.right = "auto";
-      widget.style.bottom = "auto";
+    if (!lastWidgetRect || lastWidgetRect.width <= 0) {
+      lastWidgetRect = getDefaultWidgetRect();
+      saveWidgetRectToStorage();
     }
+    const rect = clampRectToViewport(lastWidgetRect);
+    widget.style.left = rect.left + "px";
+    widget.style.top = rect.top + "px";
+    widget.style.width = rect.width + "px";
+    widget.style.height = rect.height + "px";
+    widget.style.right = "auto";
+    widget.style.bottom = "auto";
   }
 
   function applyWidgetRectToCallUI() {
@@ -380,7 +387,7 @@ export default apiInitializer("0.8", (api) => {
     }
   }
 
-  /* Suonerie alternative (5 preset: classic, modern, soft, double, melodic) */
+  /* Suonerie alternative (10 preset: classic, modern, soft, double, melodic + retro, digital, pulse, star, cascade) */
   function playAlternativeRingtonePreset(ctx, preset) {
     const t0 = ctx.currentTime;
     const g = ctx.createGain();
@@ -416,6 +423,51 @@ export default apiInitializer("0.8", (api) => {
           tone(659, t0 + 0.28, 0.2);
           tone(784, t0 + 0.56, 0.2);
           tone(1047, t0 + 0.84, 0.25);
+          break;
+        case "retro":
+          tone(880, t0, 0.12);
+          tone(988, t0 + 0.18, 0.12);
+          tone(1175, t0 + 0.36, 0.12);
+          tone(1319, t0 + 0.54, 0.2);
+          tone(1175, t0 + 0.82, 0.12);
+          tone(988, t0 + 1.0, 0.12);
+          tone(880, t0 + 1.18, 0.25);
+          break;
+        case "digital":
+          tone(622, t0, 0.08);
+          tone(622, t0 + 0.2, 0.08);
+          tone(622, t0 + 0.32, 0.08);
+          tone(784, t0 + 0.48, 0.12);
+          tone(784, t0 + 0.68, 0.12);
+          tone(1047, t0 + 0.88, 0.2);
+          break;
+        case "pulse":
+          tone(659, t0, 0.15);
+          tone(523, t0 + 0.25, 0.15);
+          tone(659, t0 + 0.5, 0.15);
+          tone(523, t0 + 0.7, 0.15);
+          tone(659, t0 + 0.95, 0.15);
+          tone(784, t0 + 1.15, 0.25);
+          break;
+        case "star":
+          tone(523, t0, 0.14);
+          tone(659, t0 + 0.22, 0.14);
+          tone(784, t0 + 0.4, 0.14);
+          tone(1047, t0 + 0.58, 0.14);
+          tone(1319, t0 + 0.76, 0.28);
+          tone(1047, t0 + 1.1, 0.14);
+          tone(1319, t0 + 1.28, 0.3);
+          break;
+        case "cascade":
+          tone(1047, t0, 0.1);
+          tone(988, t0 + 0.14, 0.1);
+          tone(880, t0 + 0.28, 0.1);
+          tone(784, t0 + 0.42, 0.1);
+          tone(659, t0 + 0.56, 0.18);
+          tone(784, t0 + 0.82, 0.1);
+          tone(880, t0 + 0.96, 0.1);
+          tone(988, t0 + 1.1, 0.1);
+          tone(1047, t0 + 1.24, 0.22);
           break;
         case "classic":
         default:
@@ -563,6 +615,59 @@ export default apiInitializer("0.8", (api) => {
     setTimeout(() => playFallbackBeep(400, 180), 640);
   }
 
+  /* Tono di libero (ringback): si sente subito quando si preme Call, fino a risposta/rifiuto/fine */
+  const RINGBACK_INTERVAL_MS = 2500;
+  let outgoingRingbackIntervalId = null;
+
+  function stopOutgoingRingback() {
+    if (outgoingRingbackIntervalId) {
+      clearInterval(outgoingRingbackIntervalId);
+      outgoingRingbackIntervalId = null;
+    }
+  }
+
+  function playRingbackToneOnce(ctx) {
+    if (!ctx) return;
+    const t0 = ctx.currentTime;
+    const g = ctx.createGain();
+    g.connect(ctx.destination);
+    const vol = 0.25;
+    const len = 0.4;
+    const gap = 0.2;
+    [0, len + gap].forEach((off) => {
+      const o = ctx.createOscillator();
+      o.connect(g);
+      o.frequency.value = 440;
+      o.type = "sine";
+      g.gain.setValueAtTime(0, t0 + off);
+      g.gain.linearRampToValueAtTime(vol, t0 + off + 0.02);
+      g.gain.setValueAtTime(vol, t0 + off + len - 0.02);
+      g.gain.linearRampToValueAtTime(0, t0 + off + len);
+      o.start(t0 + off);
+      o.stop(t0 + off + len);
+    });
+  }
+
+  function startOutgoingRingback() {
+    stopOutgoingRingback();
+    ensureAudioContextRunning().then(() => {
+      const ctx = incomingCallAudioContext;
+      if (!ctx) return;
+      const playOnce = () => {
+        if (!currentCall.active || currentCall.direction !== "outgoing" || !currentCall.isRinging) {
+          stopOutgoingRingback();
+          return;
+        }
+        try {
+          if (ctx.state === "suspended") ctx.resume().then(() => playRingbackToneOnce(ctx));
+          else playRingbackToneOnce(ctx);
+        } catch (e) { /* ignore */ }
+      };
+      playOnce();
+      outgoingRingbackIntervalId = setInterval(playOnce, RINGBACK_INTERVAL_MS);
+    }).catch(() => {});
+  }
+
   function playBusyToneBeeps(ctx) {
     try {
       const gain = ctx.createGain();
@@ -586,6 +691,8 @@ export default apiInitializer("0.8", (api) => {
   }
 
   /* --- BROWSER NOTIFICATION (when user has allowed notifications) --- */
+  /* L'utente ha 10 secondi per cliccare sulla notifica o aprire diskuz; una volta sulla pagina ha altri 30 secondi (INCOMING_RING_MAX_MS) per rispondere. Per ricevere notifiche a tab chiuso serve Web Push (server + service worker). */
+  const NOTIFICATION_VISIBLE_MS = 10000;
   function showBrowserNotification(fromUsername) {
     if (!window.Notification || Notification.permission === "denied") return;
     if (Notification.permission === "default") {
@@ -604,7 +711,7 @@ export default apiInitializer("0.8", (api) => {
         window.focus();
         n.close();
       };
-      setTimeout(() => n.close(), 8000);
+      setTimeout(() => n.close(), NOTIFICATION_VISIBLE_MS);
     } catch (e) {
       console.warn("diskuz-call: browser notification failed", e);
     }
@@ -786,6 +893,8 @@ export default apiInitializer("0.8", (api) => {
       });
     }
 
+    items = items.slice(0, 10);
+
     if (!items.length) {
       listEl.innerHTML = `<div class="diskuz-history-empty">${emptyMsg}</div>`;
       return;
@@ -862,8 +971,13 @@ export default apiInitializer("0.8", (api) => {
 
   function openWidgetToNotificationsPage() {
     if (!widget.classList.contains("open")) {
+      if (!lastWidgetRect || lastWidgetRect.width <= 0) {
+        lastWidgetRect = getDefaultWidgetRect();
+        saveWidgetRectToStorage();
+      }
       applyLastRectToWidget();
       widget.style.display = "block";
+      updateBodyScrollLock();
       setTimeout(() => {
         widget.classList.add("open");
         setTimeout(captureWidgetRect, 50);
@@ -890,14 +1004,38 @@ export default apiInitializer("0.8", (api) => {
     }
   }
 
-  /* --- FLOATING BUTTON (sempre visibile in basso a destra se loggato; nascosto solo se status ha risposto "non abilitato") --- */
+  /* --- FLOATING BUTTON (nascosto quando il composer Discourse è aperto: nuovo post o risposta) --- */
+  function isComposerVisible() {
+    const replyControl = document.getElementById("reply-control");
+    if (replyControl) {
+      const style = window.getComputedStyle(replyControl);
+      if (style.display !== "none" && style.visibility !== "hidden" && replyControl.offsetHeight > 0) return true;
+    }
+    const composerPopup = document.querySelector(".composer-popup, .fullscreen-composer, .d-modal-body .composer-fields");
+    if (composerPopup) {
+      const style = window.getComputedStyle(composerPopup);
+      if (style.display !== "none" && style.visibility !== "hidden" && composerPopup.offsetHeight > 0) return true;
+    }
+    const body = document.body;
+    if (body && body.classList && (body.classList.contains("composer-open") || body.classList.contains("has-composer"))) return true;
+    return false;
+  }
+
+  function updateFloatingButtonForComposer() {
+    if (!btn) return;
+    if (isComposerVisible()) {
+      btn.style.display = "none";
+    } else {
+      btn.style.display = "";
+    }
+  }
+
   function updateCallFeatureVisibility() {
-    /* We only create btn/widget when user is in allowed groups, so when they exist we always show */
-    if (btn) btn.style.display = "";
     if (widget) {
       widget.style.display = "";
       if (widget.classList.contains("open")) widget.style.display = "block";
     }
+    updateFloatingButtonForComposer();
   }
 
   function createFloatingButton() {
@@ -988,33 +1126,37 @@ export default apiInitializer("0.8", (api) => {
           <span class="diskuz-widget-brand-by">by diskuz.com</span>
         </div>
         <div class="diskuz-widget-page-home diskuz-widget-page diskuz-widget-page-active">
-          <h3 class="diskuz-widget-title">${isIt ? "Chiama un amico" : "Call a friend"}</h3>
-          <p class="diskuz-widget-tagline">${tagline.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>
-          <div class="diskuz-call-input-wrap">
-            <div class="diskuz-call-input-autocomplete-wrap">
-              <input id="diskuz-call-input" type="text" placeholder="${isIt ? "Inserisci username" : "Enter username"}" class="diskuz-call-input-animated" autocomplete="off">
-              <div id="diskuz-call-suggestions" class="diskuz-call-suggestions" role="listbox" aria-hidden="true"></div>
+          <div class="diskuz-widget-home-content">
+            <h3 class="diskuz-widget-title">${isIt ? "Chiama un amico" : "Call a friend"}</h3>
+            <p class="diskuz-widget-tagline">${tagline.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>
+            <div class="diskuz-call-input-wrap">
+              <div class="diskuz-call-input-autocomplete-wrap">
+                <input id="diskuz-call-input" type="text" placeholder="${isIt ? "Inserisci username" : "Enter username"}" class="diskuz-call-input-animated" autocomplete="off">
+                <div id="diskuz-call-suggestions" class="diskuz-call-suggestions" role="listbox" aria-hidden="true"></div>
+              </div>
             </div>
+            <button id="diskuz-call-start">Call</button>
+            <div id="diskuz-call-error"></div>
+            <div class="diskuz-widget-status-label">${isIt ? "Stato:" : "Status:"}</div>
+            <div class="diskuz-widget-status-btns">
+              <button id="diskuz-status-available" class="diskuz-status-btn">Online</button>
+              <button id="diskuz-status-busy" class="diskuz-status-btn">${isIt ? "Occupato" : "Busy"}</button>
+              <button id="diskuz-status-not-available" class="diskuz-status-btn">Offline</button>
+            </div>
+            <button id="diskuz-call-history-btn" class="diskuz-notifications-open-btn">
+              ${isIt ? "Notifiche" : "Notifications"}
+              <span id="diskuz-notifications-badge" class="diskuz-notifications-badge">0</span>
+            </button>
+            <p class="diskuz-widget-description">${(isIt
+              ? "Questo widget ti consente di chiamare i tuoi amici su "
+              : "This widget lets you call your friends on ") + (siteName.replace(/</g, "&lt;").replace(/>/g, "&gt;")) + (isIt
+              ? ". Imposta il tuo status su Online per ricevere chiamate, mentre se non vuoi essere disturbato utilizza i tasti Occupato e Offline."
+              : ". Set your status to Online to receive calls, or use Busy and Offline if you don't want to be disturbed.")}</p>
           </div>
-          <button id="diskuz-call-start">Call</button>
-          <div id="diskuz-call-error"></div>
-          <div class="diskuz-widget-status-label">${isIt ? "Stato:" : "Status:"}</div>
-          <div class="diskuz-widget-status-btns">
-            <button id="diskuz-status-available" class="diskuz-status-btn">Online</button>
-            <button id="diskuz-status-busy" class="diskuz-status-btn">${isIt ? "Occupato" : "Busy"}</button>
-            <button id="diskuz-status-not-available" class="diskuz-status-btn">Offline</button>
-          </div>
-          <button id="diskuz-call-history-btn" class="diskuz-notifications-open-btn">
-            ${isIt ? "Notifiche" : "Notifications"}
-            <span id="diskuz-notifications-badge" class="diskuz-notifications-badge">0</span>
-          </button>
-          <p class="diskuz-widget-description">${(isIt
-            ? "Questo widget ti consente di chiamare i tuoi amici su "
-            : "This widget lets you call your friends on ") + (siteName.replace(/</g, "&lt;").replace(/>/g, "&gt;")) + (isIt
-            ? ". Imposta il tuo status su Online per ricevere chiamate, mentre se non vuoi essere disturbato utilizza i tasti Occupato e Offline."
-            : ". Set your status to Online to receive calls, or use Busy and Offline if you don't want to be disturbed.")}</p>
           <div class="diskuz-widget-footer">
             <button type="button" id="diskuz-widget-hide-btn" class="diskuz-widget-hide-btn">${isIt ? "Nascondi" : "Hide"}</button>
+            <button type="button" id="diskuz-widget-install-app-btn" class="diskuz-widget-install-app-btn" aria-label="${isIt ? "Installa diskuz Call" : "Install diskuz Call"}">${isIt ? "Installa diskuz Call" : "Install diskuz Call"}</button>
+            <button type="button" id="diskuz-widget-install-site-btn" class="diskuz-widget-install-site-btn" aria-label="${isIt ? "Installa diskuz.com come app" : "Install diskuz.com as app"}">${isIt ? "Installa sito diskuz.com" : "Install diskuz.com site"}</button>
           </div>
         </div>
         <div class="diskuz-widget-page-notifications diskuz-widget-page">
@@ -1031,6 +1173,8 @@ export default apiInitializer("0.8", (api) => {
           <div id="diskuz-widget-history-list" class="diskuz-widget-history-list"></div>
           <div class="diskuz-widget-footer">
             <button type="button" class="diskuz-widget-hide-btn diskuz-widget-hide-btn-notif">${isIt ? "Nascondi" : "Hide"}</button>
+            <button type="button" class="diskuz-widget-install-app-btn diskuz-widget-install-app-btn-notif">${isIt ? "Installa diskuz Call" : "Install diskuz Call"}</button>
+            <button type="button" class="diskuz-widget-install-site-btn diskuz-widget-install-site-btn-notif">${isIt ? "Installa sito diskuz.com" : "Install diskuz.com site"}</button>
           </div>
         </div>
       `;
@@ -1265,6 +1409,50 @@ export default apiInitializer("0.8", (api) => {
         hideBtn.addEventListener("click", function () {
           toggleWidgetForceClose();
         });
+      });
+
+      widget.querySelectorAll(".diskuz-widget-install-app-btn").forEach(function (installBtn) {
+        installBtn.addEventListener("click", function () {
+          if (installPromptEvent) {
+            installPromptEvent.prompt();
+            installPromptEvent.userChoice.then(function (choice) {
+              installPromptEvent = null;
+            }).catch(function () { installPromptEvent = null; });
+          } else {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+            const isIt = document.documentElement.lang === "it";
+            if (isIOS) {
+              showToast(isIt ? "Apri il menu Condividi (↑) e scegli \"Aggiungi a Home\" per installare diskuz Call." : "Open the Share menu (↑) and choose \"Add to Home Screen\" to install diskuz Call.", 8000);
+            } else {
+              showToast(isIt ? "Usa il menu del browser (⋮) > \"Installa app\" o \"Aggiungi a Home\" per installare diskuz Call." : "Use the browser menu (⋮) > \"Install app\" or \"Add to Home\" to install diskuz Call.", 6000);
+            }
+          }
+        });
+      });
+
+      function triggerInstallDiskuzSite() {
+        const isIt = document.documentElement.lang === "it";
+        const onDiskuz = typeof window.location !== "undefined" && window.location.hostname && (window.location.hostname === "diskuz.com" || window.location.hostname.endsWith(".diskuz.com"));
+        if (onDiskuz) {
+          if (installPromptEvent) {
+            installPromptEvent.prompt();
+            installPromptEvent.userChoice.then(function () { installPromptEvent = null; }).catch(function () { installPromptEvent = null; });
+          } else {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+            if (isIOS) {
+              showToast(isIt ? "Apri il menu Condividi (↑) e scegli \"Aggiungi a Home\" per installare diskuz.com come app." : "Open the Share menu (↑) and choose \"Add to Home Screen\" to install diskuz.com as app.", 8000);
+            } else {
+              showToast(isIt ? "Usa il menu del browser (⋮) > \"Installa app\" o \"Aggiungi a Home\" per installare diskuz.com." : "Use the browser menu (⋮) > \"Install app\" or \"Add to Home\" to install diskuz.com.", 6000);
+            }
+          }
+        } else {
+          window.open(DISKUZ_SITE_URL, "_blank", "noopener,noreferrer");
+          showToast(isIt ? "Apri diskuz.com e usa \"Installa diskuz Call\" o \"Installa sito diskuz.com\" per installare come app." : "Open diskuz.com and use \"Install diskuz Call\" or \"Install diskuz.com site\" to install as an app.", 7000);
+        }
+      }
+
+      widget.querySelectorAll(".diskuz-widget-install-site-btn").forEach(function (siteBtn) {
+        siteBtn.addEventListener("click", triggerInstallDiskuzSite);
       });
 
       const notifHomeBtn = widget.querySelector("#diskuz-widget-notifications-home-btn");
@@ -1563,6 +1751,7 @@ export default apiInitializer("0.8", (api) => {
       widgetWasOpenBeforeCall = !!(widget && widget.classList.contains("open"));
       if (widget) widget.style.display = "none";
       applyWidgetRectToCallUI();
+      updateBodyScrollLock();
     }
 
     setTimeout(function () {
@@ -1596,11 +1785,19 @@ export default apiInitializer("0.8", (api) => {
         applyLastRectToWidget();
         widget.style.display = "block";
       }
+      updateBodyScrollLock();
     }, 200);
   }
 
   function isMobileDevice() {
     return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (typeof window.orientation !== "undefined") || (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
+  }
+
+  function updateBodyScrollLock() {
+    const widgetOpen = widget && widget.classList.contains("open");
+    const callUIVisible = callUI && callUI.style.display === "block";
+    const shouldLock = !isMobileDevice() && (widgetOpen || callUIVisible);
+    document.body.classList.toggle("diskuz-call-noscroll", !!shouldLock);
   }
 
   /* --- WEBRTC AUDIO ENGINE --- */
@@ -2049,6 +2246,7 @@ export default apiInitializer("0.8", (api) => {
 
   function endCurrentCall(result) {
     clearOutgoingCallTimeout();
+    stopOutgoingRingback();
     if (currentCall.active && currentCall.username) {
       const durationSeconds = callConnectedAt != null
         ? Math.floor((Date.now() - callConnectedAt) / 1000)
@@ -2093,6 +2291,8 @@ export default apiInitializer("0.8", (api) => {
       result: "started",
       username: username,
     });
+
+    startOutgoingRingback();
 
     rtcMakeOffer(userId);
   }
@@ -2233,6 +2433,7 @@ export default apiInitializer("0.8", (api) => {
       widgetWasOpenBeforeCall = !!(widget && widget.classList.contains("open"));
       if (widget) widget.style.display = "none";
       applyWidgetRectToCallUI();
+      updateBodyScrollLock();
     }
 
     if (callUI.parentNode) callUI.parentNode.appendChild(callUI);
@@ -2364,6 +2565,7 @@ export default apiInitializer("0.8", (api) => {
           currentCall.userId === data.from_user_id
         ) {
           clearOutgoingCallTimeout();
+          stopOutgoingRingback();
           currentCall.isRinging = false;
           const statusEl = callUI && callUI.querySelector(".status");
           if (statusEl) {
@@ -2386,6 +2588,7 @@ export default apiInitializer("0.8", (api) => {
           currentCall.userId === data.from_user_id
         ) {
           clearOutgoingCallTimeout();
+          stopOutgoingRingback();
           playBusyTone();
           const reason = data.reason || "rejected";
           const rejectMsg =
@@ -2411,6 +2614,7 @@ export default apiInitializer("0.8", (api) => {
 
       case "call_end":
         if (currentCall.active && currentCall.userId === data.from_user_id) {
+          if (currentCall.direction === "outgoing") stopOutgoingRingback();
           if (currentCall.direction === "incoming") stopIncomingRing();
           const durationSeconds = callConnectedAt != null
             ? Math.floor((Date.now() - callConnectedAt) / 1000)
@@ -2441,14 +2645,21 @@ export default apiInitializer("0.8", (api) => {
     if (!widget) return;
 
     if (widget.classList.contains("open")) {
+      if (!isMobileDevice()) captureWidgetRect();
       widget.classList.remove("open");
       setTimeout(function () {
         widget.style.display = "none";
+        updateBodyScrollLock();
       }, 200);
     } else {
       showWidgetPage(WIDGET_PAGE_HOME);
+      if (!lastWidgetRect || lastWidgetRect.width <= 0) {
+        lastWidgetRect = getDefaultWidgetRect();
+        saveWidgetRectToStorage();
+      }
       applyLastRectToWidget();
       widget.style.display = "block";
+      updateBodyScrollLock();
       setTimeout(function () {
         widget.classList.add("open");
         setTimeout(captureWidgetRect, 50);
@@ -2458,9 +2669,11 @@ export default apiInitializer("0.8", (api) => {
 
   function toggleWidgetForceClose() {
     if (!widget) return;
+    if (!isMobileDevice()) captureWidgetRect();
     widget.classList.remove("open");
     setTimeout(function () {
       widget.style.display = "none";
+      updateBodyScrollLock();
     }, 200);
   }
 
@@ -2503,6 +2716,19 @@ export default apiInitializer("0.8", (api) => {
         updateNotificationsBadge();
         updateCallFeatureVisibility();
         onceDocumentInteractionForAudio();
+        /* Nascondi il pulsante Call quando il composer (nuovo post / risposta) è aperto */
+        let composerCheckScheduled = false;
+        function scheduleComposerCheck() {
+          if (composerCheckScheduled) return;
+          composerCheckScheduled = true;
+          requestAnimationFrame(function () {
+            composerCheckScheduled = false;
+            updateFloatingButtonForComposer();
+          });
+        }
+        const composerObserver = new MutationObserver(scheduleComposerCheck);
+        composerObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style"] });
+        document.addEventListener("visibilitychange", updateFloatingButtonForComposer);
       })
       .catch(() => {
         log("initPage: status check failed, plugin not loaded");

@@ -31,7 +31,7 @@ plugins:
   diskuz_call_custom_ringtone_url:
     default: ""
     client: true
-  # Suoneria alternativa (usata quando "Suono chiamate in arrivo" è "alternative"). Scegli una delle 5 suonerie.
+  # Suoneria alternativa (usata quando "Suono chiamate in arrivo" è "alternative"). Scegli una delle 10 suonerie.
   diskuz_call_alternative_ringtone:
     default: "classic"
     type: enum
@@ -42,6 +42,11 @@ plugins:
       - soft
       - double
       - melodic
+      - retro
+      - digital
+      - pulse
+      - star
+      - cascade
   # ICE servers per WebRTC (opzionale). JSON array, es: [{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:turn.example.com","username":"user","credential":"pass"}]. Lascia vuoto per usare solo STUN Google.
   diskuz_call_ice_servers:
     default: ""

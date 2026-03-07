@@ -1,4 +1,11 @@
-/* --- FLOATING CALL BUTTON (stessa posizione orizzontale, forma e grandezza di #floating-create-topic) --- */
+/* Desktop: blocca scroll pagina quando widget o UI chiamata è aperta (niente frecce/spostamento) */
+@media (min-width: 701px) {
+  body.diskuz-call-noscroll {
+    overflow: hidden;
+  }
+}
+
+/* --- FLOATING CALL BUTTON (stessi colori e animazione della UI telefonata) --- */
 #diskuz-call-btn {
   position: fixed;
   bottom: 190px;
@@ -6,7 +13,9 @@
   width: 58px;
   height: 58px;
   padding: 0;
-  background: #13c98c;
+  background: radial-gradient(circle at top left, #13c98c 0%, #0f8f6a 30%, #111827 70%, #020617 100%);
+  background-size: 200% 200%;
+  animation: diskuz-call-bg 8s ease-in-out infinite;
   color: #fff;
   border-radius: 15px;
   display: flex;
@@ -16,9 +25,9 @@
   cursor: pointer;
   font-size: 11px;
   font-weight: 600;
-  border: none;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-  transition: box-shadow 0.15s ease, transform 0.15s ease;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
   z-index: 9999;
 }
 
@@ -36,13 +45,13 @@
 }
 
 #diskuz-call-btn:hover {
-  transform: scale(1.08);
-  box-shadow: 0 6px 18px rgba(0,0,0,0.30);
+  transform: scale(1.06);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3), 0 6px 20px rgba(19, 201, 140, 0.4);
 }
 
 #diskuz-call-btn:active {
-  transform: scale(0.95);
-  box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+  transform: scale(0.98);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
 }
 
 /* Incoming call: fast PULSE so the button is very noticeable */
@@ -92,17 +101,42 @@
   transform: translateY(0);
 }
 
-/* Desktop: fixed max height so Notifications page does not grow widget; user scrolls with mouse wheel */
+/* Desktop: widget con altezza fissa così la pagina Notifications riempie fino in fondo */
 @media (min-width: 701px) {
   #diskuz-call-widget {
     max-height: 85vh;
   }
+  #diskuz-call-widget.open {
+    height: 85vh;
+    min-height: 440px;
+    display: flex;
+    flex-direction: column;
+  }
   #diskuz-call-widget .diskuz-widget-page {
-    overflow-y: auto;
     min-height: 0;
   }
-  #diskuz-call-widget .diskuz-widget-history-list {
-    max-height: 220px;
+  #diskuz-call-widget .diskuz-widget-page-home {
+    overflow-y: auto;
+  }
+  /* Pagina Notifications: contenuto dall'alto (no centratura), lista fino in fondo per i 10 record */
+  #diskuz-call-widget .diskuz-widget-page-notifications.diskuz-widget-page-active {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+  #diskuz-call-widget .diskuz-widget-page-notifications .diskuz-widget-notifications-header,
+  #diskuz-call-widget .diskuz-widget-page-notifications .diskuz-notifications-tabs,
+  #diskuz-call-widget .diskuz-widget-page-notifications .diskuz-widget-footer {
+    flex-shrink: 0;
+  }
+  #diskuz-call-widget .diskuz-widget-page-notifications .diskuz-widget-history-list {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
   }
 }
 
@@ -164,6 +198,28 @@
   background: rgba(19, 201, 140, 0.12);
 }
 
+/* Suggerimenti autocomplete nel widget: stesso stile/colore della call UI, testo bianco leggibile */
+#diskuz-call-widget .diskuz-call-suggestions,
+#diskuz-call-widget #diskuz-call-suggestions.diskuz-call-suggestions {
+  background: rgba(15, 23, 42, 0.98) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  color: #ffffff;
+}
+#diskuz-call-widget .diskuz-call-suggestion-item,
+#diskuz-call-widget #diskuz-call-suggestions .diskuz-call-suggestion-item {
+  color: #ffffff !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+#diskuz-call-widget .diskuz-call-suggestion-item:hover,
+#diskuz-call-widget #diskuz-call-suggestions .diskuz-call-suggestion-item:hover {
+  background: rgba(19, 201, 140, 0.35);
+  color: #ffffff;
+}
+
 /* Widget top bar: come call UI (bordo chiaro su sfondo scuro) */
 #diskuz-call-widget .diskuz-widget-brand-bar {
   display: flex;
@@ -223,11 +279,14 @@
   display: flex;
 }
 
+/* Notifications header: stesso stile della call UI top bar (bordo, padding, colore) */
 .diskuz-widget-notifications-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 10px;
+  margin: -12px -20px 10px -20px;
+  padding: 6px 12px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .diskuz-widget-home-btn {
@@ -252,8 +311,8 @@
 
 #diskuz-call-widget .diskuz-widget-notifications-title {
   font-size: 16px;
-  font-weight: 600;
-  color: #ffffff;
+  font-weight: 700;
+  color: #13c98c;
   margin: 0;
 }
 .diskuz-widget-notifications-title {
@@ -270,7 +329,7 @@
   min-height: 80px;
 }
 
-/* Mobile: full-page widget, tutto nello schermo visibile, nessuno scroll della pagina */
+/* Mobile: tutto dentro la pagina, no zoom né allargamento; contenuto senza bisogno di zoom */
 @media (max-width: 700px) {
   #diskuz-call-widget {
     top: 0 !important;
@@ -278,6 +337,7 @@
     right: 0 !important;
     bottom: 0 !important;
     width: 100% !important;
+    max-width: 100vw !important;
     height: 100% !important;
     height: 100vh !important;
     height: 100dvh !important;
@@ -288,6 +348,18 @@
     border-radius: 15px !important;
     overflow: hidden !important;
     padding: 12px 14px !important;
+    touch-action: manipulation; /* evita double-tap zoom */
+    -ms-touch-action: manipulation;
+  }
+  /* Input almeno 16px su mobile per evitare zoom automatico iOS al focus */
+  #diskuz-call-widget #diskuz-call-input,
+  #diskuz-call-widget .diskuz-call-input-wrap input {
+    font-size: 16px !important;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  #diskuz-call-widget .diskuz-call-suggestions {
+    max-height: min(220px, 40vh);
   }
 
   /* Solo la pagina attiva è visibile e occupa lo spazio; l’altra resta nascosta (seconda pagina selezionabile da Notifications) */
@@ -300,11 +372,24 @@
   }
 
   #diskuz-call-widget .diskuz-widget-page-home {
-    justify-content: flex-start;
-    gap: 10px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
     padding: 8px 0 16px 0;
     overflow-x: visible;
     overflow-y: auto;
+  }
+  #diskuz-call-widget .diskuz-widget-home-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 10px;
+    min-height: 0;
+  }
+  #diskuz-call-widget .diskuz-widget-page-home .diskuz-widget-footer {
+    flex-shrink: 0;
   }
 
   #diskuz-call-widget .diskuz-widget-page-home .diskuz-widget-tagline {
@@ -337,13 +422,18 @@
 
   /* Notifications solo quando è la pagina attiva (come “cambio pagina”), non mostrare insieme alla home */
   #diskuz-call-widget .diskuz-widget-page-notifications.diskuz-widget-page-active {
+    display: flex;
     flex-direction: column;
+    justify-content: flex-start;
+    flex: 1;
     min-height: 0;
+    overflow: hidden;
   }
 
   #diskuz-call-widget .diskuz-widget-page-notifications .diskuz-widget-history-list {
     flex: 1;
     min-height: 0;
+    max-height: none;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -357,6 +447,10 @@
   #diskuz-call-widget .diskuz-widget-brand-bar {
     margin: -12px -14px 10px -14px;
     padding: 6px 10px 8px;
+  }
+  #diskuz-call-widget .diskuz-widget-page-notifications .diskuz-widget-notifications-header {
+    margin: -12px -14px 10px -14px;
+    padding: 6px 10px 10px;
   }
 
   #diskuz-call-widget h3.diskuz-widget-title {
@@ -439,8 +533,67 @@
 
 .diskuz-widget-footer {
   margin-top: 18px;
+  margin-bottom: 0;
+  padding-bottom: 0;
   display: flex;
   justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Installa App: visibile solo su mobile, vicino a Nascondi */
+.diskuz-widget-install-app-btn {
+  display: none;
+}
+@media (max-width: 700px) {
+  #diskuz-call-widget .diskuz-widget-install-app-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    cursor: pointer;
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    min-height: 44px;
+  }
+  #diskuz-call-widget .diskuz-widget-install-app-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+}
+
+/* Pulsante "Installa diskuz.com": intero sito come web app (visibile desktop + mobile) */
+.diskuz-widget-install-site-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  min-height: 40px;
+}
+#diskuz-call-widget .diskuz-widget-install-site-btn:hover {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+@media (max-width: 700px) {
+  #diskuz-call-widget .diskuz-widget-install-site-btn {
+    padding: 10px 14px;
+    font-size: 13px;
+    min-height: 44px;
+  }
 }
 
 .diskuz-widget-hide-btn {
@@ -496,9 +649,17 @@
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
 }
+/* Hover: nessun allargamento, solo effetto interno (glow) */
 #diskuz-call-widget #diskuz-call-start:hover {
   background: rgba(19, 201, 140, 0.95);
+  transform: none;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3), 0 4px 16px rgba(19, 201, 140, 0.4);
+}
+#diskuz-call-widget #diskuz-call-start:active {
+  transform: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 #diskuz-call-widget .diskuz-notifications-open-btn,
@@ -514,11 +675,13 @@
   background: rgba(255, 255, 255, 0.6);
 }
 
-/* Hide: stile verde + pulse su home e su Notifications (non più sfondo bianco) */
+/* Hide: stile verde + pulse; su PC staccato dal bordo in basso, scritta più leggibile */
 #diskuz-call-widget .diskuz-widget-hide-btn {
   background: rgba(19, 201, 140, 0.25);
   border: 1px solid rgba(19, 201, 140, 0.6);
-  color: #0d8a5c;
+  color: #ffffff;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   box-shadow: 0 2px 8px rgba(19, 201, 140, 0.25);
@@ -540,29 +703,57 @@
   }
 }
 
-/* Hide dentro Notifications: più in alto, stesso stile (ereditato da .diskuz-widget-hide-btn) */
+/* Footer con Hide: staccato dal bordo in basso (desktop e mobile), scritta leggibile */
+#diskuz-call-widget .diskuz-widget-footer {
+  padding-bottom: 14px;
+  margin-bottom: 0;
+}
 #diskuz-call-widget .diskuz-widget-page-notifications .diskuz-widget-footer {
   margin-top: 12px;
+  padding-bottom: 14px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 #diskuz-call-widget .diskuz-widget-page-notifications .diskuz-widget-hide-btn-notif {
-  margin-top: -6px;
+  margin-top: 0;
 }
 
+/* Tab Notifications: stile e animazione come call UI (vetro, verde attivo, transizione) */
+#diskuz-call-widget .diskuz-notifications-tabs {
+  background: transparent;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 8px 0 10px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 #diskuz-call-widget .diskuz-ntab {
-  background: rgba(255, 255, 255, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #ffffff;
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease, opacity 0.25s ease, transform 0.25s ease;
+  border-radius: 10px;
 }
 #diskuz-call-widget .diskuz-ntab:hover {
-  background: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255, 255, 255, 0.45);
 }
 #diskuz-call-widget .diskuz-ntab.active {
   background: rgba(19, 201, 140, 0.75);
   border-color: rgba(19, 201, 140, 0.9);
+  color: #ffffff;
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
+  font-weight: 600;
+}
+#diskuz-call-widget .diskuz-ntab:active {
+  transform: scale(0.98);
 }
 
 #diskuz-call-widget .diskuz-widget-home-btn {
@@ -645,15 +836,15 @@
   border-radius: 8px;
   font-size: 16px;
   cursor: pointer;
-  transition: transform 0.15s ease;
+  transition: box-shadow 0.2s ease, background 0.2s ease;
 }
 
 #diskuz-call-start:hover {
-  transform: scale(1.03);
+  transform: none;
 }
 
 #diskuz-call-start:active {
-  transform: scale(0.95);
+  transform: none;
 }
 
 #diskuz-call-widget #diskuz-call-error {
@@ -811,15 +1002,29 @@
   margin-left: 24px;
 }
 
-/* Lista notifiche su sfondo dinamico widget */
+/* Lista notifiche: stile e colori come call UI (vetro, verde, transizione) */
 #diskuz-call-widget .diskuz-history-empty {
   color: rgba(255, 255, 255, 0.7);
 }
+#diskuz-call-widget .diskuz-history-item {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: background 0.2s ease, border-color 0.2s ease;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
 #diskuz-call-widget .diskuz-history-item:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.25);
 }
 #diskuz-call-widget .diskuz-history-meta {
   color: rgba(255, 255, 255, 0.75);
+}
+#diskuz-call-widget .diskuz-history-username {
+  color: #13c98c;
+}
+#diskuz-call-widget .diskuz-history-username:hover {
+  color: rgba(19, 201, 140, 0.9);
 }
 
 /* --- TOASTS --- */
