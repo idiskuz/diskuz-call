@@ -83,7 +83,7 @@
   bottom: 190px; /* same as #diskuz-call-btn */
   right: 178px;  /* 24 + 58 + 96: button right + button width + 1 inch gap */
   width: 360px;
-  min-height: 520px;
+  min-height: 560px;
   background: radial-gradient(circle at top left, #13c98c 0%, #0f8f6a 30%, #111827 70%, #020617 100%);
   background-size: 200% 200%;
   animation: diskuz-call-bg 8s ease-in-out infinite;
@@ -117,7 +117,7 @@
   }
   #diskuz-call-widget.open {
     height: 85vh;
-    min-height: 520px;
+    min-height: 560px;
     min-width: 360px;
     max-width: 90vw;
     max-height: 85vh;
@@ -1228,7 +1228,7 @@
   bottom: 260px;
   right: 320px;
   width: 320px;
-  min-height: 440px;
+  min-height: 480px;
   background: radial-gradient(circle at top left, #13c98c 0%, #0f8f6a 30%, #111827 70%, #020617 100%);
   background-size: 200% 200%;
   animation: diskuz-call-bg 8s ease-in-out infinite;
@@ -1246,13 +1246,13 @@
   box-sizing: border-box;
 }
 
-/* Desktop: resizable like a window (min-width 701px) */
+/* Desktop: resizable like a window (min-width 701px), posizione da JS */
 @media (min-width: 701px) {
   #diskuz-call-ui {
     resize: both;
     overflow: auto;
     min-width: 360px;
-    min-height: 520px;
+    min-height: 560px;
     max-width: 90vw;
     max-height: 85vh;
   }
@@ -1418,54 +1418,6 @@
   display: none !important;
 }
 
-/* Voice effects: solo Autotune, pulsante stile vetro iOS */
-#diskuz-call-ui .diskuz-call-voice-effects {
-  width: 100%;
-  margin: 12px 0 8px 0;
-  flex-shrink: 0;
-  display: flex;
-  justify-content: center;
-}
-
-#diskuz-call-ui .diskuz-call-autotune-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 20px;
-  font-size: 14px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.12);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  cursor: pointer;
-  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
-}
-
-#diskuz-call-ui .diskuz-call-autotune-btn:hover {
-  background: rgba(255, 255, 255, 0.18);
-  border-color: rgba(255, 255, 255, 0.35);
-}
-
-#diskuz-call-ui .diskuz-call-autotune-btn.active {
-  background: rgba(19, 201, 140, 0.35);
-  border-color: rgba(19, 201, 140, 0.6);
-  box-shadow: 0 0 0 1px rgba(19, 201, 140, 0.3), 0 2px 12px rgba(0, 0, 0, 0.2);
-  animation: diskuz-autotune-glass-pulse 2s ease-in-out infinite;
-}
-
-@keyframes diskuz-autotune-glass-pulse {
-  0%, 100% {
-    box-shadow: 0 0 0 1px rgba(19, 201, 140, 0.3), 0 2px 12px rgba(0, 0, 0, 0.2);
-  }
-  50% {
-    box-shadow: 0 0 0 3px rgba(19, 201, 140, 0.25), 0 0 20px rgba(19, 201, 140, 0.15), 0 2px 12px rgba(0, 0, 0, 0.2);
-  }
-}
-
 #diskuz-call-ui .diskuz-call-controls-block {
   width: 100%;
   margin-top: auto;
@@ -1504,7 +1456,6 @@
 #diskuz-call-ui.diskuz-call-incoming-ringing .diskuz-call-toggle-controls,
 #diskuz-call-ui.diskuz-call-incoming-ringing .diskuz-call-hide-btn,
 #diskuz-call-ui.diskuz-call-incoming-ringing .diskuz-call-show-controls,
-#diskuz-call-ui.diskuz-call-incoming-ringing .diskuz-call-voice-effects,
 #diskuz-call-ui.diskuz-call-incoming-ringing .ear-mode {
   display: none !important;
 }
@@ -1705,6 +1656,19 @@
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+#diskuz-call-ui .diskuz-call-toggle-label {
+  color: inherit;
+  font-size: inherit;
+  pointer-events: none;
 }
 
 #diskuz-call-proximity-overlay {
@@ -1766,15 +1730,18 @@
     margin-top: auto;
     padding-bottom: calc(20px + env(safe-area-inset-bottom, 0));
     width: 100%;
-    padding: 10px;
+    padding: 12px 16px;
+    min-height: 48px;
     border-radius: 999px;
     border: none;
-    background: rgba(15, 23, 42, 0.7);
-    color: #fff;
-    font-size: 14px;
+    background: rgba(15, 23, 42, 0.85);
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 600;
     cursor: pointer;
     display: none;
     justify-content: center;
+    align-items: center;
   }
 
   #diskuz-call-ui.diskuz-call-controls-hidden .diskuz-call-show-controls {
@@ -1800,15 +1767,18 @@
   #diskuz-call-ui .diskuz-call-show-controls {
     margin-top: auto;
     width: 100%;
-    padding: 10px;
+    padding: 12px 16px;
+    min-height: 44px;
     border-radius: 999px;
     border: none;
-    background: rgba(15, 23, 42, 0.7);
-    color: #fff;
+    background: rgba(15, 23, 42, 0.85);
+    color: #ffffff;
     font-size: 14px;
+    font-weight: 600;
     cursor: pointer;
     display: none;
     justify-content: center;
+    align-items: center;
   }
 
   #diskuz-call-ui.diskuz-call-controls-hidden .diskuz-call-show-controls {
@@ -1841,7 +1811,12 @@
   width: 100%;
   padding: 10px 12px;
   border-radius: 999px;
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
   justify-content: center;
+}
+
+#diskuz-call-ui .diskuz-call-show-controls {
+  font-size: 15px;
+  padding: 12px 16px;
 }

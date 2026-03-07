@@ -80,7 +80,7 @@ export default apiInitializer("0.8", (api) => {
   });
   /* Dimensioni minime widget/call UI su desktop: evitano che si salvi/ripristini un rect ristretto per errore */
   const WIDGET_MIN_WIDTH = 360;
-  const WIDGET_MIN_HEIGHT = 520;
+  const WIDGET_MIN_HEIGHT = 560;
 
   /* Default position/size: un po' più largo e alto per evitare scrollbar su desktop */
   function getDefaultWidgetRect() {
@@ -182,12 +182,12 @@ export default apiInitializer("0.8", (api) => {
       saveWidgetRectToStorage();
     }
     const rect = clampRectToViewport(clampWidgetRectToMinimum(lastWidgetRect));
-    callUI.style.left = rect.left + "px";
-    callUI.style.top = rect.top + "px";
-    callUI.style.width = rect.width + "px";
-    callUI.style.height = rect.height + "px";
-    callUI.style.right = "auto";
-    callUI.style.bottom = "auto";
+    callUI.style.setProperty("left", rect.left + "px", "important");
+    callUI.style.setProperty("top", rect.top + "px", "important");
+    callUI.style.setProperty("width", rect.width + "px", "important");
+    callUI.style.setProperty("height", rect.height + "px", "important");
+    callUI.style.setProperty("right", "auto", "important");
+    callUI.style.setProperty("bottom", "auto", "important");
   }
 
   let callStatus = "available"; // "available" | "busy" | "not_available"
@@ -1810,12 +1810,6 @@ export default apiInitializer("0.8", (api) => {
           </div>
           <div class="duration" aria-label="Call duration">00:00</div>
 
-          <div class="diskuz-call-voice-effects">
-            <button type="button" class="diskuz-call-autotune-btn" aria-pressed="false" aria-label="Autotune">
-              <span class="diskuz-call-autotune-btn-label">Autotune</span>
-            </button>
-          </div>
-
           <div class="diskuz-call-video-wrap" style="display:none;">
             <video class="diskuz-call-remote-video" autoplay playsinline aria-label="Remote video"></video>
             <div class="diskuz-call-local-preview-wrap">
@@ -1825,7 +1819,7 @@ export default apiInitializer("0.8", (api) => {
             <button type="button" class="diskuz-call-fullscreen-btn" aria-label="Fullscreen" style="display:none;">⛶</button>
           </div>
           <div class="diskuz-call-controls-block">
-            <button type="button" class="diskuz-call-toggle-controls diskuz-call-hide-btn" aria-label="Hide call controls"></button>
+            <button type="button" class="diskuz-call-toggle-controls diskuz-call-hide-btn" aria-label="Hide call controls"><span class="diskuz-call-toggle-label">Nascondi pulsanti</span></button>
             <div class="controls">
               <button class="btn mute">Mute</button>
               <button class="btn speaker">Speaker</button>
@@ -1833,7 +1827,7 @@ export default apiInitializer("0.8", (api) => {
               <button class="btn hangup">Hang up</button>
             </div>
           </div>
-          <button type="button" class="diskuz-call-show-controls" aria-label="Show call controls" style="display:none;"></button>
+          <button type="button" class="diskuz-call-show-controls" aria-label="Show call controls" style="display:none;"><span class="diskuz-call-toggle-label">Mostra pulsanti</span></button>
 
           <button class="ear-mode">Ear mode</button>
         </div>
@@ -1920,38 +1914,39 @@ export default apiInitializer("0.8", (api) => {
         }
       });
 
-      const voiceEffectsBlock = callUI.querySelector(".diskuz-call-voice-effects");
-      const autotuneBtn = voiceEffectsBlock && voiceEffectsBlock.querySelector(".diskuz-call-autotune-btn");
-      if (autotuneBtn) {
-        const labelEl = voiceEffectsBlock.querySelector(".diskuz-call-autotune-btn-label");
-        if (labelEl) labelEl.textContent = "Autotune";
-        autotuneBtn.addEventListener("click", function () {
-          voiceEffectsAutotuneOn = !voiceEffectsAutotuneOn;
-          autotuneBtn.classList.toggle("active", voiceEffectsAutotuneOn);
-          autotuneBtn.setAttribute("aria-pressed", String(voiceEffectsAutotuneOn));
-          applyVoiceEffectsToPeer();
-        });
-      }
-
-      if (videoBtn) videoBtn.addEventListener("click", async function () {
+      function handleVideoButtonTap() {
         if (localVideoOn) {
-          await disableVideo();
+          disableVideo();
         } else {
-          await enableVideo();
+          enableVideo();
         }
-      });
+      }
+      if (videoBtn) {
+        videoBtn.addEventListener("click", function (e) {
+          if (isMobileDevice()) return;
+          handleVideoButtonTap();
+        });
+        if (isMobileDevice()) {
+          videoBtn.addEventListener("touchend", function (e) {
+            e.preventDefault();
+            handleVideoButtonTap();
+          }, { passive: false });
+        }
+      }
 
       const hideBtn = callUI.querySelector(".diskuz-call-hide-btn");
       const showBtn = callUI.querySelector(".diskuz-call-show-controls");
       const isIt = document.documentElement.lang === "it";
       const hideText = isIt ? "Nascondi pulsanti" : "Hide buttons";
       const showText = isIt ? "Mostra pulsanti" : "Show buttons";
+      const hideLabel = hideBtn && hideBtn.querySelector(".diskuz-call-toggle-label");
+      const showLabel = showBtn && showBtn.querySelector(".diskuz-call-toggle-label");
+      if (hideLabel) hideLabel.textContent = hideText;
+      if (showLabel) showLabel.textContent = showText;
       if (hideBtn) {
-        hideBtn.textContent = hideText;
         hideBtn.style.display = "flex";
       }
       if (showBtn) {
-        showBtn.textContent = showText;
         showBtn.style.display = "none";
         showBtn.classList.add("diskuz-call-toggle-controls");
       }
@@ -1991,6 +1986,7 @@ export default apiInitializer("0.8", (api) => {
 
       callUI.addEventListener("touchstart", function (e) {
         if (!e.touches || e.touches.length === 0) return;
+        if (e.target.closest("button, input, .controls, .diskuz-call-video-wrap")) return;
         startY = e.touches[0].clientY;
         currentY = startY;
         dragging = true;
@@ -2041,8 +2037,8 @@ export default apiInitializer("0.8", (api) => {
             const dy = ev.clientY - dragStartY;
             const newLeft = Math.max(0, Math.min(W - dragW, dragStartLeft + dx));
             const newTop = Math.max(0, Math.min(H - dragH, dragStartTop + dy));
-            callUI.style.left = newLeft + "px";
-            callUI.style.top = newTop + "px";
+            callUI.style.setProperty("left", newLeft + "px", "important");
+            callUI.style.setProperty("top", newTop + "px", "important");
           }
           function onDragEnd() {
             document.removeEventListener("mousemove", onDragMove);
@@ -2159,14 +2155,8 @@ export default apiInitializer("0.8", (api) => {
   let localVideoTrack = null;
   let localVideoOn = false;
   let remoteVideoActive = false;
+  let videoRequestInProgress = false;
   const VIDEO_MIRROR_STORAGE_KEY = "diskuz_call_video_mirror";
-  let voiceEffectsContext = null;
-  let voiceEffectsSource = null;
-  let voiceEffectsDestination = null;
-  let voiceEffectsProcessedTrack = null;
-  let voiceEffectsAutotuneOn = false;
-  let voiceEffectsAutotuneNode = null;
-  let voiceEffectsAutotuneModuleLoaded = false;
   let iceCandidateQueue = [];
   let pendingIceCandidatesToAdd = [];
   let iceAddInProgress = false;
@@ -2326,180 +2316,6 @@ export default apiInitializer("0.8", (api) => {
     }
   }
 
-  function getAutotuneWorkletCode() {
-    return `
-registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcessor {
-  constructor() {
-    super();
-    this.bufferSize = 8192;
-    this.buf = new Float32Array(this.bufferSize);
-    this.writePos = 0;
-    this.smoothedF0 = 220;
-    this.lastRatio = 1;
-    this.warmup = 0;
-  }
-  process(inputs, outputs, parameters) {
-    const input = inputs[0] && inputs[0][0];
-    const output = outputs[0] && outputs[0][0];
-    if (!input || !output || input.length !== 128) return true;
-    const sr = sampleRate;
-    const len = 128;
-    for (let i = 0; i < len; i++) {
-      this.buf[(this.writePos + i) % this.bufferSize] = input[i];
-    }
-    this.writePos = (this.writePos + len) % this.bufferSize;
-    this.warmup++;
-    if (this.warmup < 12) {
-      for (let i = 0; i < len; i++) output[i] = input[i];
-      return true;
-    }
-    const detectLen = Math.min(2048, this.bufferSize - 1);
-    let bestLag = 0;
-    let bestCorr = -1;
-    const minLag = Math.floor(sr / 500);
-    const maxLag = Math.min(Math.floor(sr / 75), detectLen - 1);
-    for (let lag = minLag; lag <= maxLag; lag++) {
-      let corr = 0;
-      for (let i = 0; i < detectLen - lag; i++) {
-        const idx = (this.writePos - detectLen + i + this.bufferSize) % this.bufferSize;
-        const idx2 = (idx + lag) % this.bufferSize;
-        corr += this.buf[idx] * this.buf[idx2];
-      }
-      if (corr > bestCorr) { bestCorr = corr; bestLag = lag; }
-    }
-    let f0 = bestLag > 0 ? sr / bestLag : this.smoothedF0;
-    if (f0 < 75 || f0 > 520) f0 = this.smoothedF0;
-    this.smoothedF0 = 0.85 * this.smoothedF0 + 0.15 * f0;
-    const n = Math.round(12 * Math.log2(this.smoothedF0 / 440));
-    const targetFreq = 440 * Math.pow(2, n / 12);
-    let ratio = targetFreq / this.smoothedF0;
-    if (ratio < 0.5 || ratio > 2) ratio = this.lastRatio;
-    this.lastRatio = 0.9 * this.lastRatio + 0.1 * ratio;
-    const readStart = (this.writePos - 1024 - len + this.bufferSize * 2) % this.bufferSize;
-    for (let i = 0; i < len; i++) {
-      let r = readStart + i * this.lastRatio;
-      r = ((r % this.bufferSize) + this.bufferSize) % this.bufferSize;
-      const r0 = Math.floor(r) % this.bufferSize;
-      const r1 = (r0 + 1) % this.bufferSize;
-      const t = r - Math.floor(r);
-      output[i] = this.buf[r0] * (1 - t) + this.buf[r1] * t;
-    }
-    return true;
-  }
-});
-`;
-  }
-
-  async function loadAutotuneWorklet(context) {
-    if (voiceEffectsAutotuneModuleLoaded) return true;
-    try {
-      const code = getAutotuneWorkletCode();
-      const blob = new Blob([code], { type: "application/javascript" });
-      const url = URL.createObjectURL(blob);
-      await context.audioWorklet.addModule(url);
-      URL.revokeObjectURL(url);
-      voiceEffectsAutotuneModuleLoaded = true;
-      return true;
-    } catch (e) {
-      console.warn("diskuz-call: autotune worklet load failed", e);
-      return false;
-    }
-  }
-
-  async function buildAutotuneChain() {
-    if (!rtcLocalStream || !rtcPeer) return null;
-    if (!rtcLocalStream.getAudioTracks()[0]) return null;
-    try {
-      if (!voiceEffectsContext) {
-        voiceEffectsContext = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      if (voiceEffectsContext.state === "suspended") {
-        await voiceEffectsContext.resume();
-      }
-      if (voiceEffectsSource) {
-        try { voiceEffectsSource.disconnect(); } catch (e) {}
-        voiceEffectsSource = null;
-      }
-      if (voiceEffectsAutotuneNode) {
-        try { voiceEffectsAutotuneNode.disconnect(); } catch (e) {}
-        voiceEffectsAutotuneNode = null;
-      }
-      voiceEffectsDestination = voiceEffectsContext.createMediaStreamDestination();
-      voiceEffectsSource = voiceEffectsContext.createMediaStreamSource(rtcLocalStream);
-      const loaded = await loadAutotuneWorklet(voiceEffectsContext);
-      if (!loaded) return null;
-      voiceEffectsAutotuneNode = new AudioWorkletNode(voiceEffectsContext, "diskuz-autotune-processor", { numberOfInputs: 1, numberOfOutputs: 1 });
-      voiceEffectsSource.connect(voiceEffectsAutotuneNode);
-      voiceEffectsAutotuneNode.connect(voiceEffectsDestination);
-      const outStream = voiceEffectsDestination.stream;
-      voiceEffectsProcessedTrack = outStream.getAudioTracks()[0];
-      if (!voiceEffectsProcessedTrack) return null;
-      return voiceEffectsProcessedTrack;
-    } catch (e) {
-      console.warn("diskuz-call: autotune chain failed", e);
-      return null;
-    }
-  }
-
-  async function applyVoiceEffectsToPeer() {
-    if (!rtcPeer) return;
-    const sender = rtcPeer.getSenders().find((s) => s.track && s.track.kind === "audio");
-    if (!sender) return;
-    const originalTrack = rtcLocalStream && rtcLocalStream.getAudioTracks()[0];
-    if (voiceEffectsAutotuneOn) {
-      if (!voiceEffectsContext) {
-        voiceEffectsContext = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      if (voiceEffectsContext.state === "suspended") {
-        await voiceEffectsContext.resume();
-      }
-      const processed = await buildAutotuneChain();
-      if (processed) {
-        processed.enabled = true;
-        try {
-          await sender.replaceTrack(processed);
-          showToast(document.documentElement.lang === "it" ? "Autotune attivo." : "Autotune on.");
-        } catch (e) {
-          console.warn("diskuz-call: replaceTrack (autotune) failed", e);
-          showToast(document.documentElement.lang === "it" ? "Impossibile attivare Autotune." : "Could not enable Autotune.");
-        }
-        return;
-      }
-      voiceEffectsAutotuneOn = false;
-      if (callUI) {
-        const ab = callUI.querySelector(".diskuz-call-autotune-btn");
-        if (ab) ab.classList.remove("active");
-      }
-      showToast(document.documentElement.lang === "it" ? "Autotune non disponibile." : "Autotune unavailable.");
-    }
-    destroyVoiceEffects();
-    if (originalTrack) {
-      try {
-        await sender.replaceTrack(originalTrack);
-      } catch (e) {
-        console.warn("diskuz-call: replaceTrack (raw) failed", e);
-      }
-    }
-  }
-
-  function destroyVoiceEffects() {
-    if (voiceEffectsSource) {
-      try { voiceEffectsSource.disconnect(); } catch (e) {}
-      voiceEffectsSource = null;
-    }
-    if (voiceEffectsAutotuneNode) {
-      try { voiceEffectsAutotuneNode.disconnect(); } catch (e) {}
-      voiceEffectsAutotuneNode = null;
-    }
-    voiceEffectsDestination = null;
-    voiceEffectsProcessedTrack = null;
-    if (voiceEffectsContext && voiceEffectsContext.state !== "closed") {
-      voiceEffectsContext.close().catch(() => {});
-      voiceEffectsContext = null;
-    }
-    voiceEffectsAutotuneModuleLoaded = false;
-  }
-
   function updateVideoLayout() {
     if (!callUI) return;
     const wrap = callUI.querySelector(".diskuz-call-video-wrap");
@@ -2514,33 +2330,55 @@ registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcess
     if (!callUI) return;
     const videoBtn = callUI.querySelector(".btn.video");
     if (!videoBtn) return;
-    const show = rtcPeer && rtcPeer.connectionState === "connected" && (window.DiskuzCallVideoAllowed === true);
+    const show = rtcPeer && rtcPeer.connectionState === "connected" && (window.DiskuzCallVideoAllowed !== false);
     videoBtn.style.display = show ? "" : "none";
   }
 
   async function enableVideo() {
+    if (videoRequestInProgress) return;
+    videoRequestInProgress = true;
     const isIt = document.documentElement.lang === "it";
     if (!rtcPeer) {
+      videoRequestInProgress = false;
       showToast(isIt ? "Connessione non pronta." : "Connection not ready.");
       return;
     }
     if (!rtcLocalStream) {
+      videoRequestInProgress = false;
       showToast(isIt ? "Stream non disponibile." : "Stream not available.");
       return;
     }
     if (!currentCall.userId) {
+      videoRequestInProgress = false;
       showToast(isIt ? "Chiamata non attiva." : "No active call.");
       return;
     }
     if (typeof window.DiskuzCallSend !== "function") {
+      videoRequestInProgress = false;
       showToast(isIt ? "Invio segnali non disponibile." : "Signaling not available.");
       return;
     }
+    const wrap = callUI && callUI.querySelector(".diskuz-call-video-wrap");
+    const localPreview = callUI && callUI.querySelector(".diskuz-call-local-preview");
+    if (wrap) {
+      wrap.style.display = "block";
+      callUI.classList.add("diskuz-call-video-active");
+    }
+    if (localPreview) {
+      localPreview.setAttribute("playsinline", "true");
+      localPreview.setAttribute("webkit-playsinline", "true");
+      localPreview.muted = true;
+      localPreview.playsInline = true;
+    }
     try {
-      const videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+      const videoOpt = isMobileDevice() ? true : { facingMode: "user" };
+      const videoStream = await navigator.mediaDevices.getUserMedia({ video: videoOpt });
       const videoTrack = videoStream.getVideoTracks()[0];
       if (!videoTrack) {
+        videoRequestInProgress = false;
         videoStream.getTracks().forEach((t) => t.stop());
+        if (wrap) wrap.style.display = "none";
+        callUI.classList.remove("diskuz-call-video-active");
         showToast(isIt ? "Nessun track video." : "No video track.");
         return;
       }
@@ -2551,6 +2389,9 @@ registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcess
       await rtcPeer.setLocalDescription(offer);
       const sdpPayload = serializeSdp(offer);
       if (!sdpPayload || !sdpPayload.type || !sdpPayload.sdp) {
+        videoRequestInProgress = false;
+        if (wrap) wrap.style.display = "none";
+        callUI.classList.remove("diskuz-call-video-active");
         showToast(isIt ? "Impossibile creare offerta video." : "Could not create video offer.");
         return;
       }
@@ -2562,17 +2403,22 @@ registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcess
           sdp: sdpPayload,
         });
       } catch (sendErr) {
+        videoRequestInProgress = false;
         console.warn("diskuz-call: video_offer send failed", sendErr);
+        if (wrap) wrap.style.display = "none";
+        callUI.classList.remove("diskuz-call-video-active");
         showToast(isIt ? "Invio offerta video fallito." : "Failed to send video offer.");
         return;
       }
       localVideoOn = true;
-      const localPreview = callUI && callUI.querySelector(".diskuz-call-local-preview");
       const mirrorCb = callUI && callUI.querySelector(".diskuz-call-video-mirror-cb");
       if (localPreview) {
         localPreview.srcObject = new MediaStream([videoTrack]);
-        localPreview.play().catch(() => {});
         localPreview.style.transform = (mirrorCb && mirrorCb.checked) ? "scaleX(-1)" : "none";
+        const playPromise = localPreview.play();
+        if (playPromise && typeof playPromise.catch === "function") {
+          playPromise.catch(() => {});
+        }
       }
       const videoBtn = callUI && callUI.querySelector(".btn.video");
       if (videoBtn) videoBtn.classList.add("active");
@@ -2580,7 +2426,11 @@ registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcess
       showToast(isIt ? "Video avviato." : "Video started.");
     } catch (e) {
       console.warn("diskuz-call: enableVideo failed", e);
+      if (wrap) wrap.style.display = "none";
+      callUI.classList.remove("diskuz-call-video-active");
       showToast(isIt ? "Impossibile attivare la videocamera." : "Could not enable camera.");
+    } finally {
+      videoRequestInProgress = false;
     }
   }
 
@@ -2659,7 +2509,7 @@ registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcess
     rtcPeer.oniceconnectionstatechange = () => {
       const state = rtcPeer?.iceConnectionState;
       log("[*] ICE connection state:", state);
-      if (state === "connected" && !callDurationIntervalId) {
+      if ((state === "connected" || state === "completed") && !callDurationIntervalId) {
         if (callConnectedAt == null) callConnectedAt = Date.now();
         startCallDurationTimer();
       }
@@ -2686,8 +2536,7 @@ registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcess
     };
 
     rtcPeer.ontrack = (event) => {
-      const stream = event.streams[0];
-      if (!stream) return;
+      const stream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream([event.track]);
       if (event.track.kind === "audio" && rtcRemoteAudio) {
         rtcRemoteAudio.srcObject = stream;
         rtcRemoteAudio.muted = false;
@@ -2696,11 +2545,15 @@ registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcess
         rtcRemoteAudio.play().catch((err) => {
           log("[*] ontrack audio play() failed (may need user gesture)", err);
         });
+        if (callConnectedAt == null && !callDurationIntervalId) {
+          callConnectedAt = Date.now();
+          startCallDurationTimer();
+        }
       }
       if (event.track.kind === "video" && callUI) {
         const videoEl = callUI.querySelector(".diskuz-call-remote-video");
         if (videoEl) {
-          videoEl.srcObject = stream || new MediaStream([event.track]);
+          videoEl.srcObject = stream;
           videoEl.play().catch(() => {});
         }
         remoteVideoActive = true;
@@ -2919,7 +2772,6 @@ registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcess
 
   function rtcEnd() {
     stopCallDurationTimer();
-    destroyVoiceEffects();
     if (localVideoTrack) {
       localVideoTrack.stop();
       if (rtcLocalStream) rtcLocalStream.removeTrack(localVideoTrack);
@@ -2935,12 +2787,6 @@ registerProcessor("diskuz-autotune-processor", class extends AudioWorkletProcess
       if (remoteV) remoteV.srcObject = null;
       if (localP) localP.srcObject = null;
       callUI.classList.remove("diskuz-call-video-active");
-      voiceEffectsAutotuneOn = false;
-      const autotuneBtnEl = callUI.querySelector(".diskuz-call-autotune-btn");
-      if (autotuneBtnEl) {
-        autotuneBtnEl.classList.remove("active");
-        autotuneBtnEl.setAttribute("aria-pressed", "false");
-      }
     }
     if (rtcPeer) {
       rtcPeer.close();
