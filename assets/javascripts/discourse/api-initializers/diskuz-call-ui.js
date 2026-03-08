@@ -2500,12 +2500,15 @@ export default apiInitializer("0.8", (api) => {
         r.track &&
         r.track.kind === "video" &&
         r.track.readyState !== "ended" &&
-        r.track.enabled
+        r.track.enabled &&
+        !r.track.muted
     );
     if (remoteVideoActive !== hasActiveRemoteVideo) {
       remoteVideoActive = hasActiveRemoteVideo;
     }
   }
+
+  let lastPlaceholderVisible = null;
 
   function updateVideoLayout() {
     if (!callUI) return;
@@ -2517,9 +2520,16 @@ export default apiInitializer("0.8", (api) => {
     callUI.classList.toggle("diskuz-call-video-active", !!show);
     callUI.classList.toggle("diskuz-call-remote-video-active", !!remoteVideoActive);
     callUI.classList.toggle("diskuz-call-preview-only", !!localVideoOn && !remoteVideoActive);
+    const placeholderVisible = show && !remoteVideoActive;
+    if (lastPlaceholderVisible === placeholderVisible) {
+      const localPreviewOuter = callUI.querySelector(".diskuz-call-local-preview-outer");
+      if (localPreviewOuter) localPreviewOuter.style.display = localVideoOn ? "flex" : "none";
+      if (fsBtn) fsBtn.style.display = show && !isMobileDevice() && remoteVideoActive ? "block" : "none";
+      return;
+    }
+    lastPlaceholderVisible = placeholderVisible;
     const remoteVideoEl = callUI.querySelector(".diskuz-call-remote-video");
     const placeholder = callUI.querySelector(".diskuz-call-remote-video-placeholder");
-    const placeholderVisible = show && !remoteVideoActive;
     if (remoteVideoEl) {
       if (placeholderVisible) {
         remoteVideoEl.srcObject = null;
@@ -3025,6 +3035,14 @@ export default apiInitializer("0.8", (api) => {
           remoteVideoActive = false;
           if (typeof updateVideoLayout === "function") updateVideoLayout();
         };
+        event.track.onmute = () => {
+          syncRemoteVideoState();
+          if (typeof updateVideoLayout === "function") updateVideoLayout();
+        };
+        event.track.onunmute = () => {
+          syncRemoteVideoState();
+          if (typeof updateVideoLayout === "function") updateVideoLayout();
+        };
       }
     };
 
@@ -3255,6 +3273,7 @@ export default apiInitializer("0.8", (api) => {
     }
     localVideoOn = false;
     remoteVideoActive = false;
+    lastPlaceholderVisible = null;
     if (callUI) {
       const wrap = callUI.querySelector(".diskuz-call-video-wrap");
       const remoteV = callUI.querySelector(".diskuz-call-remote-video");
