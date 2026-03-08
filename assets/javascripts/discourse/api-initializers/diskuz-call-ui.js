@@ -2326,6 +2326,7 @@ export default apiInitializer("0.8", (api) => {
   let localVideoTrack = null;
   let localVideoOn = false;
   let remoteVideoActive = false;
+  let remoteVideoPausedByPeer = false;
   let videoRequestInProgress = false;
   const VIDEO_MIRROR_STORAGE_KEY = "diskuz_call_video_mirror";
   let mirrorCanvasEl = null;
@@ -2549,14 +2550,13 @@ export default apiInitializer("0.8", (api) => {
     const wrap = callUI.querySelector(".diskuz-call-video-wrap");
     const fsBtn = callUI.querySelector(".diskuz-call-fullscreen-btn");
     const hasRemoteTrack = hasRemoteVideoTrack();
-    const show = localVideoOn || remoteVideoActive || hasRemoteTrack;
+    const show = localVideoOn || remoteVideoActive || hasRemoteTrack || remoteVideoPausedByPeer;
     if (wrap) wrap.style.display = show ? "block" : "none";
-    if (show && hasRemoteTrack && !videoLayoutPollIntervalId) startVideoLayoutPoll();
-    if (!show || !hasRemoteTrack) stopVideoLayoutPoll();
+    if ((show && hasRemoteTrack) || remoteVideoPausedByPeer) { if (!videoLayoutPollIntervalId) startVideoLayoutPoll(); } else stopVideoLayoutPoll();
     callUI.classList.toggle("diskuz-call-video-active", !!show);
     callUI.classList.toggle("diskuz-call-remote-video-active", !!remoteVideoActive);
     callUI.classList.toggle("diskuz-call-preview-only", !!localVideoOn && !remoteVideoActive);
-    const placeholderVisible = show && !remoteVideoActive;
+    const placeholderVisible = show && (!remoteVideoActive || remoteVideoPausedByPeer);
     if (lastPlaceholderVisible === placeholderVisible) {
       const localPreviewOuter = callUI.querySelector(".diskuz-call-local-preview-outer");
       if (localPreviewOuter) localPreviewOuter.style.display = localVideoOn ? "flex" : "none";
@@ -2713,6 +2713,9 @@ export default apiInitializer("0.8", (api) => {
           from_user_id: null,
           sdp: sdpPayload,
         });
+        if (currentCall.userId && window.DiskuzCallSend) {
+          window.DiskuzCallSend({ type: "video_resumed", to_user_id: currentCall.userId }).catch(() => {});
+        }
       } catch (sendErr) {
         videoRequestInProgress = false;
         console.warn("diskuz-call: video_offer send failed", sendErr);
@@ -2920,6 +2923,9 @@ export default apiInitializer("0.8", (api) => {
     const videoBtn = callUI && callUI.querySelector(".btn.video");
     if (videoBtn) videoBtn.classList.remove("active");
     if (callUI._updateSwitchCameraButton) callUI._updateSwitchCameraButton();
+    if (currentCall.userId && window.DiskuzCallSend) {
+      window.DiskuzCallSend({ type: "video_paused", to_user_id: currentCall.userId }).catch(() => {});
+    }
     updateVideoLayout();
   }
 
@@ -3315,6 +3321,7 @@ export default apiInitializer("0.8", (api) => {
     }
     localVideoOn = false;
     remoteVideoActive = false;
+    remoteVideoPausedByPeer = false;
     lastPlaceholderVisible = null;
     if (callUI) {
       const wrap = callUI.querySelector(".diskuz-call-video-wrap");
@@ -3776,6 +3783,20 @@ export default apiInitializer("0.8", (api) => {
         rtcHandleIce(data);
         break;
 
+      case "video_paused":
+        if (currentCall.active && currentCall.userId === data.from_user_id) {
+          remoteVideoPausedByPeer = true;
+          if (typeof updateVideoLayout === "function") updateVideoLayout();
+        }
+        break;
+
+      case "video_resumed":
+        if (currentCall.active && currentCall.userId === data.from_user_id) {
+          remoteVideoPausedByPeer = false;
+          if (typeof updateVideoLayout === "function") updateVideoLayout();
+        }
+        break;
+
       case "video_offer": {
         const videoSdp = data.sdp ?? (data.payload && data.payload.sdp);
         if (!currentCall.active || !rtcPeer || !videoSdp) break;
@@ -3792,6 +3813,7 @@ export default apiInitializer("0.8", (api) => {
                 : { type: "offer", sdp: String(videoSdp) }
             );
             await rtcPeer.setRemoteDescription(desc);
+            remoteVideoPausedByPeer = false;
             if (typeof updateVideoLayout === "function") {
               updateVideoLayout();
               setTimeout(updateVideoLayout, 150);
