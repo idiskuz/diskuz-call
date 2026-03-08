@@ -2888,6 +2888,8 @@ export default apiInitializer("0.8", (api) => {
 
   async function disableVideo() {
     if (!rtcPeer || !currentCall.userId || !window.DiskuzCallSend) return;
+    // Notify peer first so they show placeholder immediately (avoid black frame)
+    window.DiskuzCallSend({ type: "video_paused", to_user_id: currentCall.userId }).catch(() => {});
     if (mirrorDrawLoopId != null) {
       cancelAnimationFrame(mirrorDrawLoopId);
       mirrorDrawLoopId = null;
@@ -2923,9 +2925,6 @@ export default apiInitializer("0.8", (api) => {
     const videoBtn = callUI && callUI.querySelector(".btn.video");
     if (videoBtn) videoBtn.classList.remove("active");
     if (callUI._updateSwitchCameraButton) callUI._updateSwitchCameraButton();
-    if (currentCall.userId && window.DiskuzCallSend) {
-      window.DiskuzCallSend({ type: "video_paused", to_user_id: currentCall.userId }).catch(() => {});
-    }
     updateVideoLayout();
   }
 
@@ -3801,12 +3800,12 @@ export default apiInitializer("0.8", (api) => {
         const videoSdp = data.sdp ?? (data.payload && data.payload.sdp);
         if (!currentCall.active || !rtcPeer || !videoSdp) break;
         if (currentCall.userId !== data.from_user_id) break;
-        if (rtcPeer.signalingState === "have-local-offer") {
-          log("video_offer: skip, we are waiting for answer (signalingState=have-local-offer)");
-          break;
-        }
         (async () => {
           try {
+            if (rtcPeer.signalingState === "have-local-offer") {
+              log("video_offer: rollback local offer to process peer offer (glare)");
+              await rtcPeer.setLocalDescription({ type: "rollback" });
+            }
             const desc = new RTCSessionDescription(
               typeof videoSdp === "object" && videoSdp !== null && "type" in videoSdp && "sdp" in videoSdp
                 ? videoSdp
