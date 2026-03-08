@@ -3,6 +3,10 @@ plugins:
   diskuz_call_enabled:
     default: true
     client: true
+  # Colore principale del plugin (pulsante, sfondi, accenti). Default: verde #13c98c.
+  diskuz_call_primary_color:
+    default: "#13c98c"
+    client: true
   # Chi può vedere e usare diskuz Call. Default: amministratori (1), moderatori (2), staff (3).
   diskuz_call_allowed_groups:
     default: "1|2|3"

@@ -21,6 +21,9 @@ class DiskuzCallController < ApplicationController
     selected_index = nil if selected_index.nil? || selected_index < 0 || selected_index > 9
     selected_entry = selected_index && custom_ringtones.find { |r| r[:index] == selected_index }
     selected_url = selected_entry ? selected_entry[:url] : (custom_ringtones.first&.dig(:url))
+    primary = SiteSetting.diskuz_call_primary_color.presence || "#13c98c"
+    primary = "#13c98c" unless primary.match?(/\A#[0-9a-fA-F]{6}\z/)
+    primary_dark = diskuz_call_darken_hex(primary)
     render json: {
       enabled: diskuz_call_user_enabled?(current_user),
       video_allowed: diskuz_call_video_allowed?(current_user),
@@ -30,6 +33,8 @@ class DiskuzCallController < ApplicationController
       selected_custom_ringtone_index: selected_index,
       alternative_ringtone: SiteSetting.diskuz_call_alternative_ringtone.presence || "soft",
       ice_servers: ice_servers,
+      primary_color: primary,
+      primary_color_dark: primary_dark,
     }
   end
 
@@ -69,6 +74,16 @@ class DiskuzCallController < ApplicationController
 
   def ensure_diskuz_call_enabled
     raise Discourse::NotFound unless SiteSetting.diskuz_call_enabled?
+  end
+
+  def diskuz_call_darken_hex(hex)
+    hex = hex.to_s.strip.sub(/\A#/, "")
+    return "#0f8f6a" if hex.length != 6
+    r, g, b = hex[0..1].to_i(16), hex[2..3].to_i(16), hex[4..5].to_i(16)
+    r = (r * 0.72).round.clamp(0, 255)
+    g = (g * 0.72).round.clamp(0, 255)
+    b = (b * 0.72).round.clamp(0, 255)
+    format("#%02x%02x%02x", r, g, b)
   end
 
   def parse_ice_servers_setting

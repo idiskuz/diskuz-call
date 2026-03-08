@@ -3893,6 +3893,12 @@ export default apiInitializer("0.8", (api) => {
         window.DiskuzCallSelectedCustomRingtoneIndex = data.selected_custom_ringtone_index != null ? data.selected_custom_ringtone_index : null;
         window.DiskuzCallAlternativeRingtone = (data.alternative_ringtone != null && String(data.alternative_ringtone).trim() !== "") ? String(data.alternative_ringtone).trim() : "soft";
         if (Array.isArray(data.ice_servers) && data.ice_servers.length > 0) window.DiskuzCallIceServers = data.ice_servers;
+        if (data.primary_color && /^#[0-9a-fA-F]{6}$/.test(data.primary_color)) {
+          document.documentElement.style.setProperty("--diskuz-call-primary", data.primary_color);
+        }
+        if (data.primary_color_dark && /^#[0-9a-fA-F]{6}$/.test(data.primary_color_dark)) {
+          document.documentElement.style.setProperty("--diskuz-call-primary-dark", data.primary_color_dark);
+        }
         subscribeMessageBus();
         loadHistory();
         try {

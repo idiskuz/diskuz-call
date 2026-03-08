@@ -11,6 +11,23 @@ enabled_site_setting :diskuz_call_enabled
 # I file in assets/javascripts sono inclusi automaticamente nei bundle (Discourse 2026+). Non usare register_asset per JS.
 register_asset "stylesheets/common/diskuz-call.scss"
 
+# Variabile CSS colore principale (iniettata in :root per sovrascrivere il default nello SCSS)
+if respond_to?(:register_html_builder)
+  register_html_builder(:head) do
+    primary = SiteSetting.diskuz_call_primary_color.presence || "#13c98c"
+    primary = "#13c98c" unless primary.to_s.match?(/\A#[0-9a-fA-F]{6}\z/)
+    hex = primary.to_s.strip.sub(/\A#/, "")
+    dark = if hex.length == 6
+      r = (hex[0..1].to_i(16) * 0.72).round.clamp(0, 255)
+      g = (hex[2..3].to_i(16) * 0.72).round.clamp(0, 255)
+      b = (hex[4..5].to_i(16) * 0.72).round.clamp(0, 255)
+      format("#%02x%02x%02x", r, g, b)
+    else
+      "#0f8f6a"
+    end
+    "<style data-discourse-plugin=\"diskuz-call\">:root{--diskuz-call-primary:#{primary};--diskuz-call-primary-dark:#{dark};}</style>".html_safe
+  end
+end
 
 after_initialize do
   require_relative "app/controllers/concerns/diskuz_call_helpers"
