@@ -1760,11 +1760,11 @@
   }
 }
 
-#diskuz-call-ui .diskuz-call-hide-btn,
-#diskuz-call-ui .diskuz-call-toggle-controls {
-  margin-bottom: 6px;
+#diskuz-call-ui .diskuz-call-controls-block .diskuz-call-hide-btn {
+  margin-top: 8px;
+  margin-bottom: 0;
   width: auto;
-  padding: 4px 0 8px 0;
+  padding: 4px 0;
   font-size: 12px;
   justify-content: center;
 }

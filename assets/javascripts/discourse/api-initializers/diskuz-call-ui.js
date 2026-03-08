@@ -160,12 +160,12 @@ export default apiInitializer("0.8", (api) => {
       saveWidgetRectToStorage();
     }
     const rect = clampRectToViewport(clampWidgetRectToMinimum(lastWidgetRect));
-    widget.style.left = rect.left + "px";
-    widget.style.top = rect.top + "px";
-    widget.style.width = rect.width + "px";
-    widget.style.height = rect.height + "px";
-    widget.style.right = "auto";
-    widget.style.bottom = "auto";
+    widget.style.setProperty("left", rect.left + "px", "important");
+    widget.style.setProperty("top", rect.top + "px", "important");
+    widget.style.setProperty("width", rect.width + "px", "important");
+    widget.style.setProperty("height", rect.height + "px", "important");
+    widget.style.setProperty("right", "auto", "important");
+    widget.style.setProperty("bottom", "auto", "important");
   }
 
   function applyWidgetRectToCallUI() {
@@ -202,9 +202,6 @@ export default apiInitializer("0.8", (api) => {
   const STATUS_KEY = "diskuz_call_status";
   const NOTIFICATIONS_READ_KEY = "diskuz_call_notifications_read_at";
   const USER_RESOLVE_CACHE_TTL_MS = 60000;
-  const CALL_RATE_LIMIT_WINDOW_MS = 60000;
-  const CALL_RATE_LIMIT_MAX_PER_USER = 2;
-  let callRateLimitEntries = [];
   const userResolveCache = {};
   function resolveUserByUsername(username) {
     let key = (username || "").toLowerCase().trim().replace(/\.json$/i, "");
@@ -1230,6 +1227,7 @@ export default apiInitializer("0.8", (api) => {
 
   function openWidgetToNotificationsPage() {
     if (!widget.classList.contains("open")) {
+      if (!isMobileDevice()) loadWidgetRectFromStorage();
       if (!lastWidgetRect || lastWidgetRect.width <= 0) {
         lastWidgetRect = getDefaultWidgetRect();
         saveWidgetRectToStorage();
@@ -1248,6 +1246,11 @@ export default apiInitializer("0.8", (api) => {
   function showWidgetErrorFromCall(msg) {
     if (!widget || !msg) return;
     showWidgetPage(WIDGET_PAGE_HOME);
+    if (!isMobileDevice()) loadWidgetRectFromStorage();
+    if (!lastWidgetRect || lastWidgetRect.width <= 0) {
+      lastWidgetRect = getDefaultWidgetRect();
+      saveWidgetRectToStorage();
+    }
     applyLastRectToWidget();
     widget.style.display = "block";
     widget.classList.add("open");
@@ -1459,10 +1462,10 @@ export default apiInitializer("0.8", (api) => {
             const dy = ev.clientY - startY;
             const newLeft = Math.max(0, Math.min(W - w, startLeft + dx));
             const newTop = Math.max(0, Math.min(H - h, startTop + dy));
-            widget.style.left = newLeft + "px";
-            widget.style.top = newTop + "px";
-            widget.style.right = "auto";
-            widget.style.bottom = "auto";
+            widget.style.setProperty("left", newLeft + "px", "important");
+            widget.style.setProperty("top", newTop + "px", "important");
+            widget.style.setProperty("right", "auto", "important");
+            widget.style.setProperty("bottom", "auto", "important");
           }
           function onWEnd() {
             document.removeEventListener("mousemove", onWMove);
@@ -1592,16 +1595,8 @@ export default apiInitializer("0.8", (api) => {
             showError(document.documentElement.lang === "it" ? "Non puoi chiamare te stesso." : "You cannot call yourself.");
             return;
           }
-          const now = Date.now();
-          const recentToUser = callRateLimitEntries.filter((e) => e.userId === userId && e.at > now - CALL_RATE_LIMIT_WINDOW_MS);
-          if (recentToUser.length >= CALL_RATE_LIMIT_MAX_PER_USER) {
-            showError(document.documentElement.lang === "it" ? "Rallenta: puoi avviare al massimo 2 chiamate allo stesso utente al minuto." : "Slow down. You can only place 2 calls to this user per minute.");
-            return;
-          }
           log("Starting call to", username, "userId", userId);
           startOutgoingCall(username, userId, data.user.avatar_template);
-          callRateLimitEntries.push({ userId, at: now });
-          callRateLimitEntries = callRateLimitEntries.filter((e) => e.at > now - CALL_RATE_LIMIT_WINDOW_MS);
           toggleWidgetForceClose();
         } catch (e) {
           if (e.message === "RATE_LIMIT") {
@@ -1741,13 +1736,13 @@ export default apiInitializer("0.8", (api) => {
             <button type="button" class="diskuz-call-fullscreen-btn" aria-label="Fullscreen" style="display:none;">⛶</button>
           </div>
           <div class="diskuz-call-controls-block">
-            <button type="button" class="diskuz-call-toggle-controls diskuz-call-hide-btn" aria-label="Hide call controls"><span class="diskuz-call-toggle-label">Nascondi pulsanti</span></button>
             <div class="controls">
               <button class="btn mute">Mute</button>
               <button class="btn speaker">Speaker</button>
               <button type="button" class="btn video" style="display:none;" aria-label="Video">📹</button>
               <button class="btn hangup">Hang up</button>
             </div>
+            <button type="button" class="diskuz-call-hide-btn" aria-label="Hide call controls"><span class="diskuz-call-toggle-label">Nascondi pulsanti</span></button>
           </div>
           <button type="button" class="diskuz-call-show-controls" aria-label="Show call controls" style="display:none;"><span class="diskuz-call-toggle-label">Mostra pulsanti</span></button>
 
@@ -1852,6 +1847,12 @@ export default apiInitializer("0.8", (api) => {
           e.stopPropagation();
           handleVideoButtonTap();
         });
+        if (isMobileDevice()) {
+          videoBtn.addEventListener("touchend", function (e) {
+            e.preventDefault();
+            handleVideoButtonTap();
+          }, { passive: false });
+        }
       }
 
       const hideBtn = callUI.querySelector(".diskuz-call-hide-btn");
@@ -1866,10 +1867,7 @@ export default apiInitializer("0.8", (api) => {
       if (hideBtn) {
         hideBtn.style.display = "inline-flex";
       }
-      if (showBtn) {
-        showBtn.style.display = "none";
-        showBtn.classList.add("diskuz-call-toggle-controls");
-      }
+      if (showBtn) showBtn.style.display = "none";
       const CONTROLS_ANIM_MS = 350;
       function updateToggleVisibility() {
         const hidden = callUI.classList.contains("diskuz-call-controls-hidden");
@@ -1931,7 +1929,7 @@ export default apiInitializer("0.8", (api) => {
 
       callUI.addEventListener("touchstart", function (e) {
         if (!e.touches || e.touches.length === 0) return;
-        if (e.target.closest("button, input, .controls, .diskuz-call-video-wrap")) return;
+        if (e.target.closest("button, input, .controls, .diskuz-call-video-wrap, .diskuz-call-hide-btn, .diskuz-call-show-controls")) return;
         startY = e.touches[0].clientY;
         currentY = startY;
         dragging = true;
@@ -1960,21 +1958,15 @@ export default apiInitializer("0.8", (api) => {
       const topBar = callUI.querySelector(".call-top-bar");
       if (topBar && isMobileDevice()) topBar.style.cursor = "";
       if (!isMobileDevice()) {
-        callUI.addEventListener("mousedown", function (e) {
-          if (e.target.closest("button, input, a, select, textarea, [contenteditable=\"true\"]")) return;
+        function startCallUIDrag(e) {
           e.preventDefault();
           const rect = callUI.getBoundingClientRect();
           const dragW = rect.width;
           const dragH = rect.height;
           const dragStartX = e.clientX;
           const dragStartY = e.clientY;
-          let dragStartLeft = parseInt(callUI.style.left, 10);
-          let dragStartTop = parseInt(callUI.style.top, 10);
-          if (isNaN(dragStartLeft) || isNaN(dragStartTop)) {
-            const def = getDefaultWidgetRect();
-            dragStartLeft = def.left;
-            dragStartTop = def.top;
-          }
+          const dragStartLeft = rect.left;
+          const dragStartTop = rect.top;
           const W = window.innerWidth;
           const H = window.innerHeight;
           function onDragMove(ev) {
@@ -1984,6 +1976,8 @@ export default apiInitializer("0.8", (api) => {
             const newTop = Math.max(0, Math.min(H - dragH, dragStartTop + dy));
             callUI.style.setProperty("left", newLeft + "px", "important");
             callUI.style.setProperty("top", newTop + "px", "important");
+            callUI.style.setProperty("right", "auto", "important");
+            callUI.style.setProperty("bottom", "auto", "important");
           }
           function onDragEnd() {
             document.removeEventListener("mousemove", onDragMove);
@@ -1992,6 +1986,18 @@ export default apiInitializer("0.8", (api) => {
           }
           document.addEventListener("mousemove", onDragMove);
           document.addEventListener("mouseup", onDragEnd);
+        }
+        if (topBar) {
+          topBar.addEventListener("mousedown", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            startCallUIDrag(e);
+          });
+        }
+        callUI.addEventListener("mousedown", function (e) {
+          if (e.target.closest("button, input, a, select, textarea, [contenteditable=\"true\"]")) return;
+          if (e.target.closest(".call-top-bar")) return;
+          startCallUIDrag(e);
         });
         if (typeof ResizeObserver !== "undefined") {
           let callUIResizeTimeout;
@@ -2071,6 +2077,7 @@ export default apiInitializer("0.8", (api) => {
       proximityOverlay.style.display = "none";
     }
     const wasOpen = widgetWasOpenBeforeCall;
+    if (!isMobileDevice()) captureCallUIRect();
     setTimeout(function () {
       callUI.style.display = "none";
       callUI.style.transform = "";
@@ -2166,6 +2173,7 @@ export default apiInitializer("0.8", (api) => {
         rtcRemoteAudio = document.createElement("audio");
         rtcRemoteAudio.id = "diskuz-remote-audio";
         rtcRemoteAudio.autoplay = true;
+        rtcRemoteAudio.setAttribute("autoplay", "");
         rtcRemoteAudio.playsInline = true;
         rtcRemoteAudio.setAttribute("playsinline", "true");
         rtcRemoteAudio.setAttribute("webkit-playsinline", "true");
@@ -2307,7 +2315,9 @@ export default apiInitializer("0.8", (api) => {
     const localPreview = callUI && callUI.querySelector(".diskuz-call-local-preview");
     if (wrap) {
       wrap.style.display = "block";
+      wrap.style.visibility = "visible";
       callUI.classList.add("diskuz-call-video-active");
+      void wrap.offsetHeight;
     }
     if (localPreview) {
       localPreview.setAttribute("playsinline", "true");
@@ -2481,14 +2491,16 @@ export default apiInitializer("0.8", (api) => {
     function scheduleRemoteAudioPlayRetries() {
       if (!rtcRemoteAudio || !rtcRemoteAudio.srcObject) return;
       rtcRemoteAudio.muted = false;
+      rtcRemoteAudio.volume = isMobileDevice() ? 0.25 : 1;
       const tryPlay = () => {
+        if (!rtcRemoteAudio || !rtcRemoteAudio.srcObject) return;
+        rtcRemoteAudio.muted = false;
         rtcRemoteAudio.play().catch((err) => {
           log("[*] remote audio play() retry failed", err);
         });
       };
       tryPlay();
-      setTimeout(tryPlay, 100);
-      setTimeout(tryPlay, 400);
+      [150, 400, 800, 1500, 2500].forEach((ms) => setTimeout(tryPlay, ms));
     }
 
     rtcPeer.ontrack = (event) => {
@@ -3234,6 +3246,7 @@ export default apiInitializer("0.8", (api) => {
       }, 200);
     } else {
       showWidgetPage(WIDGET_PAGE_HOME);
+      if (!isMobileDevice()) loadWidgetRectFromStorage();
       if (!lastWidgetRect || lastWidgetRect.width <= 0) {
         lastWidgetRect = getDefaultWidgetRect();
         saveWidgetRectToStorage();
@@ -3250,7 +3263,9 @@ export default apiInitializer("0.8", (api) => {
 
   function toggleWidgetForceClose() {
     if (!widget) return;
-    if (!isMobileDevice()) captureWidgetRect();
+    if (!isMobileDevice()) {
+      captureWidgetRect();
+    }
     widget.style.display = "none";
     widget.classList.remove("open");
     setTimeout(function () {
