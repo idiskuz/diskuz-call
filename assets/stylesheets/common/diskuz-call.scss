@@ -1301,7 +1301,7 @@
   background: #0d0d0d;
 }
 
-/* Desktop: video in rettangolo verticale (9:16), adatto a flusso da mobile; contain preserva qualità/proporzioni */
+/* Desktop: pulsanti in footer del widget come su mobile; video occupa area centrale */
 @media (min-width: 701px) {
   #diskuz-call-ui.diskuz-call-video-active .call-inner {
     display: flex;
@@ -1314,8 +1314,6 @@
     flex: 1 1 0;
     min-height: 200px;
     border-radius: 12px;
-    aspect-ratio: 9 / 16;
-    max-height: min(60vh, 520px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1324,6 +1322,26 @@
   #diskuz-call-ui.diskuz-call-video-active .diskuz-call-controls-block {
     flex-shrink: 0;
     margin-top: auto;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  /* Solo anteprima (altro ha spento video): wrap in angolo, resto UI standard */
+  #diskuz-call-ui.diskuz-call-preview-only .diskuz-call-video-wrap {
+    position: absolute;
+    bottom: 70px;
+    right: 12px;
+    flex: none;
+    min-height: 0;
+    width: auto;
+    height: auto;
+    border-radius: 8px;
+    background: transparent;
+  }
+  #diskuz-call-ui.diskuz-call-preview-only .diskuz-call-remote-video {
+    display: none !important;
+  }
+  #diskuz-call-ui.diskuz-call-preview-only .diskuz-call-fullscreen-btn {
+    display: none !important;
   }
 }
 
@@ -1340,12 +1358,29 @@
   max-width: 88px;
 }
 
-/* Mobile: video remoto con contain (proporzioni corrette, niente crop); area full screen */
+/* Mobile: video remoto con contain; solo anteprima = wrap in angolo */
 @media (max-width: 700px) {
   #diskuz-call-ui.diskuz-call-video-active .diskuz-call-video-wrap {
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+  #diskuz-call-ui.diskuz-call-preview-only .diskuz-call-video-wrap {
+    position: absolute;
+    bottom: calc(72px + env(safe-area-inset-bottom, 0));
+    right: 12px;
+    left: auto;
+    flex: none;
+    min-height: 0;
+    width: auto;
+    height: auto;
+    background: transparent;
+  }
+  #diskuz-call-ui.diskuz-call-preview-only .diskuz-call-remote-video {
+    display: none !important;
+  }
+  #diskuz-call-ui.diskuz-call-preview-only .diskuz-call-fullscreen-btn {
+    display: none !important;
   }
 }
 
@@ -1354,6 +1389,15 @@
   height: 100%;
   object-fit: contain;
   display: block;
+}
+
+/* Fade-in quando arriva il flusso video remoto */
+@keyframes diskuz-remote-video-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+#diskuz-call-ui .diskuz-call-remote-video.diskuz-call-remote-video-fade-in {
+  animation: diskuz-remote-video-fade-in 0.5s ease-out forwards;
 }
 
 /* Contenitore anteprima + pulsante switch camera (mobile): pulsante sopra, anteprima sotto */
@@ -1455,12 +1499,46 @@
   background: rgba(19, 201, 140, 0.4);
 }
 
-#diskuz-call-ui.diskuz-call-video-active .avatar,
-#diskuz-call-ui.diskuz-call-video-active .username,
-#diskuz-call-ui.diskuz-call-video-active .status,
-#diskuz-call-ui.diskuz-call-video-active .diskuz-call-watermark,
-#diskuz-call-ui.diskuz-call-video-active .duration {
+/* Top bar e Ear mode restano sempre visibili. Nascondi avatar/username/status solo quando c'è video remoto (area grande) */
+#diskuz-call-ui.diskuz-call-remote-video-active .avatar,
+#diskuz-call-ui.diskuz-call-remote-video-active .username,
+#diskuz-call-ui.diskuz-call-remote-video-active .status,
+#diskuz-call-ui.diskuz-call-remote-video-active .diskuz-call-watermark,
+#diskuz-call-ui.diskuz-call-remote-video-active .duration {
   display: none !important;
+}
+
+/* Barra qualità video ricevuto: sopra i pulsanti Mute/Speaker/Hang up */
+#diskuz-call-ui .diskuz-call-video-quality-bar {
+  display: none;
+  flex-shrink: 0;
+  gap: 6px;
+  justify-content: center;
+  align-items: center;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 8px;
+  margin: 0 8px 4px 8px;
+}
+
+#diskuz-call-ui .diskuz-quality-btn {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+}
+
+#diskuz-call-ui .diskuz-quality-btn:hover {
+  background: rgba(19, 201, 140, 0.3);
+}
+
+#diskuz-call-ui .diskuz-quality-btn.active {
+  background: rgba(19, 201, 140, 0.5);
+  border-color: #13c98c;
+  color: #fff;
 }
 
 #diskuz-call-ui .diskuz-call-controls-block {
@@ -1634,6 +1712,11 @@
   transform: scale(0.95);
 }
 
+/* Ear mode: nascosto in videochiamata; in chiamata standard visibile a destra e a sinistra (solo mobile) */
+#diskuz-call-ui.diskuz-call-video-active .ear-mode {
+  display: none !important;
+}
+
 #diskuz-call-ui .ear-mode {
   position: absolute;
   top: 10px;
@@ -1648,6 +1731,11 @@
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+#diskuz-call-ui .ear-mode.ear-mode-left {
+  right: auto;
+  left: 10px;
 }
 
 #diskuz-call-ui .incoming-row button {
@@ -1717,12 +1805,20 @@
     padding-bottom: 12px;
   }
 
-  /* Video call mobile: full screen vertical, local preview sopra i pulsanti e draggabile */
+  /* Video call mobile: video fino in alto (top bar e ear mode nascosti), area video a tutto schermo */
   #diskuz-call-ui.diskuz-call-video-active .call-inner {
     padding: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
   }
   #diskuz-call-ui.diskuz-call-video-active .diskuz-call-video-wrap {
     border-radius: 0;
+    flex: 1 1 0;
+    min-height: 0;
+    position: relative;
+    inset: auto;
   }
   #diskuz-call-ui .diskuz-call-local-preview-outer {
     bottom: calc(72px + env(safe-area-inset-bottom, 0));

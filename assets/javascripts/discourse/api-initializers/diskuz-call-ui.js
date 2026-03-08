@@ -1754,6 +1754,11 @@ export default apiInitializer("0.8", (api) => {
             </div>
             <button type="button" class="diskuz-call-fullscreen-btn" aria-label="Fullscreen" style="display:none;">⛶</button>
           </div>
+          <div class="diskuz-call-video-quality-bar" style="display:none;" aria-label="Qualità video ricevuto">
+            <button type="button" class="diskuz-quality-btn" data-quality="standard">Standard</button>
+            <button type="button" class="diskuz-quality-btn" data-quality="hd">HD</button>
+            <button type="button" class="diskuz-quality-btn" data-quality="full_hd">Full HD</button>
+          </div>
           <div class="diskuz-call-controls-block">
             <div class="controls">
               <button class="btn mute">Mute</button>
@@ -1763,7 +1768,8 @@ export default apiInitializer("0.8", (api) => {
             </div>
           </div>
 
-          <button class="ear-mode">Ear mode</button>
+          <button type="button" class="ear-mode ear-mode-left" aria-label="Ear mode">Ear mode</button>
+          <button type="button" class="ear-mode" aria-label="Ear mode">Ear mode</button>
         </div>
       `;
 
@@ -1772,7 +1778,7 @@ export default apiInitializer("0.8", (api) => {
       const hangupBtn = callUI.querySelector(".hangup");
       const muteBtn = callUI.querySelector(".mute");
       const speakerBtn = callUI.querySelector(".speaker");
-      const earBtn = callUI.querySelector(".ear-mode");
+      const earBtns = callUI.querySelectorAll(".ear-mode");
 
       muteBtn.setAttribute("aria-pressed", "false");
       muteBtn.setAttribute("aria-label", "Mute microphone");
@@ -1814,9 +1820,11 @@ export default apiInitializer("0.8", (api) => {
         speakerBtn.setAttribute("aria-pressed", String(active));
       });
 
-      if (earBtn) earBtn.style.display = isMobileDevice() ? "" : "none";
-      earBtn.addEventListener("click", function () {
-        activateEarMode();
+      earBtns.forEach((earBtn) => {
+        if (earBtn) earBtn.style.display = isMobileDevice() ? "" : "none";
+        earBtn.addEventListener("click", function () {
+          activateEarMode();
+        });
       });
 
       const videoBtn = callUI.querySelector(".btn.video");
@@ -1873,6 +1881,23 @@ export default apiInitializer("0.8", (api) => {
         }
       });
 
+      const qualityBar = callUI.querySelector(".diskuz-call-video-quality-bar");
+      if (qualityBar) {
+        qualityBar.querySelectorAll(".diskuz-quality-btn").forEach((b) => {
+          b.addEventListener("click", function () {
+            const quality = this.getAttribute("data-quality");
+            if (!quality || !currentCall || !currentCall.userId || typeof window.DiskuzCallSend !== "function") return;
+            window.DiskuzCallSend({
+              type: "request_video_quality",
+              to_user_id: currentCall.userId,
+              quality: quality,
+            });
+            qualityBar.querySelectorAll(".diskuz-quality-btn").forEach((x) => x.classList.remove("active"));
+            this.classList.add("active");
+          });
+        });
+      }
+
       /* Mobile: anteprima draggabile; tap (senza trascinare) attiva/disattiva mirror */
       const switchCameraBtn = callUI.querySelector(".diskuz-call-switch-camera-btn");
       function updateSwitchCameraButton() {
@@ -1922,8 +1947,12 @@ export default apiInitializer("0.8", (api) => {
         localPreviewWrap.addEventListener("touchend", function (e) {
           localPreviewWrap.classList.remove("diskuz-local-preview-dragging");
           const moved = Math.abs(dragOffsetX - dragStartOffX) + Math.abs(dragOffsetY - dragStartOffY);
-          if (moved < 12) toggleMirrorFromPreview();
-        }, { passive: true });
+          if (moved < 12) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleMirrorFromPreview();
+          }
+        }, { passive: false });
         localPreviewWrap.addEventListener("touchcancel", function () {
           localPreviewWrap.classList.remove("diskuz-local-preview-dragging");
         }, { passive: true });
@@ -2342,10 +2371,14 @@ export default apiInitializer("0.8", (api) => {
     syncRemoteVideoState();
     const wrap = callUI.querySelector(".diskuz-call-video-wrap");
     const fsBtn = callUI.querySelector(".diskuz-call-fullscreen-btn");
+    const qualityBar = callUI.querySelector(".diskuz-call-video-quality-bar");
     const show = localVideoOn || remoteVideoActive;
     if (wrap) wrap.style.display = show ? "block" : "none";
     callUI.classList.toggle("diskuz-call-video-active", !!show);
-    if (fsBtn) fsBtn.style.display = show && !isMobileDevice() ? "block" : "none";
+    callUI.classList.toggle("diskuz-call-remote-video-active", !!remoteVideoActive);
+    callUI.classList.toggle("diskuz-call-preview-only", !!localVideoOn && !remoteVideoActive);
+    if (fsBtn) fsBtn.style.display = show && !isMobileDevice() && remoteVideoActive ? "block" : "none";
+    if (qualityBar) qualityBar.style.display = show && remoteVideoActive ? "flex" : "none";
   }
 
   function updateVideoButtonVisibility() {
@@ -2404,12 +2437,12 @@ export default apiInitializer("0.8", (api) => {
       localPreview.playsInline = true;
     }
     try {
-      /* Qualità video: risoluzione ideale (720p desktop, 480p mobile) e front camera */
+      /* Qualità video: HD mobile (720p), Full HD desktop (1080p); front camera */
       const isMobile = isMobileDevice();
       const videoOpt = {
         facingMode: "user",
-        width: { ideal: isMobile ? 640 : 1280 },
-        height: { ideal: isMobile ? 480 : 720 },
+        width: { ideal: isMobile ? 1280 : 1920 },
+        height: { ideal: isMobile ? 720 : 1080 },
       };
       if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== "function") {
         videoRequestInProgress = false;
@@ -2450,7 +2483,7 @@ export default apiInitializer("0.8", (api) => {
         if (sender && sender.getParameters) {
           const params = sender.getParameters();
           if (!params.encodings) params.encodings = [{}];
-          params.encodings[0].maxBitrate = isMobile ? 800000 : 1500000;
+          params.encodings[0].maxBitrate = isMobile ? 1500000 : 2500000;
           await sender.setParameters(params);
         }
       } catch (e) {}
@@ -2523,8 +2556,8 @@ export default apiInitializer("0.8", (api) => {
     const newFacing = currentVideoFacingMode === "user" ? "environment" : "user";
     const videoOpt = {
       facingMode: { exact: newFacing },
-      width: { ideal: 640 },
-      height: { ideal: 480 },
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
     };
     videoRequestInProgress = true;
     try {
@@ -2561,6 +2594,75 @@ export default apiInitializer("0.8", (api) => {
     } catch (e) {
       console.warn("diskuz-call: switchCamera failed", e);
       showToast(isIt ? "Impossibile usare l'altra fotocamera." : "Could not switch camera.");
+    } finally {
+      videoRequestInProgress = false;
+    }
+  }
+
+  async function applyVideoQualityRequest(quality) {
+    if (!localVideoOn || !rtcPeer || !currentCall || !currentCall.userId || videoRequestInProgress) return;
+    const isMobile = isMobileDevice();
+    let width = 1280, height = 720;
+    if (quality === "standard") {
+      width = 640;
+      height = 480;
+    } else if (quality === "hd") {
+      width = 1280;
+      height = 720;
+    } else if (quality === "full_hd") {
+      width = isMobile ? 1280 : 1920;
+      height = isMobile ? 720 : 1080;
+    }
+    const isIt = document.documentElement.lang === "it";
+    videoRequestInProgress = true;
+    const localPreview = callUI && callUI.querySelector(".diskuz-call-local-preview");
+    const mirrorCb = callUI && callUI.querySelector(".diskuz-call-video-mirror-cb");
+    try {
+      const videoOpt = {
+        facingMode: currentVideoFacingMode === "environment" ? { exact: "environment" } : "user",
+        width: { ideal: width },
+        height: { ideal: height },
+      };
+      const newStream = await navigator.mediaDevices.getUserMedia({ video: videoOpt });
+      const newTrack = newStream.getVideoTracks()[0];
+      if (!newTrack) {
+        newStream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      if (localVideoTrack) {
+        localVideoTrack.stop();
+        if (rtcLocalStream) rtcLocalStream.removeTrack(localVideoTrack);
+      }
+      rtcLocalStream.addTrack(newTrack);
+      localVideoTrack = newTrack;
+      if (localPreview) {
+        localPreview.srcObject = new MediaStream([newTrack]);
+        localPreview.style.transform = (mirrorCb && mirrorCb.checked) ? "scaleX(-1)" : "none";
+        const tryPlay = () => { if (localPreview && localPreview.srcObject) localPreview.play().catch(() => {}); };
+        tryPlay();
+        requestAnimationFrame(tryPlay);
+      }
+      const sender = rtcPeer.getSenders().find((s) => s.track && s.track.kind === "video");
+      const bitrate = quality === "standard" ? 800000 : quality === "hd" ? 1500000 : (isMobile ? 1500000 : 2500000);
+      if (sender && mirrorCb && mirrorCb.checked && typeof applyMirrorToSentStream === "function") {
+        await applyMirrorToSentStream(true);
+      } else if (sender) {
+        await sender.replaceTrack(newTrack);
+        await sendVideoRenegotiation();
+      }
+      try {
+        const s = rtcPeer.getSenders().find((s) => s.track && s.track.kind === "video");
+        if (s && s.getParameters) {
+          const params = s.getParameters();
+          if (!params.encodings) params.encodings = [{}];
+          params.encodings[0].maxBitrate = bitrate;
+          await s.setParameters(params);
+        }
+      } catch (e) {}
+      showToast(isIt ? "Qualità aggiornata: " + (quality === "full_hd" ? "Full HD" : quality === "hd" ? "HD" : "Standard") : "Quality updated: " + (quality === "full_hd" ? "Full HD" : quality === "hd" ? "HD" : "Standard"));
+    } catch (e) {
+      console.warn("diskuz-call: applyVideoQualityRequest failed", e);
+      showToast(isIt ? "Impossibile cambiare qualità." : "Could not change quality.");
     } finally {
       videoRequestInProgress = false;
     }
@@ -2803,7 +2905,9 @@ export default apiInitializer("0.8", (api) => {
           videoEl.playsInline = true;
           videoEl.autoplay = true;
           videoEl.muted = false;
+          videoEl.classList.remove("diskuz-call-remote-video-fade-in");
           videoEl.srcObject = stream;
+          videoEl.classList.add("diskuz-call-remote-video-fade-in");
           const tryRemotePlay = () => {
             if (!videoEl || !videoEl.srcObject) return;
             videoEl.play().catch(() => {});
@@ -3092,6 +3196,23 @@ export default apiInitializer("0.8", (api) => {
     resetCurrentCall();
     closeCallUI();
   }
+
+  /* Desktop: non terminare su minimize/tab (solo su freeze = sospensione/blocco/standby).
+     Mobile: videochiamata termina su hidden (risparmio TURN); voce solo su freeze (blocco schermo). */
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState !== "hidden" || !currentCall.active) return;
+    const hasVideo = localVideoOn || remoteVideoActive;
+    if (hasVideo && isMobileDevice()) {
+      log("[diskuz-call] Video call (mobile) – page hidden, ending call");
+      endCurrentCall("ended");
+    }
+  });
+
+  document.addEventListener("freeze", function () {
+    if (!currentCall.active) return;
+    log("[diskuz-call] Page frozen (standby/lock/suspend), ending call");
+    endCurrentCall("ended");
+  });
 
   function startOutgoingCall(username, userId, avatarTemplate) {
     log("startOutgoingCall", username, userId);
@@ -3523,6 +3644,14 @@ export default apiInitializer("0.8", (api) => {
             showToast(document.documentElement.lang === "it" ? "Errore risposta video." : "Video answer error.");
           }
         })();
+        break;
+      }
+
+      case "request_video_quality": {
+        const q = data.quality || (data.payload && data.payload.quality);
+        if (!currentCall.active || currentCall.userId !== data.from_user_id || !q) break;
+        if (["standard", "hd", "full_hd"].indexOf(q) === -1) break;
+        if (typeof applyVideoQualityRequest === "function") applyVideoQualityRequest(q);
         break;
       }
 
