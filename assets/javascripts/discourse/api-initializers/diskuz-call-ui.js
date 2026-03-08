@@ -1305,9 +1305,10 @@ export default apiInitializer("0.8", (api) => {
   function updateCallFeatureVisibility() {
     if (widget) {
       if (widget.classList.contains("open")) {
+        ensureFullyShown(widget);
         widget.style.display = "block";
       } else {
-        widget.style.display = "none";
+        ensureFullyHidden(widget);
       }
     }
     updateFloatingButtonForComposer();
@@ -1345,12 +1346,26 @@ export default apiInitializer("0.8", (api) => {
     if (!callUI || !currentCall.active) return;
     if (callUI.classList.contains("diskuz-call-minimized")) {
       callUI.classList.remove("diskuz-call-minimized");
+      ensureFullyShown(callUI);
       callUI.style.display = "block";
       callUI.classList.add("open");
+      if (!isMobileDevice()) {
+        requestAnimationFrame(function () {
+          vortexOpenDesktop(callUI);
+        });
+      }
     } else {
-      callUI.classList.add("diskuz-call-minimized");
-      callUI.classList.remove("open");
-      callUI.style.display = "none";
+      if (!isMobileDevice()) {
+        vortexCloseDesktop(callUI, function () {
+          callUI.classList.add("diskuz-call-minimized");
+          ensureFullyHidden(callUI);
+        });
+      } else {
+        callUI.classList.add("diskuz-call-minimized");
+        callUI.classList.remove("open");
+        callUI.style.display = "none";
+        ensureFullyHidden(callUI);
+      }
     }
   }
 
@@ -1749,10 +1764,9 @@ export default apiInitializer("0.8", (api) => {
             <video class="diskuz-call-remote-video" autoplay playsinline aria-label="Remote video"></video>
             <div class="diskuz-call-remote-video-placeholder" aria-hidden="true" style="display:none;">
               <div class="diskuz-call-remote-placeholder-bg"></div>
-              <div class="diskuz-call-remote-placeholder-dots" aria-label="">
-                <span class="diskuz-placeholder-dot"></span>
-                <span class="diskuz-placeholder-dot"></span>
-                <span class="diskuz-placeholder-dot"></span>
+              <div class="diskuz-call-remote-placeholder-content">
+                <div class="diskuz-call-remote-placeholder-avatar" role="img" aria-hidden="true"></div>
+                <div class="diskuz-call-remote-placeholder-duration" aria-label="Call duration">00:00</div>
               </div>
             </div>
             <div class="diskuz-call-local-preview-outer">
@@ -2172,7 +2186,7 @@ export default apiInitializer("0.8", (api) => {
       loadWidgetRectFromStorage();
       if (widget) {
         if (widgetWasOpenBeforeCall) captureWidgetRect();
-        widget.style.display = "none";
+        ensureFullyHidden(widget);
       }
       if (!lastWidgetRect || lastWidgetRect.width <= 0) {
         lastWidgetRect = getDefaultWidgetRect();
@@ -2181,6 +2195,7 @@ export default apiInitializer("0.8", (api) => {
       applyWidgetRectToCallUI();
     }
 
+    ensureFullyShown(callUI);
     callUI.style.display = "block";
 
     if (!isMobileDevice()) {
@@ -2213,10 +2228,11 @@ export default apiInitializer("0.8", (api) => {
     const wasOpen = widgetWasOpenBeforeCall;
     if (!isMobileDevice()) captureCallUIRect();
     setTimeout(function () {
-      callUI.style.display = "none";
+      ensureFullyHidden(callUI);
       callUI.style.transform = "";
       if (!isMobileDevice() && widget && wasOpen) {
         applyLastRectToWidget();
+        ensureFullyShown(widget);
         widget.style.display = "block";
       }
       updateBodyScrollLock();
@@ -2234,10 +2250,79 @@ export default apiInitializer("0.8", (api) => {
     document.body.classList.toggle("diskuz-call-noscroll", !!shouldLock);
   }
 
+  function ensureFullyHidden(el) {
+    if (!el) return;
+    el.style.display = "none";
+    el.style.visibility = "hidden";
+    el.style.pointerEvents = "none";
+  }
+
+  function getFloatingButtonCenter() {
+    if (!btn) return { x: window.innerWidth - 58, y: window.innerHeight - 58 };
+    const r = btn.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  }
+
+  const VORTEX_DURATION_MS = 320;
+
+  function vortexCloseDesktop(el, onDone) {
+    if (!el || isMobileDevice()) {
+      if (onDone) onDone();
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    const center = getFloatingButtonCenter();
+    const originX = center.x - rect.left;
+    const originY = center.y - rect.top;
+    el.style.transformOrigin = originX + "px " + originY + "px";
+    el.classList.add("diskuz-call-vortex-out");
+    el.offsetHeight;
+    el.style.transform = "scale(0)";
+    el.style.opacity = "0";
+    setTimeout(function () {
+      el.classList.remove("diskuz-call-vortex-out", "open");
+      el.style.transform = "";
+      el.style.opacity = "";
+      el.style.transformOrigin = "";
+      ensureFullyHidden(el);
+      if (onDone) onDone();
+    }, VORTEX_DURATION_MS);
+  }
+
+  function vortexOpenDesktop(el) {
+    if (!el || isMobileDevice()) return;
+    ensureFullyShown(el);
+    const rect = el.getBoundingClientRect();
+    const center = getFloatingButtonCenter();
+    const originX = center.x - rect.left;
+    const originY = center.y - rect.top;
+    el.style.transformOrigin = originX + "px " + originY + "px";
+    el.style.transform = "scale(0)";
+    el.style.opacity = "0";
+    el.classList.add("diskuz-call-vortex-in");
+    el.offsetHeight;
+    el.style.transform = "scale(1)";
+    el.style.opacity = "1";
+    setTimeout(function () {
+      el.classList.remove("diskuz-call-vortex-in");
+      el.style.transform = "";
+      el.style.opacity = "";
+      el.style.transformOrigin = "";
+    }, VORTEX_DURATION_MS);
+  }
+
+  function ensureFullyShown(el) {
+    if (!el) return;
+    el.style.display = "";
+    el.style.visibility = "visible";
+    el.style.pointerEvents = "auto";
+  }
+
   /* --- WEBRTC AUDIO ENGINE --- */
   let rtcPeer = null;
   let rtcLocalStream = null;
   let rtcRemoteAudio = null;
+  let rtcRemoteVideoStream = null;
   let localVideoTrack = null;
   let localVideoOn = false;
   let remoteVideoActive = false;
@@ -2411,7 +2496,11 @@ export default apiInitializer("0.8", (api) => {
     if (!rtcPeer) return;
     const receivers = rtcPeer.getReceivers();
     const hasActiveRemoteVideo = receivers.some(
-      (r) => r.track && r.track.kind === "video" && r.track.readyState !== "ended"
+      (r) =>
+        r.track &&
+        r.track.kind === "video" &&
+        r.track.readyState !== "ended" &&
+        r.track.enabled
     );
     if (remoteVideoActive !== hasActiveRemoteVideo) {
       remoteVideoActive = hasActiveRemoteVideo;
@@ -2428,8 +2517,32 @@ export default apiInitializer("0.8", (api) => {
     callUI.classList.toggle("diskuz-call-video-active", !!show);
     callUI.classList.toggle("diskuz-call-remote-video-active", !!remoteVideoActive);
     callUI.classList.toggle("diskuz-call-preview-only", !!localVideoOn && !remoteVideoActive);
+    const remoteVideoEl = callUI.querySelector(".diskuz-call-remote-video");
     const placeholder = callUI.querySelector(".diskuz-call-remote-video-placeholder");
-    if (placeholder) placeholder.style.display = show && !remoteVideoActive ? "block" : "none";
+    const placeholderVisible = show && !remoteVideoActive;
+    if (remoteVideoEl) {
+      if (placeholderVisible) {
+        remoteVideoEl.srcObject = null;
+        remoteVideoEl.style.display = "none";
+      } else {
+        if (rtcRemoteVideoStream) remoteVideoEl.srcObject = rtcRemoteVideoStream;
+        remoteVideoEl.style.display = "";
+      }
+    }
+    if (placeholder) {
+      placeholder.style.display = placeholderVisible ? "block" : "none";
+      if (placeholderVisible) {
+        const avatarEl = placeholder.querySelector(".diskuz-call-remote-placeholder-avatar");
+        const hasAvatar = !!(currentCall && currentCall.avatarTemplate);
+        if (avatarEl) {
+          const avatarUrl = hasAvatar ? currentCall.avatarTemplate.replace("{size}", "200") : "";
+          avatarEl.style.backgroundImage = avatarUrl ? "url(" + avatarUrl + ")" : "none";
+        }
+        placeholder.classList.toggle("with-avatar", !!hasAvatar);
+      }
+    }
+    const localPreviewOuter = callUI.querySelector(".diskuz-call-local-preview-outer");
+    if (localPreviewOuter) localPreviewOuter.style.display = localVideoOn ? "flex" : "none";
     if (fsBtn) fsBtn.style.display = show && !isMobileDevice() && remoteVideoActive ? "block" : "none";
   }
 
@@ -2876,6 +2989,7 @@ export default apiInitializer("0.8", (api) => {
         }
       }
       if (event.track.kind === "video" && callUI) {
+        rtcRemoteVideoStream = stream;
         const videoEl = callUI.querySelector(".diskuz-call-remote-video");
         if (videoEl) {
           videoEl.setAttribute("playsinline", "true");
@@ -3095,6 +3209,7 @@ export default apiInitializer("0.8", (api) => {
   }
 
   function startCallDurationTimer() {
+    if (callConnectedAt == null) return;
     stopCallDurationTimer();
     const el = callUI && callUI.querySelector(".duration");
     if (!el) return;
@@ -3103,7 +3218,13 @@ export default apiInitializer("0.8", (api) => {
       const sec = Math.floor((Date.now() - callConnectedAt) / 1000);
       const m = Math.floor(sec / 60);
       const s = sec % 60;
-      el.textContent = (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+      const timeStr = (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+      el.textContent = timeStr;
+      const placeholderDuration = callUI && callUI.querySelector(".diskuz-call-remote-placeholder-duration");
+      if (placeholderDuration) placeholderDuration.textContent = timeStr;
+      if (callUI && callUI.querySelector(".diskuz-call-video-wrap")?.style.display === "block") {
+        if (typeof updateVideoLayout === "function") updateVideoLayout();
+      }
     }
     tick();
     callDurationIntervalId = setInterval(tick, 1000);
@@ -3113,14 +3234,20 @@ export default apiInitializer("0.8", (api) => {
     if (callDurationIntervalId) {
       clearInterval(callDurationIntervalId);
       callDurationIntervalId = null;
-      callConnectedAt = null;
     }
+  }
+
+  function resetCallDurationDisplay() {
+    callConnectedAt = null;
     const el = callUI && callUI.querySelector(".duration");
     if (el) el.textContent = "00:00";
+    const placeholderDuration = callUI && callUI.querySelector(".diskuz-call-remote-placeholder-duration");
+    if (placeholderDuration) placeholderDuration.textContent = "00:00";
   }
 
   function rtcEnd() {
     stopCallDurationTimer();
+    resetCallDurationDisplay();
     if (localVideoTrack) {
       localVideoTrack.stop();
       if (rtcLocalStream) rtcLocalStream.removeTrack(localVideoTrack);
@@ -3146,6 +3273,7 @@ export default apiInitializer("0.8", (api) => {
       rtcPeer.close();
       rtcPeer = null;
     }
+    rtcRemoteVideoStream = null;
     if (rtcLocalStream) {
       rtcLocalStream.getTracks().forEach((t) => t.stop());
       rtcLocalStream = null;
@@ -3366,6 +3494,7 @@ export default apiInitializer("0.8", (api) => {
       rejectIncomingCall();
     });
 
+    ensureFullyShown(callUI);
     callUI.style.display = "block";
     callUI.classList.remove("diskuz-call-minimized");
 
@@ -3374,7 +3503,7 @@ export default apiInitializer("0.8", (api) => {
       loadWidgetRectFromStorage();
       if (widget) {
         if (widgetWasOpenBeforeCall) captureWidgetRect();
-        widget.style.display = "none";
+        ensureFullyHidden(widget);
       }
       if (!lastWidgetRect || lastWidgetRect.width <= 0) {
         lastWidgetRect = getDefaultWidgetRect();
@@ -3656,12 +3785,22 @@ export default apiInitializer("0.8", (api) => {
     if (!widget) return;
 
     if (widget.classList.contains("open")) {
-      if (!isMobileDevice()) captureWidgetRect();
-      widget.style.display = "none";
-      widget.classList.remove("open");
-      setTimeout(function () {
-        updateBodyScrollLock();
-      }, 200);
+      if (!isMobileDevice()) {
+        captureWidgetRect();
+        vortexCloseDesktop(widget, function () {
+          widget.classList.remove("open");
+          ensureFullyHidden(widget);
+          updateBodyScrollLock();
+          setTimeout(captureWidgetRect, 50);
+        });
+      } else {
+        widget.style.display = "none";
+        widget.classList.remove("open");
+        ensureFullyHidden(widget);
+        setTimeout(function () {
+          updateBodyScrollLock();
+        }, 200);
+      }
     } else {
       showWidgetPage(WIDGET_PAGE_HOME);
       if (!isMobileDevice()) loadWidgetRectFromStorage();
@@ -3670,11 +3809,18 @@ export default apiInitializer("0.8", (api) => {
         saveWidgetRectToStorage();
       }
       applyLastRectToWidget();
+      ensureFullyShown(widget);
       widget.style.display = "block";
       updateBodyScrollLock();
       setTimeout(function () {
         widget.classList.add("open");
-        setTimeout(captureWidgetRect, 50);
+        if (!isMobileDevice()) {
+          requestAnimationFrame(function () {
+            vortexOpenDesktop(widget);
+            setTimeout(captureWidgetRect, VORTEX_DURATION_MS + 50);
+          });
+        }
+        if (isMobileDevice()) setTimeout(captureWidgetRect, 50);
       }, 10);
     }
   }
@@ -3683,12 +3829,19 @@ export default apiInitializer("0.8", (api) => {
     if (!widget) return;
     if (!isMobileDevice()) {
       captureWidgetRect();
+      vortexCloseDesktop(widget, function () {
+        widget.classList.remove("open");
+        ensureFullyHidden(widget);
+        updateBodyScrollLock();
+      });
+    } else {
+      widget.style.display = "none";
+      widget.classList.remove("open");
+      ensureFullyHidden(widget);
+      setTimeout(function () {
+        updateBodyScrollLock();
+      }, 200);
     }
-    widget.style.display = "none";
-    widget.classList.remove("open");
-    setTimeout(function () {
-      updateBodyScrollLock();
-    }, 200);
   }
 
   window.addEventListener("diskuz-call-start", (e) => {

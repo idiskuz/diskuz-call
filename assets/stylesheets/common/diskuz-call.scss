@@ -5,6 +5,14 @@
   }
 }
 
+/* Animazione vortice: widget/UI aspirati verso il pulsante floating (solo desktop) */
+#diskuz-call-widget.diskuz-call-vortex-out,
+#diskuz-call-ui.diskuz-call-vortex-out,
+#diskuz-call-widget.diskuz-call-vortex-in,
+#diskuz-call-ui.diskuz-call-vortex-in {
+  transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.32s ease-out;
+}
+
 /* --- FLOATING CALL BUTTON (stessi colori e animazione della UI telefonata) --- */
 #diskuz-call-btn {
   position: fixed;
@@ -1597,27 +1605,33 @@
   background-size: 200% 200%;
   animation: diskuz-call-bg 8s ease-in-out infinite;
 }
-#diskuz-call-ui .diskuz-call-remote-placeholder-dots {
+/* Placeholder quando l'altro ha spento il video: sfondo animato + avatar + durata */
+#diskuz-call-ui .diskuz-call-remote-placeholder-content {
   position: relative;
   z-index: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 12px;
 }
-#diskuz-call-ui .diskuz-placeholder-dot {
-  width: 10px;
-  height: 10px;
+#diskuz-call-ui .diskuz-call-remote-placeholder-avatar {
+  width: 120px;
+  height: 120px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
-  animation: diskuz-placeholder-dot 1.4s ease-in-out infinite both;
+  background-color: rgba(255, 255, 255, 0.15);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border: 3px solid rgba(255, 255, 255, 0.35);
+  flex-shrink: 0;
 }
-#diskuz-call-ui .diskuz-placeholder-dot:nth-child(1) { animation-delay: 0s; }
-#diskuz-call-ui .diskuz-placeholder-dot:nth-child(2) { animation-delay: 0.2s; }
-#diskuz-call-ui .diskuz-placeholder-dot:nth-child(3) { animation-delay: 0.4s; }
-@keyframes diskuz-placeholder-dot {
-  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
-  40% { opacity: 1; transform: scale(1); }
+#diskuz-call-ui .diskuz-call-remote-placeholder-duration {
+  font-size: 18px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 /* Fade-in quando arriva il flusso video remoto */
