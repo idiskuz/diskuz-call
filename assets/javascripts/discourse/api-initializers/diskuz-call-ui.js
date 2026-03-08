@@ -1821,6 +1821,7 @@ export default apiInitializer("0.8", (api) => {
 
       const videoBtn = callUI.querySelector(".btn.video");
       const videoWrap = callUI.querySelector(".diskuz-call-video-wrap");
+      const fullscreenBtn = callUI.querySelector(".diskuz-call-fullscreen-btn");
       const localPreview = callUI.querySelector(".diskuz-call-local-preview");
       const mirrorCb = callUI.querySelector(".diskuz-call-video-mirror-cb");
       const mirrorIconEl = callUI.querySelector(".diskuz-call-mirror-toggle-icon");
@@ -1929,6 +1930,7 @@ export default apiInitializer("0.8", (api) => {
       }
 
       function handleVideoButtonTap() {
+        if (videoRequestInProgress && !localVideoOn) return;
         log("[UI] Video button tapped, localVideoOn=", localVideoOn);
         if (localVideoOn) {
           disableVideo();
