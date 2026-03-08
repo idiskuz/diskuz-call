@@ -1276,7 +1276,7 @@ export default apiInitializer("0.8", (api) => {
     }
   }
 
-  /* --- FLOATING BUTTON (nascosto quando il composer Discourse è aperto: nuovo post o risposta) --- */
+  /* --- FLOATING BUTTON (nascosto quando composer è aperto o quando la chat è aperta: la chat ha già il suo tasto Call) --- */
   function isComposerVisible() {
     const replyControl = document.getElementById("reply-control");
     if (replyControl) {
@@ -1293,9 +1293,24 @@ export default apiInitializer("0.8", (api) => {
     return false;
   }
 
+  function isChatOpen() {
+    const body = document.body;
+    if (body && body.classList) {
+      if (body.classList.contains("has-drawer") || body.classList.contains("chat-drawer-open") || body.classList.contains("chat-drawer") || body.classList.contains("has-chat")) return true;
+    }
+    const path = (window.location && window.location.pathname) || "";
+    if (path.indexOf("/chat") !== -1) return true;
+    const chatDrawer = document.querySelector(".chat-drawer-outlet, .chat-drawer, [data-chat-drawer]");
+    if (chatDrawer) {
+      const style = window.getComputedStyle(chatDrawer);
+      if (style.display !== "none" && style.visibility !== "hidden" && chatDrawer.offsetWidth > 0) return true;
+    }
+    return false;
+  }
+
   function updateFloatingButtonForComposer() {
     if (!btn) return;
-    if (isComposerVisible()) {
+    if (isComposerVisible() || isChatOpen()) {
       btn.style.display = "none";
     } else {
       btn.style.display = "";
