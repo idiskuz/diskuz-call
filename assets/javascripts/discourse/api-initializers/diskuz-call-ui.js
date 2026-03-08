@@ -1294,16 +1294,14 @@ export default apiInitializer("0.8", (api) => {
   }
 
   function isChatOpen() {
-    const body = document.body;
-    if (body && body.classList) {
-      if (body.classList.contains("has-drawer") || body.classList.contains("chat-drawer-open") || body.classList.contains("chat-drawer") || body.classList.contains("has-chat")) return true;
-    }
     const path = (window.location && window.location.pathname) || "";
-    if (path.indexOf("/chat") !== -1) return true;
-    const chatDrawer = document.querySelector(".chat-drawer-outlet, .chat-drawer, [data-chat-drawer]");
+    if (path.indexOf("/chat") === 0) return true;
+    const body = document.body;
+    if (body && body.classList && body.classList.contains("chat-drawer-open")) return true;
+    const chatDrawer = document.querySelector(".chat-drawer-outlet .is-open, .chat-drawer.is-open, [data-chat-drawer].is-open");
     if (chatDrawer) {
       const style = window.getComputedStyle(chatDrawer);
-      if (style.display !== "none" && style.visibility !== "hidden" && chatDrawer.offsetWidth > 0) return true;
+      if (style.display !== "none" && style.visibility !== "hidden" && chatDrawer.offsetWidth > 150) return true;
     }
     return false;
   }
