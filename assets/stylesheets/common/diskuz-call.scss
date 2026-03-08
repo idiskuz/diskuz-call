@@ -1372,45 +1372,8 @@
   transition: opacity 0.35s ease, transform 0.35s ease;
   flex-shrink: 0;
 }
-#diskuz-call-ui:not(.diskuz-call-controls-hidden) .diskuz-call-controls-block {
-  opacity: 1;
-  transform: translateY(0);
-}
-#diskuz-call-ui:not(.diskuz-call-controls-hidden) .diskuz-call-controls-block .diskuz-call-hide-btn {
-  display: inline-flex !important;
-}
-
-#diskuz-call-ui.diskuz-call-controls-hidden .diskuz-call-controls-block {
-  opacity: 0;
-  transform: translateY(100%);
-  pointer-events: none;
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  transition: opacity 0.35s ease, transform 0.35s ease;
-}
-
-/* Mostra pulsanti: in fondo al footer quando i controlli sono nascosti, appare con fade in */
-#diskuz-call-ui.diskuz-call-controls-hidden .diskuz-call-show-controls {
-  display: inline-flex !important;
-  position: sticky;
-  bottom: 0;
-  flex-shrink: 0;
-  margin-top: auto;
-  z-index: 10;
-  opacity: 0;
-  transition: opacity 0.35s ease;
-}
-#diskuz-call-ui.diskuz-call-controls-hidden .diskuz-call-show-controls.diskuz-call-show-visible {
-  opacity: 1;
-}
-
 /* Incoming call: show only Accept/Reject, hide Mute/Speaker/Hang up and Ear mode until accepted */
 #diskuz-call-ui.diskuz-call-incoming-ringing .diskuz-call-controls-block,
-#diskuz-call-ui.diskuz-call-incoming-ringing .diskuz-call-toggle-controls,
-#diskuz-call-ui.diskuz-call-incoming-ringing .diskuz-call-hide-btn,
-#diskuz-call-ui.diskuz-call-incoming-ringing .diskuz-call-show-controls,
 #diskuz-call-ui.diskuz-call-incoming-ringing .ear-mode {
   display: none !important;
 }
@@ -1603,38 +1566,6 @@
   border-color: rgba(255, 255, 255, 0.3);
 }
 
-/* Voce discreta sopra i pulsanti (Nascondi/Mostra pulsanti), non aspetto da pulsante */
-#diskuz-call-ui .diskuz-call-hide-btn,
-#diskuz-call-ui .diskuz-call-toggle-controls,
-#diskuz-call-ui .diskuz-call-show-controls {
-  background: none;
-  border: none;
-  box-shadow: none;
-  color: rgba(255, 255, 255, 0.65);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 0;
-  padding: 4px 0 8px 0;
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  cursor: pointer;
-  text-decoration: none;
-  transition: color 0.2s ease;
-}
-#diskuz-call-ui .diskuz-call-hide-btn:hover,
-#diskuz-call-ui .diskuz-call-show-controls:hover {
-  color: rgba(255, 255, 255, 0.9);
-}
-#diskuz-call-ui .diskuz-call-toggle-label {
-  color: inherit;
-  font-size: inherit;
-  pointer-events: none;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
 #diskuz-call-proximity-overlay {
   position: fixed;
   inset: 0;
@@ -1682,34 +1613,11 @@
     padding-bottom: 12px;
   }
 
-  #diskuz-call-ui .diskuz-call-toggle-controls {
-    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0));
-  }
-
   #diskuz-call-ui .diskuz-call-controls-block {
     padding-bottom: 12px;
   }
 
-  #diskuz-call-ui .diskuz-call-show-controls {
-    margin-top: auto;
-    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0));
-    width: auto;
-    padding: 4px 0 8px 0;
-    display: none;
-    justify-content: center;
-    align-items: center;
-    background: none;
-    border: none;
-    font-size: 12px;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.65);
-  }
-
-  #diskuz-call-ui.diskuz-call-controls-hidden .diskuz-call-show-controls {
-    display: inline-flex !important;
-  }
-
-  /* Video call mobile: full screen vertical, local preview bottom-right, above "Mostra pulsanti" */
+  /* Video call mobile: full screen vertical, local preview bottom-right */
   #diskuz-call-ui.diskuz-call-video-active .call-inner {
     padding: 0;
   }
@@ -1721,26 +1629,6 @@
     right: 12px;
     width: 80px;
     height: 120px;
-  }
-}
-
-@media (min-width: 701px) {
-  #diskuz-call-ui .diskuz-call-show-controls {
-    margin-top: auto;
-    width: auto;
-    padding: 4px 0 8px 0;
-    display: none;
-    justify-content: center;
-    align-items: center;
-    background: none;
-    border: none;
-    font-size: 12px;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.65);
-  }
-
-  #diskuz-call-ui.diskuz-call-controls-hidden .diskuz-call-show-controls {
-    display: inline-flex !important;
   }
 }
 
@@ -1760,17 +1648,3 @@
   }
 }
 
-#diskuz-call-ui .diskuz-call-controls-block .diskuz-call-hide-btn {
-  margin-top: 8px;
-  margin-bottom: 0;
-  width: auto;
-  padding: 4px 0;
-  font-size: 12px;
-  justify-content: center;
-}
-
-#diskuz-call-ui .diskuz-call-show-controls {
-  font-size: 12px;
-  padding: 4px 0 8px 0;
-  width: auto;
-}

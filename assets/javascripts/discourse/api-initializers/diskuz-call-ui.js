@@ -1742,9 +1742,7 @@ export default apiInitializer("0.8", (api) => {
               <button type="button" class="btn video" style="display:none;" aria-label="Video">📹</button>
               <button class="btn hangup">Hang up</button>
             </div>
-            <button type="button" class="diskuz-call-hide-btn" aria-label="Hide call controls"><span class="diskuz-call-toggle-label">Nascondi pulsanti</span></button>
           </div>
-          <button type="button" class="diskuz-call-show-controls" aria-label="Show call controls" style="display:none;"><span class="diskuz-call-toggle-label">Mostra pulsanti</span></button>
 
           <button class="ear-mode">Ear mode</button>
         </div>
@@ -1836,6 +1834,8 @@ export default apiInitializer("0.8", (api) => {
         if (localVideoOn) {
           disableVideo();
         } else {
+          const isIt = document.documentElement.lang === "it";
+          showToast(isIt ? "Avvio videocamera..." : "Starting camera...");
           enableVideo().catch((err) => {
             console.warn("diskuz-call: enableVideo failed in handler", err);
           });
@@ -1855,81 +1855,13 @@ export default apiInitializer("0.8", (api) => {
         }
       }
 
-      const hideBtn = callUI.querySelector(".diskuz-call-hide-btn");
-      const showBtn = callUI.querySelector(".diskuz-call-show-controls");
-      const isIt = document.documentElement.lang === "it";
-      const hideText = isIt ? "Nascondi pulsanti" : "Hide buttons";
-      const showText = isIt ? "Mostra pulsanti" : "Show buttons";
-      const hideLabel = hideBtn && hideBtn.querySelector(".diskuz-call-toggle-label");
-      const showLabel = showBtn && showBtn.querySelector(".diskuz-call-toggle-label");
-      if (hideLabel) hideLabel.textContent = hideText;
-      if (showLabel) showLabel.textContent = showText;
-      if (hideBtn) {
-        hideBtn.style.display = "inline-flex";
-      }
-      if (showBtn) showBtn.style.display = "none";
-      const CONTROLS_ANIM_MS = 350;
-      function updateToggleVisibility() {
-        const hidden = callUI.classList.contains("diskuz-call-controls-hidden");
-        if (hideBtn) hideBtn.style.display = hidden ? "none" : "inline-flex";
-        if (showBtn) {
-          showBtn.style.display = hidden ? "inline-flex" : "none";
-          showBtn.style.marginTop = "auto";
-        }
-      }
-      function hideControls() {
-        callUI.classList.add("diskuz-call-controls-hidden");
-        updateToggleVisibility();
-        if (showBtn) {
-          showBtn.classList.remove("diskuz-call-show-visible");
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              showBtn.classList.add("diskuz-call-show-visible");
-            });
-          });
-        }
-      }
-      function showControls() {
-        if (showBtn) showBtn.classList.remove("diskuz-call-show-visible");
-        setTimeout(() => {
-          callUI.classList.remove("diskuz-call-controls-hidden");
-          updateToggleVisibility();
-        }, CONTROLS_ANIM_MS);
-      }
-      if (hideBtn) {
-        hideBtn.addEventListener("click", function (e) {
-          e.preventDefault();
-          e.stopPropagation();
-          hideControls();
-        });
-        if (isMobileDevice()) {
-          hideBtn.addEventListener("touchend", function (e) {
-            e.preventDefault();
-            hideControls();
-          }, { passive: false });
-        }
-      }
-      if (showBtn) {
-        showBtn.addEventListener("click", function (e) {
-          e.preventDefault();
-          e.stopPropagation();
-          showControls();
-        });
-        if (isMobileDevice()) {
-          showBtn.addEventListener("touchend", function (e) {
-            e.preventDefault();
-            showControls();
-          }, { passive: false });
-        }
-      }
-
       let startY = 0;
       let currentY = 0;
       let dragging = false;
 
       callUI.addEventListener("touchstart", function (e) {
         if (!e.touches || e.touches.length === 0) return;
-        if (e.target.closest("button, input, .controls, .diskuz-call-video-wrap, .diskuz-call-hide-btn, .diskuz-call-show-controls")) return;
+        if (e.target.closest("button, input, .controls, .diskuz-call-video-wrap")) return;
         startY = e.touches[0].clientY;
         currentY = startY;
         dragging = true;
@@ -2052,6 +1984,10 @@ export default apiInitializer("0.8", (api) => {
       applyWidgetRectToCallUI();
       updateBodyScrollLock();
     }
+    /* Se la connessione è già "connected", il pulsante Video va mostrato subito */
+    if (rtcPeer && rtcPeer.connectionState === "connected" && typeof updateVideoButtonVisibility === "function") {
+      updateVideoButtonVisibility();
+    }
 
     setTimeout(function () {
       callUI.classList.add("open");
@@ -2068,11 +2004,7 @@ export default apiInitializer("0.8", (api) => {
   function closeCallUI() {
     if (!callUI) return;
     setIncomingCallButtonState(false);
-    callUI.classList.remove("open", "diskuz-call-minimized", "diskuz-call-controls-hidden", "diskuz-call-incoming-ringing", "diskuz-call-video-active");
-    const hideBtn = callUI.querySelector(".diskuz-call-hide-btn");
-    const showBtn = callUI.querySelector(".diskuz-call-show-controls");
-    if (hideBtn) hideBtn.style.display = "flex";
-    if (showBtn) showBtn.style.display = "none";
+    callUI.classList.remove("open", "diskuz-call-minimized", "diskuz-call-incoming-ringing", "diskuz-call-video-active");
     if (proximityOverlay) {
       proximityOverlay.style.display = "none";
     }
@@ -2326,7 +2258,8 @@ export default apiInitializer("0.8", (api) => {
       localPreview.playsInline = true;
     }
     try {
-      const videoOpt = isMobileDevice() ? true : { facingMode: "user" };
+      /* Su mobile (iOS/Android) e desktop: front camera esplicita per selfie */
+      const videoOpt = { facingMode: "user" };
       const videoStream = await navigator.mediaDevices.getUserMedia({ video: videoOpt });
       const videoTrack = videoStream.getVideoTracks()[0];
       if (!videoTrack) {
@@ -2368,12 +2301,21 @@ export default apiInitializer("0.8", (api) => {
       localVideoOn = true;
       const mirrorCb = callUI && callUI.querySelector(".diskuz-call-video-mirror-cb");
       if (localPreview) {
+        localPreview.muted = true;
+        localPreview.playsInline = true;
+        localPreview.setAttribute("playsinline", "true");
+        localPreview.setAttribute("webkit-playsinline", "true");
         localPreview.srcObject = new MediaStream([videoTrack]);
         localPreview.style.transform = (mirrorCb && mirrorCb.checked) ? "scaleX(-1)" : "none";
-        const playPromise = localPreview.play();
-        if (playPromise && typeof playPromise.catch === "function") {
-          playPromise.catch(() => {});
-        }
+        /* Su iOS/Android play() spesso va chiamato dopo il layout; ritentiamo come per l'audio remoto */
+        const tryLocalPlay = () => {
+          if (!localPreview || !localPreview.srcObject) return;
+          localPreview.muted = true;
+          localPreview.play().catch(() => {});
+        };
+        tryLocalPlay();
+        requestAnimationFrame(tryLocalPlay);
+        [100, 200, 400, 800].forEach((ms) => setTimeout(tryLocalPlay, ms));
       }
       const videoBtn = callUI && callUI.querySelector(".btn.video");
       if (videoBtn) videoBtn.classList.add("active");
@@ -2519,8 +2461,18 @@ export default apiInitializer("0.8", (api) => {
       if (event.track.kind === "video" && callUI) {
         const videoEl = callUI.querySelector(".diskuz-call-remote-video");
         if (videoEl) {
+          videoEl.setAttribute("playsinline", "true");
+          videoEl.setAttribute("webkit-playsinline", "true");
+          videoEl.playsInline = true;
+          videoEl.autoplay = true;
+          videoEl.muted = false;
           videoEl.srcObject = stream;
-          videoEl.play().catch(() => {});
+          const tryRemotePlay = () => {
+            if (!videoEl || !videoEl.srcObject) return;
+            videoEl.play().catch(() => {});
+          };
+          tryRemotePlay();
+          [100, 300, 600, 1200].forEach((ms) => setTimeout(tryRemotePlay, ms));
         }
         remoteVideoActive = true;
         if (typeof updateVideoLayout === "function") updateVideoLayout();
