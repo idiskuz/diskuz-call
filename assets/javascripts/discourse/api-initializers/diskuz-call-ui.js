@@ -1712,6 +1712,7 @@ export default apiInitializer("0.8", (api) => {
   /* --- CALL UI --- */
   function createCallUI() {
     if (!callUI) {
+      const isIt = document.documentElement.lang === "it";
       callUI = document.createElement("div");
       callUI.id = "diskuz-call-ui";
 
@@ -1814,6 +1815,7 @@ export default apiInitializer("0.8", (api) => {
       const mirrorCb = callUI.querySelector(".diskuz-call-video-mirror-cb");
       const mirrorLabel = callUI.querySelector(".diskuz-call-video-mirror-label");
       const fullscreenBtn = callUI.querySelector(".diskuz-call-fullscreen-btn");
+      /* Etichetta mostrata solo quando il video è attivo (wrap visibile). Se la videochiamata non parte, verificare: diskuz_call_video_allowed_groups, permesso telecamera, console per errori video_offer. */
       if (mirrorLabel) mirrorLabel.textContent = isIt ? "Specchio telecamera" : "Mirror camera";
       try {
         const saved = window.localStorage.getItem(VIDEO_MIRROR_STORAGE_KEY);
@@ -1846,15 +1848,24 @@ export default apiInitializer("0.8", (api) => {
           showToast(isIt ? "Avvio videocamera..." : "Starting camera...");
           enableVideo().catch((err) => {
             console.warn("diskuz-call: enableVideo failed in handler", err);
+            showToast(isIt ? "Errore video: " + (err && err.message ? err.message : "riprova") : "Video error: " + (err && err.message ? err.message : "try again"));
           });
         }
       }
+      /* Delegazione click su callUI: così il Video viene gestito come Mute/Speaker anche se un tema o altro codice tocca i pulsanti. */
+      callUI.addEventListener("click", function (e) {
+        if (e.target.closest(".btn.video")) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleVideoButtonTap();
+        }
+      }, true);
       if (videoBtn) {
         videoBtn.addEventListener("click", function (e) {
           e.preventDefault();
           e.stopPropagation();
           handleVideoButtonTap();
-        });
+        }, true);
         if (isMobileDevice()) {
           videoBtn.addEventListener("touchend", function (e) {
             e.preventDefault();
@@ -2234,14 +2245,23 @@ export default apiInitializer("0.8", (api) => {
     if (!callUI) return;
     const videoBtn = callUI.querySelector(".btn.video");
     if (!videoBtn) return;
-    const show = rtcPeer && rtcPeer.connectionState === "connected" && (window.DiskuzCallVideoAllowed !== false);
+    const connected = rtcPeer && rtcPeer.connectionState === "connected";
+    const videoAllowed = window.DiskuzCallVideoAllowed !== false;
+    const show = connected && videoAllowed;
+    if (!show && connected) {
+      log("[diskuz-call] Video button hidden: video_allowed=", window.DiskuzCallVideoAllowed, "(check admin setting diskuz_call_video_allowed_groups)");
+    }
     videoBtn.style.display = show ? "" : "none";
   }
 
   async function enableVideo() {
-    if (videoRequestInProgress) return;
-    videoRequestInProgress = true;
     const isIt = document.documentElement.lang === "it";
+    if (videoRequestInProgress) {
+      log("[diskuz-call] enableVideo skipped: request already in progress");
+      showToast(isIt ? "Attendere avvio video in corso..." : "Video start in progress, please wait...");
+      return;
+    }
+    videoRequestInProgress = true;
     if (!rtcPeer) {
       videoRequestInProgress = false;
       showToast(isIt ? "Connessione non pronta." : "Connection not ready.");
@@ -2279,7 +2299,26 @@ export default apiInitializer("0.8", (api) => {
     try {
       /* Su mobile (iOS/Android) e desktop: front camera esplicita per selfie */
       const videoOpt = { facingMode: "user" };
-      const videoStream = await navigator.mediaDevices.getUserMedia({ video: videoOpt });
+      if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== "function") {
+        videoRequestInProgress = false;
+        if (wrap) wrap.style.display = "none";
+        callUI.classList.remove("diskuz-call-video-active");
+        showToast(isIt ? "Questo browser non supporta l'accesso alla telecamera." : "This browser does not support camera access.");
+        return;
+      }
+      const getUserMediaWithTimeout = (ms) => {
+        return new Promise((resolve, reject) => {
+          const t = setTimeout(() => reject(new Error(isIt ? "Timeout: permesso telecamera non ricevuto. Controlla le impostazioni del browser." : "Timeout: camera permission not received. Check browser settings.")), ms);
+          navigator.mediaDevices.getUserMedia({ video: videoOpt }).then((stream) => {
+            clearTimeout(t);
+            resolve(stream);
+          }, (err) => {
+            clearTimeout(t);
+            reject(err);
+          });
+        });
+      };
+      const videoStream = await getUserMediaWithTimeout(20000);
       const videoTrack = videoStream.getVideoTracks()[0];
       if (!videoTrack) {
         videoRequestInProgress = false;
