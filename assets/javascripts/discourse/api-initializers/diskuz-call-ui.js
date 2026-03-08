@@ -2340,6 +2340,7 @@ export default apiInitializer("0.8", (api) => {
   let currentSinkIndex = 0;
   let audioOutputDevices = [];
   let callDurationIntervalId = null;
+  let videoLayoutPollIntervalId = null;
   let callConnectedAt = null;
   let outgoingCallTimeoutId = null;
   let calleeNotRingingTimeoutId = null;
@@ -2517,6 +2518,31 @@ export default apiInitializer("0.8", (api) => {
 
   let lastPlaceholderVisible = null;
 
+  function startVideoLayoutPoll() {
+    stopVideoLayoutPoll();
+    if (!rtcPeer || !hasRemoteVideoTrack()) return;
+    videoLayoutPollIntervalId = setInterval(function () {
+      if (!callUI || !rtcPeer) {
+        stopVideoLayoutPoll();
+        return;
+      }
+      const wrap = callUI.querySelector(".diskuz-call-video-wrap");
+      if (!wrap || wrap.style.display !== "block") {
+        stopVideoLayoutPoll();
+        return;
+      }
+      syncRemoteVideoState();
+      if (typeof updateVideoLayout === "function") updateVideoLayout();
+    }, 400);
+  }
+
+  function stopVideoLayoutPoll() {
+    if (videoLayoutPollIntervalId) {
+      clearInterval(videoLayoutPollIntervalId);
+      videoLayoutPollIntervalId = null;
+    }
+  }
+
   function updateVideoLayout() {
     if (!callUI) return;
     syncRemoteVideoState();
@@ -2525,6 +2551,8 @@ export default apiInitializer("0.8", (api) => {
     const hasRemoteTrack = hasRemoteVideoTrack();
     const show = localVideoOn || remoteVideoActive || hasRemoteTrack;
     if (wrap) wrap.style.display = show ? "block" : "none";
+    if (show && hasRemoteTrack && !videoLayoutPollIntervalId) startVideoLayoutPoll();
+    if (!show || !hasRemoteTrack) stopVideoLayoutPoll();
     callUI.classList.toggle("diskuz-call-video-active", !!show);
     callUI.classList.toggle("diskuz-call-remote-video-active", !!remoteVideoActive);
     callUI.classList.toggle("diskuz-call-preview-only", !!localVideoOn && !remoteVideoActive);
@@ -2540,11 +2568,16 @@ export default apiInitializer("0.8", (api) => {
     const placeholder = callUI.querySelector(".diskuz-call-remote-video-placeholder");
     if (remoteVideoEl) {
       if (placeholderVisible) {
+        remoteVideoEl.pause();
         remoteVideoEl.srcObject = null;
         remoteVideoEl.style.display = "none";
+        remoteVideoEl.style.visibility = "hidden";
+        remoteVideoEl.style.opacity = "0";
       } else {
         if (rtcRemoteVideoStream) remoteVideoEl.srcObject = rtcRemoteVideoStream;
         remoteVideoEl.style.display = "";
+        remoteVideoEl.style.visibility = "";
+        remoteVideoEl.style.opacity = "";
       }
     }
     if (placeholder) {
@@ -3273,6 +3306,7 @@ export default apiInitializer("0.8", (api) => {
 
   function rtcEnd() {
     stopCallDurationTimer();
+    stopVideoLayoutPoll();
     resetCallDurationDisplay();
     if (localVideoTrack) {
       localVideoTrack.stop();
@@ -3746,6 +3780,10 @@ export default apiInitializer("0.8", (api) => {
         const videoSdp = data.sdp ?? (data.payload && data.payload.sdp);
         if (!currentCall.active || !rtcPeer || !videoSdp) break;
         if (currentCall.userId !== data.from_user_id) break;
+        if (rtcPeer.signalingState === "have-local-offer") {
+          log("video_offer: skip, we are waiting for answer (signalingState=have-local-offer)");
+          break;
+        }
         (async () => {
           try {
             const desc = new RTCSessionDescription(
