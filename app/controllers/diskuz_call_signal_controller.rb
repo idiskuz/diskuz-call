@@ -60,7 +60,7 @@ class DiskuzCallSignalController < ApplicationController
   end
 
   def signal_params
-    raw = params.permit(payload: { sdp: {}, candidate: {}, avatar_template: {}, from_user_id: {} }).fetch(:payload, {})
+    raw = params.permit(payload: { sdp: {}, candidate: {}, avatar_template: {}, from_user_id: {}, quality: [] }).fetch(:payload, {})
     raw.respond_to?(:to_unsafe_h) ? raw.to_unsafe_h.stringify_keys : raw.to_h.stringify_keys
   rescue StandardError
     {}

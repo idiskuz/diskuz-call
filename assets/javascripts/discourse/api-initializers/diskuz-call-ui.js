@@ -1,4 +1,5 @@
 import { apiInitializer } from "discourse/lib/api";
+import { withPluginApi } from "discourse/lib/plugin-api";
 import { ajax } from "discourse/lib/ajax";
 import MessageBus from "message-bus-client";
 
@@ -1417,11 +1418,13 @@ export default apiInitializer("0.8", (api) => {
               <button id="diskuz-status-busy" class="diskuz-status-btn">${isIt ? "Occupato" : "Busy"}</button>
               <button id="diskuz-status-not-available" class="diskuz-status-btn">Offline</button>
             </div>
-            <button id="diskuz-call-history-btn" class="diskuz-notifications-open-btn">
-              ${isIt ? "Notifiche" : "Notifications"}
-              <span id="diskuz-notifications-badge" class="diskuz-notifications-badge">0</span>
-            </button>
-            <button type="button" id="diskuz-call-ringtones-toggle" class="diskuz-ringtones-toggle-btn" aria-expanded="false">${isIt ? "Suonerie" : "Ringtones"}</button>
+            <div class="diskuz-widget-notifications-ringtones-row">
+              <button id="diskuz-call-history-btn" class="diskuz-notifications-open-btn">
+                ${isIt ? "Notifiche" : "Notifications"}
+                <span id="diskuz-notifications-badge" class="diskuz-notifications-badge">0</span>
+              </button>
+              <button type="button" id="diskuz-call-ringtones-toggle" class="diskuz-ringtones-toggle-btn" aria-expanded="false">${isIt ? "Suonerie" : "Ringtones"}</button>
+            </div>
             <div id="diskuz-call-custom-ringtones-wrap" class="diskuz-custom-ringtones-wrap" style="display:none;"></div>
             <p class="diskuz-widget-description">${(isIt
               ? "Questo widget ti consente di chiamare i tuoi amici su "
@@ -1744,9 +1747,17 @@ export default apiInitializer("0.8", (api) => {
 
           <div class="diskuz-call-video-wrap" style="display:none;">
             <video class="diskuz-call-remote-video" autoplay playsinline aria-label="Remote video"></video>
+            <div class="diskuz-call-remote-video-placeholder" aria-hidden="true" style="display:none;">
+              <div class="diskuz-call-remote-placeholder-bg"></div>
+              <div class="diskuz-call-remote-placeholder-dots" aria-label="">
+                <span class="diskuz-placeholder-dot"></span>
+                <span class="diskuz-placeholder-dot"></span>
+                <span class="diskuz-placeholder-dot"></span>
+              </div>
+            </div>
             <div class="diskuz-call-local-preview-outer">
-              <button type="button" class="diskuz-call-switch-camera-btn" aria-label="" title="" style="display:none;"></button>
               <div class="diskuz-call-local-preview-wrap" role="button" tabindex="0" aria-label="" title="">
+                <button type="button" class="diskuz-call-switch-camera-btn" aria-label="" title="" style="display:none;"></button>
                 <video class="diskuz-call-local-preview" autoplay playsinline muted aria-label="Your camera"></video>
                 <span class="diskuz-call-mirror-toggle-icon" aria-hidden="true"></span>
                 <input type="checkbox" class="diskuz-call-video-mirror-cb" checked aria-hidden="true" tabindex="-1" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0;">
@@ -1763,7 +1774,8 @@ export default apiInitializer("0.8", (api) => {
             </div>
           </div>
 
-          <button class="ear-mode">Ear mode</button>
+          <button type="button" class="ear-mode ear-mode-left" aria-label="Ear mode">Ear mode</button>
+          <button type="button" class="ear-mode" aria-label="Ear mode">Ear mode</button>
         </div>
       `;
 
@@ -1772,7 +1784,7 @@ export default apiInitializer("0.8", (api) => {
       const hangupBtn = callUI.querySelector(".hangup");
       const muteBtn = callUI.querySelector(".mute");
       const speakerBtn = callUI.querySelector(".speaker");
-      const earBtn = callUI.querySelector(".ear-mode");
+      const earBtns = callUI.querySelectorAll(".ear-mode");
 
       muteBtn.setAttribute("aria-pressed", "false");
       muteBtn.setAttribute("aria-label", "Mute microphone");
@@ -1814,13 +1826,16 @@ export default apiInitializer("0.8", (api) => {
         speakerBtn.setAttribute("aria-pressed", String(active));
       });
 
-      if (earBtn) earBtn.style.display = isMobileDevice() ? "" : "none";
-      earBtn.addEventListener("click", function () {
-        activateEarMode();
+      earBtns.forEach((earBtn) => {
+        if (earBtn) earBtn.style.display = isMobileDevice() ? "" : "none";
+        earBtn.addEventListener("click", function () {
+          activateEarMode();
+        });
       });
 
       const videoBtn = callUI.querySelector(".btn.video");
       const videoWrap = callUI.querySelector(".diskuz-call-video-wrap");
+      const fsButtonEl = callUI.querySelector(".diskuz-call-fullscreen-btn");
       const localPreview = callUI.querySelector(".diskuz-call-local-preview");
       const mirrorCb = callUI.querySelector(".diskuz-call-video-mirror-cb");
       const mirrorIconEl = callUI.querySelector(".diskuz-call-mirror-toggle-icon");
@@ -1859,18 +1874,27 @@ export default apiInitializer("0.8", (api) => {
       if (mirrorCb) applyMirrorToLocalPreview();
       if (localPreviewWrap) {
         localPreviewWrap.addEventListener("click", function (e) {
+          if (e.target.closest(".diskuz-call-switch-camera-btn")) return;
           e.preventDefault();
           e.stopPropagation();
           toggleMirrorFromPreview();
         });
       }
-      if (fullscreenBtn) fullscreenBtn.addEventListener("click", function () {
-        if (!document.fullscreenElement) {
-          (callUI || document.documentElement).requestFullscreen?.();
-        } else {
-          document.exitFullscreen?.();
-        }
-      });
+      if (fsButtonEl) {
+        fsButtonEl.addEventListener("click", function () {
+          if (!document.fullscreenElement) {
+            callUI.requestFullscreen?.().catch(() => {});
+          } else {
+            document.exitFullscreen?.();
+          }
+        });
+        const onFullscreenChange = () => {
+          const isFs = !!document.fullscreenElement && document.fullscreenElement === callUI;
+          callUI.classList.toggle("diskuz-call-fullscreen-active", isFs);
+        };
+        document.addEventListener("fullscreenchange", onFullscreenChange);
+        document.addEventListener("webkitfullscreenchange", onFullscreenChange);
+      }
 
       /* Mobile: anteprima draggabile; tap (senza trascinare) attiva/disattiva mirror */
       const switchCameraBtn = callUI.querySelector(".diskuz-call-switch-camera-btn");
@@ -1898,42 +1922,85 @@ export default apiInitializer("0.8", (api) => {
       }
       if (callUI) callUI._updateSwitchCameraButton = updateSwitchCameraButton;
 
-      if (localPreviewWrap && isMobileDevice()) {
+      if (localPreviewWrap) {
         let dragOffsetX = 0, dragOffsetY = 0, dragStartX = 0, dragStartY = 0, dragStartOffX = 0, dragStartOffY = 0;
-        localPreviewWrap.addEventListener("touchstart", function (e) {
-          if (!e.touches || e.touches.length === 0) return;
-          e.stopPropagation();
-          localPreviewWrap.classList.add("diskuz-local-preview-dragging");
-          dragStartX = e.touches[0].clientX;
-          dragStartY = e.touches[0].clientY;
-          dragStartOffX = dragOffsetX;
-          dragStartOffY = dragOffsetY;
-        }, { passive: true });
-        localPreviewWrap.addEventListener("touchmove", function (e) {
-          if (!e.touches || e.touches.length === 0) return;
-          e.preventDefault();
-          const dx = e.touches[0].clientX - dragStartX;
-          const dy = e.touches[0].clientY - dragStartY;
-          dragOffsetX = dragStartOffX + dx;
-          dragOffsetY = dragStartOffY + dy;
-          localPreviewWrap.style.transform = "translate(" + dragOffsetX + "px, " + dragOffsetY + "px)";
-        }, { passive: false });
-        localPreviewWrap.addEventListener("touchend", function (e) {
-          localPreviewWrap.classList.remove("diskuz-local-preview-dragging");
-          const moved = Math.abs(dragOffsetX - dragStartOffX) + Math.abs(dragOffsetY - dragStartOffY);
-          if (moved < 12) toggleMirrorFromPreview();
-        }, { passive: true });
-        localPreviewWrap.addEventListener("touchcancel", function () {
-          localPreviewWrap.classList.remove("diskuz-local-preview-dragging");
-        }, { passive: true });
+        if (isMobileDevice()) {
+          localPreviewWrap.addEventListener("touchstart", function (e) {
+            if (!e.touches || e.touches.length === 0) return;
+            if (e.target.closest(".diskuz-call-switch-camera-btn")) return;
+            e.stopPropagation();
+            localPreviewWrap.classList.add("diskuz-local-preview-dragging");
+            dragStartX = e.touches[0].clientX;
+            dragStartY = e.touches[0].clientY;
+            dragStartOffX = dragOffsetX;
+            dragStartOffY = dragOffsetY;
+          }, { passive: true });
+          localPreviewWrap.addEventListener("touchmove", function (e) {
+            if (!e.touches || e.touches.length === 0) return;
+            e.preventDefault();
+            const dx = e.touches[0].clientX - dragStartX;
+            const dy = e.touches[0].clientY - dragStartY;
+            dragOffsetX = dragStartOffX + dx;
+            dragOffsetY = dragStartOffY + dy;
+            localPreviewWrap.style.transform = "translate(" + dragOffsetX + "px, " + dragOffsetY + "px)";
+          }, { passive: false });
+          localPreviewWrap.addEventListener("touchend", function (e) {
+            localPreviewWrap.classList.remove("diskuz-local-preview-dragging");
+            if (e.target.closest(".diskuz-call-switch-camera-btn")) return;
+            const moved = Math.abs(dragOffsetX - dragStartOffX) + Math.abs(dragOffsetY - dragStartOffY);
+            if (moved < 12) {
+              e.preventDefault();
+              e.stopPropagation();
+              toggleMirrorFromPreview();
+            }
+          }, { passive: false });
+          localPreviewWrap.addEventListener("touchcancel", function () {
+            localPreviewWrap.classList.remove("diskuz-local-preview-dragging");
+          }, { passive: true });
+        } else {
+          localPreviewWrap.addEventListener("mousedown", function (e) {
+            if (e.button !== 0) return;
+            if (e.target.closest(".diskuz-call-switch-camera-btn")) return;
+            e.preventDefault();
+            e.stopPropagation();
+            localPreviewWrap.classList.add("diskuz-local-preview-dragging");
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            dragStartOffX = dragOffsetX;
+            dragStartOffY = dragOffsetY;
+            function onMouseMove(ev) {
+              ev.preventDefault();
+              const dx = ev.clientX - dragStartX;
+              const dy = ev.clientY - dragStartY;
+              dragOffsetX = dragStartOffX + dx;
+              dragOffsetY = dragStartOffY + dy;
+              localPreviewWrap.style.transform = "translate(" + dragOffsetX + "px, " + dragOffsetY + "px)";
+            }
+            function onMouseUp(ev) {
+              document.removeEventListener("mousemove", onMouseMove);
+              document.removeEventListener("mouseup", onMouseUp);
+              localPreviewWrap.classList.remove("diskuz-local-preview-dragging");
+              if (ev.target.closest && ev.target.closest(".diskuz-call-local-preview-wrap") === localPreviewWrap) {
+                const moved = Math.abs(dragOffsetX - dragStartOffX) + Math.abs(dragOffsetY - dragStartOffY);
+                if (moved < 5) toggleMirrorFromPreview();
+              }
+            }
+            document.addEventListener("mousemove", onMouseMove);
+            document.addEventListener("mouseup", onMouseUp);
+          });
+        }
       }
 
       function handleVideoButtonTap() {
+        const isIt = document.documentElement.lang === "it";
+        if (videoRequestInProgress && !localVideoOn) {
+          showToast(isIt ? "Attendere..." : "Please wait...");
+          return;
+        }
         log("[UI] Video button tapped, localVideoOn=", localVideoOn);
         if (localVideoOn) {
           disableVideo();
         } else {
-          const isIt = document.documentElement.lang === "it";
           showToast(isIt ? "Avvio videocamera..." : "Starting camera...");
           enableVideo().catch((err) => {
             console.warn("diskuz-call: enableVideo failed in handler", err);
@@ -2033,16 +2100,28 @@ export default apiInitializer("0.8", (api) => {
           document.addEventListener("mousemove", onDragMove);
           document.addEventListener("mouseup", onDragEnd);
         }
+        const dragHandle = callUI.querySelector(".call-drag-handle");
+        function onCallUIMouseDown(e) {
+          if (e.button !== 0) return;
+          if (!e.target.closest(".call-top-bar")) return;
+          e.preventDefault();
+          e.stopPropagation();
+          startCallUIDrag(e);
+        }
         if (topBar) {
-          topBar.addEventListener("mousedown", function (e) {
-            if (e.button !== 0) return;
-            startCallUIDrag(e);
-          }, true);
+          topBar.style.cursor = "grab";
+          topBar.addEventListener("mousedown", onCallUIMouseDown, true);
+        }
+        if (dragHandle) {
+          dragHandle.style.cursor = "grab";
+          dragHandle.addEventListener("mousedown", onCallUIMouseDown, true);
         }
         callUI.addEventListener("mousedown", function (e) {
           if (e.target.closest(".call-top-bar")) return;
           if (e.target.closest("button, input, a, select, textarea, [contenteditable=\"true\"]")) return;
           if (e.button !== 0) return;
+          e.preventDefault();
+          e.stopPropagation();
           startCallUIDrag(e);
         }, true);
         if (typeof ResizeObserver !== "undefined") {
@@ -2087,13 +2166,17 @@ export default apiInitializer("0.8", (api) => {
       speakerBtn.setAttribute("aria-pressed", String(speakerOn));
     }
 
-    /* Desktop: posizione condivisa con widget. Carica storage, cattura widget corrente, applica a call UI prima di mostrarla. */
+    /* Desktop: call UI nella stessa posizione del widget. Cattura posizione widget solo se era aperto, altrimenti usa storage o default. */
     if (!isMobileDevice()) {
       widgetWasOpenBeforeCall = !!(widget && widget.classList.contains("open"));
       loadWidgetRectFromStorage();
       if (widget) {
-        captureWidgetRect();
+        if (widgetWasOpenBeforeCall) captureWidgetRect();
         widget.style.display = "none";
+      }
+      if (!lastWidgetRect || lastWidgetRect.width <= 0) {
+        lastWidgetRect = getDefaultWidgetRect();
+        saveWidgetRectToStorage();
       }
       applyWidgetRectToCallUI();
     }
@@ -2343,7 +2426,11 @@ export default apiInitializer("0.8", (api) => {
     const show = localVideoOn || remoteVideoActive;
     if (wrap) wrap.style.display = show ? "block" : "none";
     callUI.classList.toggle("diskuz-call-video-active", !!show);
-    if (fsBtn) fsBtn.style.display = show && !isMobileDevice() ? "block" : "none";
+    callUI.classList.toggle("diskuz-call-remote-video-active", !!remoteVideoActive);
+    callUI.classList.toggle("diskuz-call-preview-only", !!localVideoOn && !remoteVideoActive);
+    const placeholder = callUI.querySelector(".diskuz-call-remote-video-placeholder");
+    if (placeholder) placeholder.style.display = show && !remoteVideoActive ? "block" : "none";
+    if (fsBtn) fsBtn.style.display = show && !isMobileDevice() && remoteVideoActive ? "block" : "none";
   }
 
   function updateVideoButtonVisibility() {
@@ -2351,12 +2438,7 @@ export default apiInitializer("0.8", (api) => {
     const videoBtn = callUI.querySelector(".btn.video");
     if (!videoBtn) return;
     const connected = rtcPeer && rtcPeer.connectionState === "connected";
-    const videoAllowed = window.DiskuzCallVideoAllowed !== false;
-    const show = connected && videoAllowed;
-    if (!show && connected) {
-      log("[diskuz-call] Video button hidden: video_allowed=", window.DiskuzCallVideoAllowed, "(check admin setting diskuz_call_video_allowed_groups)");
-    }
-    videoBtn.style.display = show ? "" : "none";
+    videoBtn.style.display = connected ? "" : "none";
   }
 
   async function enableVideo() {
@@ -2402,12 +2484,12 @@ export default apiInitializer("0.8", (api) => {
       localPreview.playsInline = true;
     }
     try {
-      /* Qualità video: risoluzione ideale (720p desktop, 480p mobile) e front camera */
+      /* Video massima qualità; il browser adatta automaticamente in base alla connessione (come WhatsApp) */
       const isMobile = isMobileDevice();
       const videoOpt = {
         facingMode: "user",
-        width: { ideal: isMobile ? 640 : 1280 },
-        height: { ideal: isMobile ? 480 : 720 },
+        width: { ideal: isMobile ? 1280 : 1920 },
+        height: { ideal: isMobile ? 720 : 1080 },
       };
       if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== "function") {
         videoRequestInProgress = false;
@@ -2448,7 +2530,7 @@ export default apiInitializer("0.8", (api) => {
         if (sender && sender.getParameters) {
           const params = sender.getParameters();
           if (!params.encodings) params.encodings = [{}];
-          params.encodings[0].maxBitrate = isMobile ? 800000 : 1500000;
+          params.encodings[0].maxBitrate = 4000000;
           await sender.setParameters(params);
         }
       } catch (e) {}
@@ -2521,8 +2603,8 @@ export default apiInitializer("0.8", (api) => {
     const newFacing = currentVideoFacingMode === "user" ? "environment" : "user";
     const videoOpt = {
       facingMode: { exact: newFacing },
-      width: { ideal: 640 },
-      height: { ideal: 480 },
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
     };
     videoRequestInProgress = true;
     try {
@@ -2801,7 +2883,21 @@ export default apiInitializer("0.8", (api) => {
           videoEl.playsInline = true;
           videoEl.autoplay = true;
           videoEl.muted = false;
+          videoEl.classList.remove("diskuz-call-remote-video-fade-in");
           videoEl.srcObject = stream;
+          videoEl.classList.add("diskuz-call-remote-video-fade-in");
+          const updateRemoteVideoOrientation = () => {
+            if (!callUI || !videoEl) return;
+            const w = videoEl.videoWidth || 0;
+            const h = videoEl.videoHeight || 0;
+            callUI.classList.remove("diskuz-call-remote-video-landscape", "diskuz-call-remote-video-portrait");
+            if (w > 0 && h > 0) {
+              callUI.classList.add(w >= h ? "diskuz-call-remote-video-landscape" : "diskuz-call-remote-video-portrait");
+            }
+          };
+          videoEl.addEventListener("loadedmetadata", updateRemoteVideoOrientation);
+          videoEl.addEventListener("resize", updateRemoteVideoOrientation);
+          [100, 300, 600, 1200].forEach((ms) => setTimeout(updateRemoteVideoOrientation, ms));
           const tryRemotePlay = () => {
             if (!videoEl || !videoEl.srcObject) return;
             videoEl.play().catch(() => {});
@@ -3036,10 +3132,15 @@ export default apiInitializer("0.8", (api) => {
       const wrap = callUI.querySelector(".diskuz-call-video-wrap");
       const remoteV = callUI.querySelector(".diskuz-call-remote-video");
       const localP = callUI.querySelector(".diskuz-call-local-preview");
+      const fsBtn = callUI.querySelector(".diskuz-call-fullscreen-btn");
       if (wrap) wrap.style.display = "none";
       if (remoteV) remoteV.srcObject = null;
       if (localP) localP.srcObject = null;
-      callUI.classList.remove("diskuz-call-video-active");
+      const placeholder = callUI.querySelector(".diskuz-call-remote-video-placeholder");
+      if (placeholder) placeholder.style.display = "none";
+      if (fsBtn) fsBtn.style.display = "none";
+      callUI.classList.remove("diskuz-call-video-active", "diskuz-call-remote-video-active", "diskuz-call-preview-only", "diskuz-call-remote-video-landscape", "diskuz-call-remote-video-portrait", "diskuz-call-fullscreen-active");
+      if (document.fullscreenElement === callUI) document.exitFullscreen?.();
     }
     if (rtcPeer) {
       rtcPeer.close();
@@ -3090,6 +3191,23 @@ export default apiInitializer("0.8", (api) => {
     resetCurrentCall();
     closeCallUI();
   }
+
+  /* Desktop: non terminare su minimize/tab (solo su freeze = sospensione/blocco/standby).
+     Mobile: videochiamata termina su hidden (risparmio TURN); voce solo su freeze (blocco schermo). */
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState !== "hidden" || !currentCall.active) return;
+    const hasVideo = localVideoOn || remoteVideoActive;
+    if (hasVideo && isMobileDevice()) {
+      log("[diskuz-call] Video call (mobile) – page hidden, ending call");
+      endCurrentCall("ended");
+    }
+  });
+
+  document.addEventListener("freeze", function () {
+    if (!currentCall.active) return;
+    log("[diskuz-call] Page frozen (standby/lock/suspend), ending call");
+    endCurrentCall("ended");
+  });
 
   function startOutgoingCall(username, userId, avatarTemplate) {
     log("startOutgoingCall", username, userId);
@@ -3253,9 +3371,14 @@ export default apiInitializer("0.8", (api) => {
 
     if (!isMobileDevice()) {
       widgetWasOpenBeforeCall = !!(widget && widget.classList.contains("open"));
+      loadWidgetRectFromStorage();
       if (widget) {
-        captureWidgetRect();
+        if (widgetWasOpenBeforeCall) captureWidgetRect();
         widget.style.display = "none";
+      }
+      if (!lastWidgetRect || lastWidgetRect.width <= 0) {
+        lastWidgetRect = getDefaultWidgetRect();
+        saveWidgetRectToStorage();
       }
       applyWidgetRectToCallUI();
       updateBodyScrollLock();
@@ -3635,4 +3758,58 @@ export default apiInitializer("0.8", (api) => {
 
   api.onPageChange(initPage);
   initPage();
+
+  /* Pulsante "Chiamata" nel composer della chat (stesso punto di Jitsi): con withPluginApi come fa Jitsi, così registerChatComposerButton è disponibile */
+  withPluginApi((pluginApi) => {
+    if (!pluginApi.registerChatComposerButton) return;
+    let chatService;
+    try {
+      chatService = pluginApi.container.lookup("service:chat");
+    } catch (e) {
+      return;
+    }
+    if (!chatService) return;
+    pluginApi.registerChatComposerButton({
+      id: "diskuz-call-chat-call",
+      group: "insertions",
+      position: "inline",
+      icon: "mobile",
+      label: "Call",
+      title: "Call this user (Diskuz Call)",
+      action: () => {
+        const activeChannel = chatService.activeChannel;
+        if (!activeChannel) {
+          log("chat call: no active channel");
+          if (typeof showToast === "function") showToast("Open a direct message to call.");
+          return;
+        }
+        const currentUser = pluginApi.getCurrentUser();
+        if (!currentUser) return;
+        let otherUser = null;
+        const users = activeChannel.chatable?.users || activeChannel.recipients || [];
+        for (const u of users) {
+          const uid = typeof u === "object" && u !== null ? u.id : null;
+          if (uid != null && uid !== currentUser.id) {
+            otherUser = u;
+            break;
+          }
+        }
+        if (!otherUser) {
+          log("chat call: no other user in channel (not a 1:1 DM?)");
+          if (typeof showToast === "function") showToast("Open a direct message with one person to call.");
+          return;
+        }
+        const username = otherUser.username || otherUser.name;
+        const userId = otherUser.id;
+        const avatarTemplate = otherUser.avatar_template ?? null;
+        if (!username || userId == null) return;
+        window.dispatchEvent(
+          new CustomEvent("diskuz-call-start", {
+            detail: { username, userId, avatar_template },
+          })
+        );
+      },
+    });
+    log("diskuz-call: chat composer button (smartphone) registered");
+  });
 });
