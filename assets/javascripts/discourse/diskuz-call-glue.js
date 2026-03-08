@@ -4,7 +4,7 @@
  */
 import apiInitializer from "discourse/lib/api";
 import MessageBus from "message-bus-client";
-import { ajax } from "discourse/lib/ajax";
+import { ajax } from "discourse/lib/ajax"; /* used by DiskuzCallSend */
 
 const LOG = (...args) => console.log("[diskuz-call glue]", ...args);
 
@@ -35,34 +35,10 @@ apiInitializer("0.7", (api) => {
 
   if (!currentUser) return;
 
-  ajax("/diskuz-call/status")
-    .then((data) => {
-      window.DiskuzCallStatusLoaded = true;
-      window.DiskuzCallAllowed = data.enabled === true;
-      window.DiskuzCallIncomingSound = (data.incoming_sound && data.incoming_sound !== "") ? data.incoming_sound : "default";
-      window.DiskuzCallCustomRingtoneUrl = (data.custom_ringtone_url && data.custom_ringtone_url !== "") ? data.custom_ringtone_url : "";
-      window.DiskuzCallIceServers = Array.isArray(data.ice_servers) && data.ice_servers.length > 0 ? data.ice_servers : null;
-      LOG("glue: status OK enabled=", window.DiskuzCallAllowed, "ice_servers=", window.DiskuzCallIceServers ? "custom" : "default");
-      window.dispatchEvent(
-        new CustomEvent("diskuz-call-allowed-changed", {
-          detail: { allowed: window.DiskuzCallAllowed },
-        })
-      );
-    })
-    .catch((err) => {
-      window.DiskuzCallStatusLoaded = true;
-      window.DiskuzCallAllowed = false;
-      window.DiskuzCallIncomingSound = "default";
-      window.DiskuzCallCustomRingtoneUrl = "";
-      window.DiskuzCallIceServers = null;
-      LOG("glue: status FAIL", err);
-      window.dispatchEvent(
-        new CustomEvent("diskuz-call-allowed-changed", {
-          detail: { allowed: false },
-        })
-      );
-    });
+  /* Status viene caricato una sola volta da diskuz-call-ui.js (api 0.8) per evitare doppia chiamata /diskuz-call/status. */
 
+  if (window.DiskuzCallMessageBusSubscribed) return;
+  window.DiskuzCallMessageBusSubscribed = true;
   MessageBus.subscribe("/diskuz-call/signals", (data) => {
     LOG("glue: MessageBus message received", data.signal_type, "from_user_id", data.from_user_id, "from_username", data.from_username);
     const payload = data.payload || {};
@@ -78,6 +54,5 @@ apiInitializer("0.7", (api) => {
     LOG("glue: dispatching diskuz-call-signal", detail.type, "hasSdp?", !!detail.sdp, "hasCandidate?", !!detail.candidate);
     window.dispatchEvent(new CustomEvent("diskuz-call-signal", { detail }));
   });
-  window.DiskuzCallMessageBusSubscribed = true;
   LOG("glue: MessageBus subscribed to /diskuz-call/signals");
 });

@@ -185,18 +185,6 @@
   line-height: 1.4;
   padding: 0 4px;
 }
-.diskuz-widget-tagline {
-  font-size: 12px;
-  color: #555;
-  text-align: center;
-  margin: 0 0 18px 0;
-  line-height: 1.4;
-  padding: 0 4px;
-}
-
-.diskuz-call-input-wrap {
-  margin-bottom: 18px;
-}
 
 .diskuz-call-input-autocomplete-wrap {
   position: relative;
@@ -287,32 +275,17 @@
   font-weight: 400;
 }
 
-/* Fallback se il widget non ha ancora lo sfondo dinamico (legacy) */
-.diskuz-widget-brand-bar {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  margin: -16px -16px 12px -16px;
-  padding: 8px 12px 10px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-  cursor: move;
-  user-select: none;
-}
-.diskuz-widget-drag-handle { color: #666; font-size: 14px; }
-.diskuz-widget-brand-title { font-size: 16px; font-weight: 700; color: #13c98c; line-height: 1.2; }
-.diskuz-widget-brand-by { font-size: 10px; color: #000; font-weight: 400; }
-
-/* Widget two-page layout */
+/* Widget two-page layout: una sola definizione display per evitare conflitti */
 .diskuz-widget-page {
   display: none;
-  flex-direction: column;
   min-height: 0;
-  min-width: 0; /* contenuti (es. Call) non escono dai margini */
+  min-width: 0;
 }
 
 .diskuz-widget-page.diskuz-widget-page-active {
   display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 /* Notifications header: stesso stile della call UI top bar (bordo, padding, colore) */
@@ -350,19 +323,6 @@
   font-weight: 700;
   color: #13c98c;
   margin: 0;
-}
-.diskuz-widget-notifications-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #333;
-  margin: 0;
-}
-
-.diskuz-widget-history-list {
-  padding: 8px 0;
-  max-height: 240px;
-  overflow-y: auto;
-  min-height: 80px;
 }
 
 /* Mobile: tutto dentro la pagina, no zoom né allargamento; contenuto senza bisogno di zoom */
@@ -554,18 +514,6 @@
   }
 }
 
-.diskuz-notifications-open-btn {
-  margin-top: 16px;
-  width: 100%;
-  padding: 6px 8px;
-  font-size: 13px;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-  background: #f9fafb;
-  cursor: pointer;
-  position: relative;
-}
-
 #diskuz-call-widget .diskuz-widget-description {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.8);
@@ -594,7 +542,7 @@
   background: rgba(255, 255, 255, 0.28);
 }
 
-/* Suonerie personalizzate (scelta + anteprima nel widget, visibile solo se si preme Ringtones) */
+/* Suonerie personalizzate nel widget */
 .diskuz-custom-ringtones-wrap {
   margin-top: 12px;
   padding: 10px 0 0 0;
@@ -655,39 +603,8 @@
 .diskuz-custom-ringtones-select-btn:hover {
   background: rgba(19, 201, 140, 0.4);
 }
-.diskuz-widget-description {
-  font-size: 11px;
-  color: #666;
-  line-height: 1.4;
-  margin: 14px 0 0 0;
-  padding: 0 2px;
-}
 
-.diskuz-widget-footer {
-  margin-top: 18px;
-  margin-bottom: 0;
-  padding-bottom: 0;
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.diskuz-widget-hide-btn {
-  padding: 6px 12px;
-  font-size: 12px;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-  background: #f3f4f6;
-  color: #333;
-  cursor: pointer;
-}
-
-.diskuz-widget-hide-btn:hover {
-  background: rgba(255, 255, 255, 0.5);
-}
-
-/* Frosted blur style for widget buttons (desktop and mobile) */
+/* Pulsanti e footer widget: unica definizione (frosted blur) */
 #diskuz-call-widget .diskuz-status-btn {
   background: rgba(255, 255, 255, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.6);
@@ -885,13 +802,8 @@
   font-size: 13px;
   color: rgba(255, 255, 255, 0.9);
 }
-.diskuz-widget-status-label {
-  margin-top: 16px;
-  font-size: 13px;
-  color: #555;
-}
 
-.diskuz-widget-status-btns {
+#diskuz-call-widget .diskuz-widget-status-btns {
   display: flex;
   gap: 8px;
   margin-top: 8px;
@@ -904,8 +816,9 @@
   color: #ffffff;
 }
 
-/* Input su sfondo dinamico widget: stile vetro */
+/* Input widget: unica definizione (vetro, margine) */
 #diskuz-call-widget .diskuz-call-input-wrap {
+  margin-bottom: 18px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 10px;
 }
@@ -920,97 +833,11 @@
   color: rgba(255, 255, 255, 0.6);
 }
 
-.diskuz-call-input-wrap {
-  position: relative;
-  border-radius: 10px;
-  padding: 0;
-  background: #fff;
-}
-
-.diskuz-call-input-wrap input,
-#diskuz-call-input {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid #000;
-  margin: 0;
-  font-size: 15px;
-  background: #fff;
-  display: block;
-}
-
-#diskuz-call-start {
-  width: 100%;
-  padding: 10px;
-  background: #13c98c;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 16px;
-  cursor: pointer;
-  transition: box-shadow 0.2s ease, background 0.2s ease;
-}
-
-#diskuz-call-start:hover {
-  transform: none;
-}
-
-#diskuz-call-start:active {
-  transform: none;
-}
-
 #diskuz-call-widget #diskuz-call-error {
   color: #ff8a80;
   font-size: 14px;
   margin-top: 6px;
   display: none;
-}
-#diskuz-call-error {
-  color: #d9534f;
-  font-size: 14px;
-  margin-top: 6px;
-  display: none;
-}
-
-.diskuz-status-btn {
-  flex: 1;
-  padding: 6px 8px;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-  background: #f3f4f6;
-  cursor: pointer;
-  font-size: 13px;
-  transition: background 0.2s ease, border 0.2s ease, color 0.2s ease;
-}
-
-.diskuz-status-btn.active {
-  font-weight: 700;
-  color: #ffffff;
-}
-#diskuz-status-available.diskuz-status-btn.active {
-  background: #13c98c;
-  border-color: #13c98c;
-}
-#diskuz-status-busy.diskuz-status-btn.active {
-  background: #f0ad4e;
-  border-color: #f0ad4e;
-}
-#diskuz-status-not-available.diskuz-status-btn.active {
-  background: #d9534f;
-  border-color: #d9534f;
-}
-
-#diskuz-call-history-btn {
-  margin-top: 10px;
-  width: 100%;
-  padding: 6px 8px;
-  font-size: 13px;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-  background: #f9fafb;
-  cursor: pointer;
-  position: relative;
 }
 
 .diskuz-notifications-badge {
@@ -1032,90 +859,7 @@
   box-sizing: border-box;
 }
 
-/* --- NOTIFICATIONS (inside widget, second page) --- */
-.diskuz-notifications-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 8px 10px 6px;
-  border-bottom: 1px solid #eee;
-  background: #f9fafb;
-}
-
-.diskuz-ntab {
-  padding: 6px 10px;
-  font-size: 12px;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-  background: #fff;
-  color: #333;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.diskuz-ntab:hover {
-  background: #f3f4f6;
-}
-
-.diskuz-ntab.active {
-  background: #13c98c;
-  border-color: #13c98c;
-  color: #fff;
-}
-
-.diskuz-history-empty {
-  padding: 20px;
-  text-align: center;
-  color: #777;
-  font-size: 14px;
-}
-
-.diskuz-history-item {
-  padding: 10px 12px;
-  border-radius: 10px;
-  margin-bottom: 4px;
-  transition: background 0.15s ease;
-}
-
-.diskuz-history-item:hover {
-  background: #f3f4f6;
-}
-
-.diskuz-history-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.diskuz-history-icon {
-  font-size: 16px;
-  flex-shrink: 0;
-}
-
-.diskuz-history-username {
-  background: none;
-  border: none;
-  padding: 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: #13c98c;
-  cursor: pointer;
-  text-align: left;
-  flex: 1;
-}
-
-.diskuz-history-username:hover {
-  text-decoration: underline;
-}
-
-.diskuz-history-meta {
-  font-size: 11px;
-  color: #666;
-  margin-top: 4px;
-  margin-left: 24px;
-}
-
-/* Lista notifiche: stile e colori come call UI (vetro, verde, transizione) */
+/* Lista notifiche nel widget: stile vetro/verde (unica definizione) */
 #diskuz-call-widget .diskuz-history-empty {
   color: rgba(255, 255, 255, 0.7);
 }
@@ -1215,6 +959,7 @@
   -webkit-user-select: none;
 }
 
+/* Call UI top bar: unica definizione (draggable, titolo verde) */
 #diskuz-call-ui .call-drag-handle {
   display: flex;
   flex-direction: row;
@@ -1222,6 +967,11 @@
   gap: 6px;
   flex: 1;
   min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  text-align: left;
+  background: none;
 }
 
 #diskuz-call-ui .call-top-bar-title {
@@ -1247,14 +997,6 @@
   display: block;
   opacity: 1;
   transform: translateY(0);
-}
-
-#diskuz-call-ui .call-drag-handle {
-  margin: 0;
-  padding: 0;
-  border: none;
-  text-align: left;
-  background: none;
 }
 
 @media (max-width: 700px) {
@@ -1603,10 +1345,9 @@
   border-color: rgba(255, 255, 255, 0.3);
 }
 
-/* Voce discreta sopra i pulsanti (Nascondi/Mostra pulsanti), non aspetto da pulsante */
+/* Nascondi/Mostra pulsanti: unica definizione. Hide e toggle sempre inline-flex; Show nascosto di default, visibile solo con .diskuz-call-controls-hidden */
 #diskuz-call-ui .diskuz-call-hide-btn,
-#diskuz-call-ui .diskuz-call-toggle-controls,
-#diskuz-call-ui .diskuz-call-show-controls {
+#diskuz-call-ui .diskuz-call-toggle-controls {
   background: none;
   border: none;
   box-shadow: none;
@@ -1618,6 +1359,24 @@
   padding: 4px 0 8px 0;
   font-size: 12px;
   font-weight: 500;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+#diskuz-call-ui .diskuz-call-show-controls {
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: rgba(255, 255, 255, 0.65);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 4px 0 8px 0;
+  font-size: 12px;
+  font-weight: 500;
+  width: auto;
   letter-spacing: 0.01em;
   cursor: pointer;
   text-decoration: none;
@@ -1693,16 +1452,6 @@
   #diskuz-call-ui .diskuz-call-show-controls {
     margin-top: auto;
     padding-bottom: calc(12px + env(safe-area-inset-bottom, 0));
-    width: auto;
-    padding: 4px 0 8px 0;
-    display: none;
-    justify-content: center;
-    align-items: center;
-    background: none;
-    border: none;
-    font-size: 12px;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.65);
   }
 
   #diskuz-call-ui.diskuz-call-controls-hidden .diskuz-call-show-controls {
@@ -1727,16 +1476,6 @@
 @media (min-width: 701px) {
   #diskuz-call-ui .diskuz-call-show-controls {
     margin-top: auto;
-    width: auto;
-    padding: 4px 0 8px 0;
-    display: none;
-    justify-content: center;
-    align-items: center;
-    background: none;
-    border: none;
-    font-size: 12px;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.65);
   }
 
   #diskuz-call-ui.diskuz-call-controls-hidden .diskuz-call-show-controls {
@@ -1767,10 +1506,4 @@
   padding: 4px 0;
   font-size: 12px;
   justify-content: center;
-}
-
-#diskuz-call-ui .diskuz-call-show-controls {
-  font-size: 12px;
-  padding: 4px 0 8px 0;
-  width: auto;
 }

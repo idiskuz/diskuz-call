@@ -3292,6 +3292,9 @@ export default apiInitializer("0.8", (api) => {
 
     ajax("/diskuz-call/status")
       .then((data) => {
+        window.DiskuzCallStatusLoaded = true;
+        window.DiskuzCallAllowed = data.enabled === true;
+        window.dispatchEvent(new CustomEvent("diskuz-call-allowed-changed", { detail: { allowed: window.DiskuzCallAllowed } }));
         if (data.enabled !== true) {
           log("initPage: user not in allowed groups, plugin not loaded");
           return;
@@ -3334,6 +3337,9 @@ export default apiInitializer("0.8", (api) => {
         document.addEventListener("visibilitychange", updateFloatingButtonForComposer);
       })
       .catch(() => {
+        window.DiskuzCallStatusLoaded = true;
+        window.DiskuzCallAllowed = false;
+        window.dispatchEvent(new CustomEvent("diskuz-call-allowed-changed", { detail: { allowed: false } }));
         log("initPage: status check failed, plugin not loaded");
       });
   }
