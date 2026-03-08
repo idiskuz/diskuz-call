@@ -3963,7 +3963,7 @@ export default apiInitializer("0.8", (api) => {
       id: "diskuz-call-chat-call",
       group: "insertions",
       position: "inline",
-      icon: "mobile",
+      icon: "phone",
       label: "Call",
       title: "Call this user (Diskuz Call)",
       action: () => {
@@ -3995,7 +3995,7 @@ export default apiInitializer("0.8", (api) => {
         if (!username || userId == null) return;
         window.dispatchEvent(
           new CustomEvent("diskuz-call-start", {
-            detail: { username, userId, avatar_template },
+            detail: { username, userId, avatar_template: avatarTemplate },
           })
         );
       },
