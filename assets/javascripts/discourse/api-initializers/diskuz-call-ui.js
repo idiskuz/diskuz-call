@@ -175,6 +175,7 @@ export default apiInitializer("0.8", (api) => {
       saveWidgetRectToStorage();
     }
     const rect = clampRectToViewport(clampWidgetRectToMinimum(lastWidgetRect));
+    callUI.style.setProperty("position", "fixed", "important");
     callUI.style.setProperty("left", rect.left + "px", "important");
     callUI.style.setProperty("top", rect.top + "px", "important");
     callUI.style.setProperty("width", rect.width + "px", "important");
@@ -224,6 +225,8 @@ export default apiInitializer("0.8", (api) => {
       })
       .catch((e) => {
         if (e.message === "RATE_LIMIT") throw e;
+        /* Rilancia errore di rete così il chiamante può mostrare "Errore di rete" invece di "User not found" */
+        if (e.message === "Failed to fetch" || e.name === "TypeError") throw e;
         return null;
       });
   }
@@ -1599,10 +1602,15 @@ export default apiInitializer("0.8", (api) => {
           startOutgoingCall(username, userId, data.user.avatar_template);
           toggleWidgetForceClose();
         } catch (e) {
+          console.warn("[diskuz-call] Call start error", e);
           if (e.message === "RATE_LIMIT") {
             showError("Too many requests. Please wait a moment and try again.");
+          } else if (e && (e.message === "Failed to fetch" || e.name === "TypeError")) {
+            const isIt = document.documentElement.lang === "it";
+            showError(isIt ? "Errore di rete. Verifica la connessione e riprova." : "Network error. Check your connection and try again.");
           } else {
-            showError("Connection error.");
+            const isIt = document.documentElement.lang === "it";
+            showError(isIt ? "Errore di connessione. Riprova." : "Connection error. Please try again.");
           }
         }
       });
@@ -1890,8 +1898,11 @@ export default apiInitializer("0.8", (api) => {
       const topBar = callUI.querySelector(".call-top-bar");
       if (topBar && isMobileDevice()) topBar.style.cursor = "";
       if (!isMobileDevice()) {
+        callUI.style.setProperty("position", "fixed", "important");
+        if (topBar) topBar.style.cursor = "grab";
         function startCallUIDrag(e) {
           e.preventDefault();
+          e.stopPropagation();
           const rect = callUI.getBoundingClientRect();
           const dragW = rect.width;
           const dragH = rect.height;
@@ -1901,7 +1912,9 @@ export default apiInitializer("0.8", (api) => {
           const dragStartTop = rect.top;
           const W = window.innerWidth;
           const H = window.innerHeight;
+          if (topBar) topBar.style.cursor = "grabbing";
           function onDragMove(ev) {
+            ev.preventDefault();
             const dx = ev.clientX - dragStartX;
             const dy = ev.clientY - dragStartY;
             const newLeft = Math.max(0, Math.min(W - dragW, dragStartLeft + dx));
@@ -1914,6 +1927,7 @@ export default apiInitializer("0.8", (api) => {
           function onDragEnd() {
             document.removeEventListener("mousemove", onDragMove);
             document.removeEventListener("mouseup", onDragEnd);
+            if (topBar) topBar.style.cursor = "grab";
             captureCallUIRect();
           }
           document.addEventListener("mousemove", onDragMove);
@@ -1921,16 +1935,16 @@ export default apiInitializer("0.8", (api) => {
         }
         if (topBar) {
           topBar.addEventListener("mousedown", function (e) {
-            e.preventDefault();
-            e.stopPropagation();
+            if (e.button !== 0) return;
             startCallUIDrag(e);
-          });
+          }, true);
         }
         callUI.addEventListener("mousedown", function (e) {
-          if (e.target.closest("button, input, a, select, textarea, [contenteditable=\"true\"]")) return;
           if (e.target.closest(".call-top-bar")) return;
+          if (e.target.closest("button, input, a, select, textarea, [contenteditable=\"true\"]")) return;
+          if (e.button !== 0) return;
           startCallUIDrag(e);
-        });
+        }, true);
         if (typeof ResizeObserver !== "undefined") {
           let callUIResizeTimeout;
           const callUIResizeObserver = new ResizeObserver(function () {
@@ -1973,15 +1987,20 @@ export default apiInitializer("0.8", (api) => {
       speakerBtn.setAttribute("aria-pressed", String(speakerOn));
     }
 
-    callUI.style.display = "block";
-
+    /* Desktop: posizione condivisa con widget. Carica storage, cattura widget corrente, applica a call UI prima di mostrarla. */
     if (!isMobileDevice()) {
       widgetWasOpenBeforeCall = !!(widget && widget.classList.contains("open"));
+      loadWidgetRectFromStorage();
       if (widget) {
         captureWidgetRect();
         widget.style.display = "none";
       }
       applyWidgetRectToCallUI();
+    }
+
+    callUI.style.display = "block";
+
+    if (!isMobileDevice()) {
       updateBodyScrollLock();
     }
     /* Se la connessione è già "connected", il pulsante Video va mostrato subito */
