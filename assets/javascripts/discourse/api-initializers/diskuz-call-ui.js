@@ -2492,6 +2492,13 @@ export default apiInitializer("0.8", (api) => {
     }
   }
 
+  function hasRemoteVideoTrack() {
+    if (!rtcPeer) return false;
+    return rtcPeer.getReceivers().some(
+      (r) => r.track && r.track.kind === "video" && r.track.readyState !== "ended"
+    );
+  }
+
   function syncRemoteVideoState() {
     if (!rtcPeer) return;
     const receivers = rtcPeer.getReceivers();
@@ -2515,7 +2522,8 @@ export default apiInitializer("0.8", (api) => {
     syncRemoteVideoState();
     const wrap = callUI.querySelector(".diskuz-call-video-wrap");
     const fsBtn = callUI.querySelector(".diskuz-call-fullscreen-btn");
-    const show = localVideoOn || remoteVideoActive;
+    const hasRemoteTrack = hasRemoteVideoTrack();
+    const show = localVideoOn || remoteVideoActive || hasRemoteTrack;
     if (wrap) wrap.style.display = show ? "block" : "none";
     callUI.classList.toggle("diskuz-call-video-active", !!show);
     callUI.classList.toggle("diskuz-call-remote-video-active", !!remoteVideoActive);
@@ -3774,6 +3782,10 @@ export default apiInitializer("0.8", (api) => {
         const videoSdp = data.sdp ?? (data.payload && data.payload.sdp);
         if (!currentCall.active || !rtcPeer || !videoSdp) break;
         if (currentCall.userId !== data.from_user_id) break;
+        if (rtcPeer.signalingState !== "have-local-offer") {
+          log("video_answer: skip, signalingState is", rtcPeer.signalingState, "(expected have-local-offer)");
+          break;
+        }
         (async () => {
           try {
             const desc = new RTCSessionDescription(
