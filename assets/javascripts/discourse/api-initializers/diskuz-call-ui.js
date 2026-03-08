@@ -1417,11 +1417,13 @@ export default apiInitializer("0.8", (api) => {
               <button id="diskuz-status-busy" class="diskuz-status-btn">${isIt ? "Occupato" : "Busy"}</button>
               <button id="diskuz-status-not-available" class="diskuz-status-btn">Offline</button>
             </div>
-            <button id="diskuz-call-history-btn" class="diskuz-notifications-open-btn">
-              ${isIt ? "Notifiche" : "Notifications"}
-              <span id="diskuz-notifications-badge" class="diskuz-notifications-badge">0</span>
-            </button>
-            <button type="button" id="diskuz-call-ringtones-toggle" class="diskuz-ringtones-toggle-btn" aria-expanded="false">${isIt ? "Suonerie" : "Ringtones"}</button>
+            <div class="diskuz-widget-notifications-ringtones-row">
+              <button id="diskuz-call-history-btn" class="diskuz-notifications-open-btn">
+                ${isIt ? "Notifiche" : "Notifications"}
+                <span id="diskuz-notifications-badge" class="diskuz-notifications-badge">0</span>
+              </button>
+              <button type="button" id="diskuz-call-ringtones-toggle" class="diskuz-ringtones-toggle-btn" aria-expanded="false">${isIt ? "Suonerie" : "Ringtones"}</button>
+            </div>
             <div id="diskuz-call-custom-ringtones-wrap" class="diskuz-custom-ringtones-wrap" style="display:none;"></div>
             <p class="diskuz-widget-description">${(isIt
               ? "Questo widget ti consente di chiamare i tuoi amici su "
@@ -1745,8 +1747,8 @@ export default apiInitializer("0.8", (api) => {
           <div class="diskuz-call-video-wrap" style="display:none;">
             <video class="diskuz-call-remote-video" autoplay playsinline aria-label="Remote video"></video>
             <div class="diskuz-call-local-preview-outer">
-              <button type="button" class="diskuz-call-switch-camera-btn" aria-label="" title="" style="display:none;"></button>
               <div class="diskuz-call-local-preview-wrap" role="button" tabindex="0" aria-label="" title="">
+                <button type="button" class="diskuz-call-switch-camera-btn" aria-label="" title="" style="display:none;"></button>
                 <video class="diskuz-call-local-preview" autoplay playsinline muted aria-label="Your camera"></video>
                 <span class="diskuz-call-mirror-toggle-icon" aria-hidden="true"></span>
                 <input type="checkbox" class="diskuz-call-video-mirror-cb" checked aria-hidden="true" tabindex="-1" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0;">
@@ -1868,18 +1870,27 @@ export default apiInitializer("0.8", (api) => {
       if (mirrorCb) applyMirrorToLocalPreview();
       if (localPreviewWrap) {
         localPreviewWrap.addEventListener("click", function (e) {
+          if (e.target.closest(".diskuz-call-switch-camera-btn")) return;
           e.preventDefault();
           e.stopPropagation();
           toggleMirrorFromPreview();
         });
       }
-      if (fullscreenBtn) fullscreenBtn.addEventListener("click", function () {
-        if (!document.fullscreenElement) {
-          (callUI || document.documentElement).requestFullscreen?.();
-        } else {
-          document.exitFullscreen?.();
-        }
-      });
+      if (fullscreenBtn) {
+        fullscreenBtn.addEventListener("click", function () {
+          if (!document.fullscreenElement) {
+            callUI.requestFullscreen?.().catch(() => {});
+          } else {
+            document.exitFullscreen?.();
+          }
+        });
+        const onFullscreenChange = () => {
+          const isFs = !!document.fullscreenElement && document.fullscreenElement === callUI;
+          callUI.classList.toggle("diskuz-call-fullscreen-active", isFs);
+        };
+        document.addEventListener("fullscreenchange", onFullscreenChange);
+        document.addEventListener("webkitfullscreenchange", onFullscreenChange);
+      }
 
       const qualityBar = callUI.querySelector(".diskuz-call-video-quality-bar");
       if (qualityBar) {
@@ -1928,6 +1939,7 @@ export default apiInitializer("0.8", (api) => {
         let dragOffsetX = 0, dragOffsetY = 0, dragStartX = 0, dragStartY = 0, dragStartOffX = 0, dragStartOffY = 0;
         localPreviewWrap.addEventListener("touchstart", function (e) {
           if (!e.touches || e.touches.length === 0) return;
+          if (e.target.closest(".diskuz-call-switch-camera-btn")) return;
           e.stopPropagation();
           localPreviewWrap.classList.add("diskuz-local-preview-dragging");
           dragStartX = e.touches[0].clientX;
@@ -1946,6 +1958,7 @@ export default apiInitializer("0.8", (api) => {
         }, { passive: false });
         localPreviewWrap.addEventListener("touchend", function (e) {
           localPreviewWrap.classList.remove("diskuz-local-preview-dragging");
+          if (e.target.closest(".diskuz-call-switch-camera-btn")) return;
           const moved = Math.abs(dragOffsetX - dragStartOffX) + Math.abs(dragOffsetY - dragStartOffY);
           if (moved < 12) {
             e.preventDefault();
@@ -2908,6 +2921,18 @@ export default apiInitializer("0.8", (api) => {
           videoEl.classList.remove("diskuz-call-remote-video-fade-in");
           videoEl.srcObject = stream;
           videoEl.classList.add("diskuz-call-remote-video-fade-in");
+          const updateRemoteVideoOrientation = () => {
+            if (!callUI || !videoEl) return;
+            const w = videoEl.videoWidth || 0;
+            const h = videoEl.videoHeight || 0;
+            callUI.classList.remove("diskuz-call-remote-video-landscape", "diskuz-call-remote-video-portrait");
+            if (w > 0 && h > 0) {
+              callUI.classList.add(w >= h ? "diskuz-call-remote-video-landscape" : "diskuz-call-remote-video-portrait");
+            }
+          };
+          videoEl.addEventListener("loadedmetadata", updateRemoteVideoOrientation);
+          videoEl.addEventListener("resize", updateRemoteVideoOrientation);
+          [100, 300, 600, 1200].forEach((ms) => setTimeout(updateRemoteVideoOrientation, ms));
           const tryRemotePlay = () => {
             if (!videoEl || !videoEl.srcObject) return;
             videoEl.play().catch(() => {});
@@ -3142,10 +3167,15 @@ export default apiInitializer("0.8", (api) => {
       const wrap = callUI.querySelector(".diskuz-call-video-wrap");
       const remoteV = callUI.querySelector(".diskuz-call-remote-video");
       const localP = callUI.querySelector(".diskuz-call-local-preview");
+      const qualityBar = callUI.querySelector(".diskuz-call-video-quality-bar");
+      const fsBtn = callUI.querySelector(".diskuz-call-fullscreen-btn");
       if (wrap) wrap.style.display = "none";
       if (remoteV) remoteV.srcObject = null;
       if (localP) localP.srcObject = null;
-      callUI.classList.remove("diskuz-call-video-active");
+      if (qualityBar) qualityBar.style.display = "none";
+      if (fsBtn) fsBtn.style.display = "none";
+      callUI.classList.remove("diskuz-call-video-active", "diskuz-call-remote-video-active", "diskuz-call-preview-only", "diskuz-call-remote-video-landscape", "diskuz-call-remote-video-portrait", "diskuz-call-fullscreen-active");
+      if (document.fullscreenElement === callUI) document.exitFullscreen?.();
     }
     if (rtcPeer) {
       rtcPeer.close();

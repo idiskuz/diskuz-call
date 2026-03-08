@@ -554,6 +554,26 @@
   }
 }
 
+/* Notifications e Ringtones sulla stessa linea, fianco a fianco */
+.diskuz-widget-notifications-ringtones-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  margin-top: 16px;
+  width: 100%;
+}
+.diskuz-widget-notifications-ringtones-row .diskuz-notifications-open-btn,
+.diskuz-widget-notifications-ringtones-row #diskuz-call-history-btn {
+  flex: 1;
+  min-width: 0;
+  margin-top: 0;
+}
+.diskuz-widget-notifications-ringtones-row .diskuz-ringtones-toggle-btn {
+  flex: 1;
+  min-width: 0;
+  margin-top: 0;
+}
+
 .diskuz-notifications-open-btn {
   margin-top: 16px;
   width: 100%;
@@ -574,7 +594,7 @@
   padding: 0 2px;
 }
 
-/* Pulsante Suonerie: apre/chiude la lista suonerie (stile come Notifications) */
+/* Pulsante Suonerie: nella riga con Notifications, stesso stile; apre/chiude la lista suonerie */
 #diskuz-call-widget .diskuz-ringtones-toggle-btn {
   margin-top: 10px;
   width: 100%;
@@ -1274,11 +1294,7 @@
   background: none;
 }
 
-@media (max-width: 700px) {
-  #diskuz-call-ui .call-top-bar {
-    display: none;
-  }
-}
+/* Top bar sempre visibile anche su mobile (logo diskuz Call by diskuz.com) */
 
 #diskuz-call-ui .call-inner {
   display: flex;
@@ -1296,34 +1312,121 @@
 #diskuz-call-ui .diskuz-call-video-wrap {
   position: absolute;
   inset: 0;
-  border-radius: 14px;
+  border-radius: 15px;
   overflow: hidden;
   background: #0d0d0d;
 }
 
-/* Desktop: pulsanti in footer del widget come su mobile; video occupa area centrale */
+/* Desktop: video verticale riempie widget; orizzontale in rettangolo in alto; preview in basso a destra; qualità + controlli in footer */
 @media (min-width: 701px) {
   #diskuz-call-ui.diskuz-call-video-active .call-inner {
     display: flex;
     flex-direction: column;
     min-height: 0;
   }
-  #diskuz-call-ui.diskuz-call-video-active .diskuz-call-video-wrap {
+  /* Default e video verticale (es. da mobile): riempie tutto lo spazio del widget */
+  #diskuz-call-ui.diskuz-call-video-active .diskuz-call-video-wrap,
+  #diskuz-call-ui.diskuz-call-video-active.diskuz-call-remote-video-portrait .diskuz-call-video-wrap {
     position: relative;
     inset: auto;
     flex: 1 1 0;
     min-height: 200px;
-    border-radius: 12px;
+    border-radius: 15px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: #0d0d0d;
   }
-  #diskuz-call-ui.diskuz-call-video-active .diskuz-call-controls-block {
+  /* Video orizzontale desktop-desktop: rettangolo in alto, larghezza widget meno 2px per lato (si vede un minimo di sfondo) */
+  #diskuz-call-ui.diskuz-call-video-active.diskuz-call-remote-video-landscape:not(.diskuz-call-fullscreen-active) .diskuz-call-video-wrap {
+    position: relative;
+    inset: auto;
+    flex: 0 0 auto;
+    width: calc(100% - 4px);
+    margin: 0 2px;
+    height: 280px;
+    min-height: 200px;
+    max-height: 45vh;
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0d0d0d;
+  }
+  /* Qualità e controlli in footer (in fondo al widget) quando non in fullscreen */
+  #diskuz-call-ui.diskuz-call-video-active:not(.diskuz-call-fullscreen-active) .diskuz-call-video-quality-bar {
     flex-shrink: 0;
     margin-top: auto;
+  }
+  #diskuz-call-ui.diskuz-call-video-active:not(.diskuz-call-fullscreen-active) .diskuz-call-controls-block {
+    flex-shrink: 0;
     padding-top: 10px;
     padding-bottom: 10px;
+  }
+  /* Anteprima locale in basso a destra, appena sopra la riga qualità (non fullscreen) */
+  #diskuz-call-ui.diskuz-call-video-active:not(.diskuz-call-fullscreen-active) .diskuz-call-local-preview-outer {
+    bottom: 12px;
+    right: 12px;
+  }
+  #diskuz-call-ui.diskuz-call-video-active .diskuz-call-local-preview-wrap {
+    width: 100px;
+    height: 140px;
+  }
+  /* Desktop fullscreen widget: video in ingresso a tutto schermo, pulsanti in overlay in basso con sfondo = video */
+  #diskuz-call-ui.diskuz-call-fullscreen-active.diskuz-call-remote-video-active {
+    .call-inner {
+      position: relative;
+      overflow: hidden;
+    }
+    .diskuz-call-video-wrap {
+      position: absolute !important;
+      inset: 0 !important;
+      flex: none !important;
+      min-height: 0 !important;
+      max-height: none !important;
+      width: 100% !important;
+      height: 100% !important;
+      margin: 0 !important;
+      border-radius: 15px;
+      z-index: 0;
+    }
+    .diskuz-call-remote-video {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover;
+      border-radius: 15px;
+    }
+    .diskuz-call-video-quality-bar {
+      position: absolute;
+      bottom: 64px;
+      left: 0;
+      right: 0;
+      z-index: 3;
+      margin: 0;
+      flex-shrink: 0;
+      background: linear-gradient(to top, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.35));
+      border-radius: 0;
+      padding: 10px 12px;
+      -webkit-backdrop-filter: blur(8px);
+      backdrop-filter: blur(8px);
+    }
+    .diskuz-call-controls-block {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 3;
+      margin: 0;
+      flex-shrink: 0;
+      background: linear-gradient(to top, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.25));
+      padding: 12px 12px 16px;
+      -webkit-backdrop-filter: blur(8px);
+      backdrop-filter: blur(8px);
+    }
+    .diskuz-call-local-preview-outer {
+      z-index: 2;
+      bottom: 110px; /* in basso, subito sopra la riga qualità */
+    }
   }
   /* Solo anteprima (altro ha spento video): wrap in angolo, resto UI standard */
   #diskuz-call-ui.diskuz-call-preview-only .diskuz-call-video-wrap {
@@ -1334,7 +1437,7 @@
     min-height: 0;
     width: auto;
     height: auto;
-    border-radius: 8px;
+    border-radius: 15px;
     background: transparent;
   }
   #diskuz-call-ui.diskuz-call-preview-only .diskuz-call-remote-video {
@@ -1389,6 +1492,7 @@
   height: 100%;
   object-fit: contain;
   display: block;
+  border-radius: 15px;
 }
 
 /* Fade-in quando arriva il flusso video remoto */
@@ -1400,7 +1504,7 @@
   animation: diskuz-remote-video-fade-in 0.5s ease-out forwards;
 }
 
-/* Contenitore anteprima + pulsante switch camera (mobile): pulsante sopra, anteprima sotto */
+/* Contenitore anteprima (spostabile); pulsante retrocamera è dentro il wrap così si sposta con l'anteprima */
 #diskuz-call-ui .diskuz-call-local-preview-outer {
   position: absolute;
   bottom: 60px;
@@ -1408,24 +1512,31 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 4px;
   z-index: 2;
 }
 
 #diskuz-call-ui .diskuz-call-local-preview-wrap {
+  position: relative;
   width: 90px;
   height: 140px;
-  border-radius: 8px;
-  overflow: hidden;
+  border-radius: 15px;
+  overflow: visible; /* permette al pulsante retrocamera (top: -10px) di restare visibile */
   border: 2px solid rgba(255, 255, 255, 0.4);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
 }
+#diskuz-call-ui .diskuz-call-local-preview-wrap .diskuz-call-local-preview {
+  border-radius: 15px;
+}
 
-/* Pulsante retrocamera: solo su mobile, sopra l'anteprima; nascosto di default (JS lo mostra quando video attivo) */
+/* Pulsante retrocamera: attaccato al bordo superiore centrale del video di anteprima (si sposta con l'anteprima) */
 #diskuz-call-ui .diskuz-call-switch-camera-btn {
   display: none;
-  width: 40px;
-  height: 40px;
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 38px;
+  height: 38px;
   padding: 0;
   border-radius: 8px;
   border: 2px solid rgba(255, 255, 255, 0.5);
@@ -1436,6 +1547,8 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  z-index: 4;
+  box-sizing: border-box;
 }
 
 #diskuz-call-ui .diskuz-call-switch-camera-btn:hover {
@@ -1447,6 +1560,7 @@
   height: 100%;
   object-fit: cover;
   display: block;
+  border-radius: 15px;
 }
 
 /* Anteprima locale: cliccabile per mirror, icona ⇄ in basso */
@@ -1481,8 +1595,8 @@
   top: 8px;
   right: 8px;
   z-index: 3;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 8px;
@@ -1493,6 +1607,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
 }
 
 #diskuz-call-ui .diskuz-call-fullscreen-btn:hover {
@@ -1508,27 +1623,91 @@
   display: none !important;
 }
 
+/* Video in ingresso verticale (portrait): riempie tutta la pagina del widget; pulsanti qualità/mute ecc in overlay sopra il video (sfondo = video) */
+#diskuz-call-ui.diskuz-call-video-active.diskuz-call-remote-video-active.diskuz-call-remote-video-portrait {
+  .call-inner {
+    position: relative;
+    overflow: hidden;
+  }
+  .diskuz-call-video-wrap {
+    position: absolute !important;
+    inset: 0 !important;
+    flex: none !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 15px;
+    z-index: 0;
+  }
+  .diskuz-call-remote-video {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover;
+    border-radius: 15px;
+  }
+  .diskuz-call-video-quality-bar {
+    position: absolute;
+    bottom: 64px;
+    left: 0;
+    right: 0;
+    z-index: 3;
+    margin: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.35));
+    border-radius: 0;
+    padding: 10px 12px;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+  .diskuz-call-controls-block {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 3;
+    margin: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.25));
+    padding: 12px 12px 16px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0));
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+  .diskuz-call-local-preview-outer {
+    z-index: 2;
+    bottom: 110px; /* in basso, subito sopra la riga pulsanti qualità */
+  }
+  @media (max-width: 700px) {
+    .diskuz-call-local-preview-outer {
+      bottom: calc(110px + env(safe-area-inset-bottom, 0));
+    }
+  }
+  .diskuz-call-fullscreen-btn {
+    z-index: 3;
+  }
+}
+
 /* Barra qualità video ricevuto: sopra i pulsanti Mute/Speaker/Hang up */
 #diskuz-call-ui .diskuz-call-video-quality-bar {
   display: none;
   flex-shrink: 0;
-  gap: 6px;
+  gap: 4px;
   justify-content: center;
   align-items: center;
-  padding: 6px 8px;
+  padding: 5px 6px;
   background: rgba(0, 0, 0, 0.5);
   border-radius: 8px;
   margin: 0 8px 4px 8px;
 }
 
 #diskuz-call-ui .diskuz-quality-btn {
-  padding: 6px 10px;
+  padding: 5px 8px;
   font-size: 12px;
   border-radius: 6px;
   border: 1px solid rgba(255, 255, 255, 0.4);
   background: rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.9);
   cursor: pointer;
+  box-sizing: border-box;
 }
 
 #diskuz-call-ui .diskuz-quality-btn:hover {
@@ -1594,7 +1773,7 @@
 #diskuz-call-ui .avatar {
   width: 90px;
   height: 90px;
-  border-radius: 50%;
+  border-radius: 15px;
   margin-bottom: 16px;
   background-size: cover;
   background-position: center;
@@ -1628,7 +1807,7 @@
 #diskuz-call-ui .incoming-row {
   display: flex;
   justify-content: center;
-  gap: 10px;
+  gap: 4px;
   width: 100%;
   margin-bottom: 12px;
 }
@@ -1640,10 +1819,11 @@
     padding-bottom: 0;
   }
   #diskuz-call-ui .incoming-row button {
-    padding: 14px 20px !important;
+    padding: 12px 18px !important;
     font-size: 17px !important;
-    min-height: 48px;
+    min-height: 46px;
     border-radius: 15px !important;
+    box-sizing: border-box;
   }
 }
 
@@ -1672,13 +1852,15 @@
 #diskuz-call-ui .controls {
   display: flex;
   justify-content: center;
-  gap: 12px;
+  gap: 4px;
   width: 100%;
 }
 
 #diskuz-call-ui .controls .btn {
   flex: 1;
-  padding: 12px;
+  padding: 11px;
+  min-width: 0;
+  min-height: 0;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.35);
   font-size: 14px;
@@ -1688,6 +1870,7 @@
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-sizing: border-box;
 }
 
 #diskuz-call-ui .controls .btn:hover {
@@ -1723,7 +1906,7 @@
   right: 10px;
   background: rgba(255, 255, 255, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.35);
-  padding: 10px 14px;
+  padding: 8px 12px;
   border-radius: 10px;
   color: #ffffff;
   font-size: 13px;
@@ -1731,6 +1914,7 @@
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  box-sizing: border-box;
 }
 
 #diskuz-call-ui .ear-mode.ear-mode-left {
@@ -1776,19 +1960,26 @@
     padding: 0 !important;
     transform: translateY(100%) !important;
     overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
   }
 
   #diskuz-call-ui.open {
     transform: translateY(0) !important;
   }
 
+  /* Top bar sempre visibile; call-inner sotto di essa, riempie il resto */
+  #diskuz-call-ui .call-top-bar {
+    flex-shrink: 0;
+  }
   #diskuz-call-ui .call-inner {
-    position: absolute;
-    inset: 0;
+    flex: 1 1 0;
+    min-height: 0;
     padding: 32px 20px 24px;
     display: flex;
     flex-direction: column;
     align-items: center;
+    overflow: auto;
   }
 
   #diskuz-call-ui .avatar {
@@ -1805,16 +1996,15 @@
     padding-bottom: 12px;
   }
 
-  /* Video call mobile: video fino in alto (top bar e ear mode nascosti), area video a tutto schermo */
+  /* Video call mobile: top bar resta visibile; video riempie il resto del widget (sotto la top bar) */
   #diskuz-call-ui.diskuz-call-video-active .call-inner {
     padding: 0;
     display: flex;
     flex-direction: column;
     min-height: 0;
-    height: 100%;
   }
   #diskuz-call-ui.diskuz-call-video-active .diskuz-call-video-wrap {
-    border-radius: 0;
+    border-radius: 15px;
     flex: 1 1 0;
     min-height: 0;
     position: relative;
@@ -1827,6 +2017,7 @@
   #diskuz-call-ui .diskuz-call-local-preview-wrap {
     width: 80px;
     height: 120px;
+    border-radius: 15px;
     touch-action: none;
     cursor: grab;
   }
@@ -1835,7 +2026,7 @@
   }
 }
 
-/* Desktop: pulsanti a larghezza massima ridotti di 4px */
+/* Desktop: pulsanti a larghezza massima ridotti di 4px; Notifications e Ringtones restano sulla stessa riga */
 @media (min-width: 701px) {
   #diskuz-call-widget #diskuz-call-start,
   #diskuz-call-widget .diskuz-notifications-open-btn,
@@ -1844,6 +2035,14 @@
   #diskuz-call-widget .diskuz-widget-hide-btn-notif {
     width: calc(100% - 4px);
     max-width: calc(100% - 4px);
+  }
+  #diskuz-call-widget .diskuz-widget-notifications-ringtones-row .diskuz-notifications-open-btn,
+  #diskuz-call-widget .diskuz-widget-notifications-ringtones-row #diskuz-call-history-btn,
+  #diskuz-call-widget .diskuz-widget-notifications-ringtones-row .diskuz-ringtones-toggle-btn {
+    width: auto;
+    max-width: none;
+    flex: 1;
+    min-width: 0;
   }
   #diskuz-call-ui .diskuz-call-controls-block,
   #diskuz-call-ui .controls {
