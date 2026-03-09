@@ -79,6 +79,12 @@ class DiskuzCallSignalController < ApplicationController
       "username" => caller.username,
       "message" => full_message,
       "notification_message" => full_message,
+      "customMessage" => full_message,
+      "customTranslatedTitle" => title_short,
+      "customIcon" => "phone",
+      "customUrl" => custom_url,
+      "diskuz_call_incoming" => true,
+      "from_user_id" => caller.id,
     }
 
     custom_type = types[:custom] if types.key?(:custom)
@@ -89,13 +95,9 @@ class DiskuzCallSignalController < ApplicationController
       topic_id: nil,
       post_number: nil,
       high_priority: true,
-      data: data_hash.merge(
-        "customMessage" => full_message,
-        "customTranslatedTitle" => title_short,
-        "customIcon" => "phone",
-        "customUrl" => custom_url,
-      ).to_json,
+      data: data_hash.to_json,
     )
+    Rails.logger.info("diskuz-call: incoming call notification created for user_id=#{callee.id} from #{caller.username} (user_id=#{caller.id})")
   rescue StandardError => e
     Rails.logger.warn("diskuz-call: could not create notification: #{e.message}")
   end

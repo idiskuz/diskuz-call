@@ -2588,6 +2588,7 @@ export default apiInitializer("0.8", (api) => {
   let remoteVideoActive = false;
   let remoteVideoPausedByPeer = false;
   let videoRequestInProgress = false;
+  let videoRenegotiationPromise = Promise.resolve();
   const VIDEO_MIRROR_STORAGE_KEY = "diskuz_call_video_mirror";
   let mirrorCanvasEl = null;
   let mirrorCanvasStream = null;
@@ -2807,7 +2808,7 @@ export default apiInitializer("0.8", (api) => {
     const blurBtn = callUI.querySelector(".btn.blur");
     const connected = rtcPeer && rtcPeer.connectionState === "connected";
     if (videoBtn) videoBtn.style.display = connected ? "" : "none";
-    if (blurBtn) blurBtn.style.display = connected && localVideoOn ? "" : "none";
+    if (blurBtn) blurBtn.style.display = connected && localVideoOn && !isIOS() ? "" : "none";
   }
 
   async function enableVideo() {
@@ -3598,6 +3599,7 @@ export default apiInitializer("0.8", (api) => {
       rtcPeer.close();
       rtcPeer = null;
     }
+    videoRenegotiationPromise = Promise.resolve();
     rtcRemoteVideoStream = null;
     if (rtcLocalStream) {
       rtcLocalStream.getTracks().forEach((t) => t.stop());
@@ -4062,7 +4064,7 @@ export default apiInitializer("0.8", (api) => {
         const videoSdp = data.sdp ?? (data.payload && data.payload.sdp);
         if (!currentCall.active || !rtcPeer || !videoSdp) break;
         if (currentCall.userId !== data.from_user_id) break;
-        (async () => {
+        const run = async () => {
           try {
             if (rtcPeer.signalingState === "have-local-offer") {
               log("video_offer: rollback local offer to process peer offer (glare)");
@@ -4078,6 +4080,10 @@ export default apiInitializer("0.8", (api) => {
             if (typeof updateVideoLayout === "function") {
               updateVideoLayout();
               setTimeout(updateVideoLayout, 150);
+            }
+            if (rtcPeer.signalingState !== "have-remote-offer") {
+              log("video_offer: skip createAnswer, signalingState is", rtcPeer.signalingState);
+              return;
             }
             const answer = await rtcPeer.createAnswer();
             await rtcPeer.setLocalDescription(answer);
@@ -4095,7 +4101,8 @@ export default apiInitializer("0.8", (api) => {
             logWarn("video_offer handling failed", err);
             showToast(document.documentElement.lang === "it" ? "Errore negoziazione video." : "Video negotiation error.");
           }
-        })();
+        };
+        videoRenegotiationPromise = videoRenegotiationPromise.then(run, run);
         break;
       }
 
@@ -4272,6 +4279,16 @@ export default apiInitializer("0.8", (api) => {
         const composerObserver = new MutationObserver(scheduleComposerCheck);
         composerObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style"] });
         document.addEventListener("visibilitychange", updateFloatingButtonForComposer);
+        /* Mobile: adatta UI quando il telefono è in orizzontale; torna standard in verticale */
+        function updateMobileOrientationClass() {
+          if (!isMobileDevice()) return;
+          const landscape = window.innerWidth > window.innerHeight;
+          if (callUI) callUI.classList.toggle("diskuz-call-mobile-landscape", landscape);
+          if (widget) widget.classList.toggle("diskuz-call-mobile-landscape", landscape);
+        }
+        window.addEventListener("orientationchange", updateMobileOrientationClass);
+        window.addEventListener("resize", updateMobileOrientationClass);
+        updateMobileOrientationClass();
       })
       .catch(() => {
         log("initPage: status check failed, plugin not loaded");
@@ -4280,6 +4297,46 @@ export default apiInitializer("0.8", (api) => {
 
   api.onPageChange(initPage);
   initPage();
+
+  /* Notifiche Discourse (campanella): rendering corretto per "chiamata in arrivo" (icona + descrizione) */
+  withPluginApi("1.0.0", (pluginApi) => {
+    const CUSTOM_NOTIFICATION_TYPE = 14;
+    const register =
+      pluginApi.registerUserMenuNotificationTypeDirector ||
+      pluginApi.registerUserMenuComponentForNotificationType;
+    if (typeof register !== "function") return;
+    function parseData(notification) {
+      const raw = notification?.data;
+      if (raw == null) return {};
+      if (typeof raw === "object") return raw;
+      try {
+        return typeof raw === "string" ? JSON.parse(raw) : {};
+      } catch (e) {
+        return {};
+      }
+    }
+    class DiskuzCallCustomNotificationDirector {
+      constructor(notification) {
+        this.notification = notification;
+        this._data = parseData(notification);
+      }
+      get icon() {
+        return this._data.customIcon || "bell";
+      }
+      get description() {
+        const d = this._data;
+        return d.customMessage || d.notification_message || d.message || "";
+      }
+      get link() {
+        return this._data.customUrl || "";
+      }
+      get label() {
+        return this._data.customTranslatedTitle || this._data.display_username || "";
+      }
+    }
+    register(CUSTOM_NOTIFICATION_TYPE, DiskuzCallCustomNotificationDirector);
+    log("diskuz-call: user menu notification director registered for custom type");
+  });
 
   /* Pulsante "Chiamata" nel composer della chat (stesso punto di Jitsi): con withPluginApi come fa Jitsi, così registerChatComposerButton è disponibile */
   withPluginApi((pluginApi) => {
