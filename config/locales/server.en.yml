@@ -1,6 +1,8 @@
 # Part 3: etichette per le site settings (Admin > Site settings > Plugins)
 en:
   diskuz_call:
+    calling_you: "%{username} is calling you"
+    incoming_call_title: "Incoming call"
     custom_ringtone_n: "Ringtone %{n}"
   site_settings:
     diskuz_call_enabled: "Enable diskuz Call (VoIP calls between users)"

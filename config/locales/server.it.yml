@@ -1,5 +1,7 @@
 it:
   diskuz_call:
+    calling_you: "%{username} ti sta chiamando"
+    incoming_call_title: "Chiamata in arrivo"
     custom_ringtone_n: "Suoneria %{n}"
   site_settings:
     diskuz_call_enabled: "Abilita diskuz Call (chiamate VoIP tra utenti)"

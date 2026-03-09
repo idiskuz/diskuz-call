@@ -67,21 +67,23 @@ class DiskuzCallSignalController < ApplicationController
   end
 
   def create_incoming_call_notification(callee, caller)
-    # Messaggio con username così in campanella si vede "derac ti sta chiamando" / "derac is calling you"
+    # Notifica nativa Discourse (campanella): tipo :custom così compaiono icona, messaggio e link al click (come nel plugin Follow)
     full_message = I18n.t("diskuz_call.calling_you", username: caller.username, default: "#{caller.username} is calling you")
+    title_short = I18n.t("diskuz_call.incoming_call_title", default: "Incoming call")
+    base_url = Discourse.base_url.presence || "/"
+    custom_url = base_url.end_with?("/") ? "#{base_url}?diskuz_call=incoming" : "#{base_url}/?diskuz_call=incoming"
     Notification.create!(
-      notification_type: Notification.types[:chat_message],
+      notification_type: Notification.types[:custom],
       user_id: callee.id,
+      acting_user_id: caller.id,
       topic_id: nil,
+      post_number: nil,
+      high_priority: true,
       data: {
-        "message" => full_message,
-        "title" => full_message,
-        "excerpt" => full_message,
-        "description" => full_message,
-        "notification_message" => full_message,
-        "i18n_key" => "diskuz_call.calling_you",
-        "display_username" => caller.username,
-        "username" => caller.username,
+        "customMessage" => full_message,
+        "customTranslatedTitle" => title_short,
+        "customIcon" => "phone",
+        "customUrl" => custom_url,
       }.to_json,
     )
   rescue StandardError => e

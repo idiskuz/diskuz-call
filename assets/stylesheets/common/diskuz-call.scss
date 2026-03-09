@@ -1833,46 +1833,42 @@
   overflow: hidden;
 }
 
-/* Fascia per nascondere/mostrare i pulsanti (click/tap = fade out/in); visibile su desktop e mobile */
+/* Voce cliccabile "Nascondi pulsanti" / "Mostra pulsanti": solo durante chiamata o videochiamata attiva (non in tentativo di chiamata) */
 #diskuz-call-ui .diskuz-call-controls-toggle {
-  width: 100%;
-  min-height: 14px;
-  cursor: pointer;
+  display: none;
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.06);
-  border: none;
-  padding: 6px 0;
   margin: 0;
+  padding: 4px 0 6px;
+  border: none;
+  background: none;
+  cursor: pointer;
   outline: none;
   -webkit-tap-highlight-color: transparent;
-  position: relative;
-}
-
-#diskuz-call-ui .diskuz-call-controls-toggle::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 24px;
-  height: 3px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.35);
-  pointer-events: none;
+  font-size: 12px;
+  line-height: 1.2;
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  font-family: inherit;
 }
 
 #diskuz-call-ui .diskuz-call-controls-toggle:hover {
-  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.95);
+  text-decoration: underline;
+}
+
+#diskuz-call-ui.diskuz-call-connected .diskuz-call-controls-toggle {
+  display: inline-block;
 }
 
 @media (max-width: 700px) {
   #diskuz-call-ui .diskuz-call-controls-toggle {
-    min-height: 24px;
-    padding: 10px 0;
+    padding: 6px 0 8px;
+    font-size: 13px;
+    min-height: 28px;
+    display: none;
   }
-  #diskuz-call-ui .diskuz-call-controls-toggle::after {
-    width: 32px;
-    height: 4px;
+  #diskuz-call-ui.diskuz-call-connected .diskuz-call-controls-toggle {
+    display: inline-block;
   }
 }
 
@@ -1894,8 +1890,9 @@
   pointer-events: none;
 }
 
+/* Toggle nascosto in attesa risposta (incoming o outgoing) */
 #diskuz-call-ui.diskuz-call-incoming-ringing .diskuz-call-controls-toggle {
-  display: none;
+  display: none !important;
 }
 /* Blocco pulsanti (mute, speaker, hangup) centrato; pulsanti stessa grandezza in chiamata e videochiamata */
 #diskuz-call-ui:not(.diskuz-call-incoming-ringing) .diskuz-call-controls-block {

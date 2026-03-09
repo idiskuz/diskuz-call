@@ -262,6 +262,11 @@ export default apiInitializer("0.8", (api) => {
 
   function getSignalErrorReason(err) {
     if (!err) return null;
+    const jq = err.jqXHR || err;
+    if (jq.status === 429) {
+      const code = (jq.responseText || "").match(/Error code:\s*(\S+)/);
+      return (code && code[1]) || "user_10_secs_limit";
+    }
     const j = err.responseJSON || err.payload || err;
     return (j && (j.reason || j.message)) || err.reason || err.message || null;
   }
@@ -280,6 +285,10 @@ export default apiInitializer("0.8", (api) => {
         return it ? "L'utente non può ricevere chiamate (gruppi)." : "User cannot receive calls (groups).";
       case "caller_not_in_allowed_groups":
         return it ? "Non sei nei gruppi abilitati alle chiamate." : "You are not in the groups allowed for calls.";
+      case "user_10_secs_limit":
+        return it
+          ? "Troppi tentativi. Attendi qualche secondo e riprova."
+          : "Too many requests. Wait a few seconds and try again.";
       default:
         return MSG_CALL_UNAVAILABLE;
     }
@@ -1866,7 +1875,7 @@ export default apiInitializer("0.8", (api) => {
             <button type="button" class="diskuz-call-fullscreen-btn" aria-label="Fullscreen" style="display:none;">⛶</button>
           </div>
           <div class="diskuz-call-controls-block">
-            <div class="diskuz-call-controls-toggle" role="button" tabindex="0" aria-label="" title=""></div>
+            <button type="button" class="diskuz-call-controls-toggle" tabindex="0" aria-label="" title=""></button>
             <div class="diskuz-call-controls-inner">
             <div class="controls">
               <button type="button" class="btn mute" aria-label="Mute microphone"><span class="diskuz-call-icon diskuz-call-icon-mic" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 1 3 3v8a3 3 0 0 1-6 0V4a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></span><span class="diskuz-call-icon diskuz-call-icon-mic-off" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><path d="M12 19v4"/><path d="M8 23h8"/></svg></span></button>
@@ -1904,6 +1913,7 @@ export default apiInitializer("0.8", (api) => {
           const label = hidden
             ? (isIt ? "Mostra pulsanti" : "Show controls")
             : (isIt ? "Nascondi pulsanti" : "Hide controls");
+          controlsToggle.textContent = label;
           controlsToggle.setAttribute("aria-label", label);
           controlsToggle.setAttribute("title", label);
         };
@@ -2407,7 +2417,7 @@ export default apiInitializer("0.8", (api) => {
     if (!callUI) return;
     setIncomingCallButtonState(false);
     updateFloatingButtonActiveCallState(false);
-    callUI.classList.remove("open", "diskuz-call-minimized", "diskuz-call-incoming-ringing", "diskuz-call-video-active");
+    callUI.classList.remove("open", "diskuz-call-minimized", "diskuz-call-incoming-ringing", "diskuz-call-video-active", "diskuz-call-connected");
     if (proximityOverlay) {
       proximityOverlay.style.display = "none";
     }
@@ -3050,7 +3060,7 @@ export default apiInitializer("0.8", (api) => {
           to_user_id: currentCall.userId,
           from_user_id: null,
           sdp: sdpPayload,
-        });
+        }).catch(() => {});
       }
     }
     if (localVideoTrack) {
@@ -3101,6 +3111,10 @@ export default apiInitializer("0.8", (api) => {
     rtcPeer.onconnectionstatechange = () => {
       const connState = rtcPeer?.connectionState;
       log("[*] RTCPeerConnection state:", connState);
+      if (callUI) {
+        if (connState === "connected") callUI.classList.add("diskuz-call-connected");
+        else callUI.classList.remove("diskuz-call-connected");
+      }
       if (connState === "connected" && !callDurationIntervalId && callConnectedAt == null) {
         callConnectedAt = Date.now();
         startCallDurationTimer();
@@ -3286,20 +3300,28 @@ export default apiInitializer("0.8", (api) => {
         sdp: sdpPayload,
       });
       if (sendPromise && typeof sendPromise.then === "function") {
-        sendPromise.then(
-          () => {
-            log("[CALLER] rtcMakeOffer: call_offer sent OK");
-            startOutgoingCallTimeout();
-          },
-          (err) => {
+        sendPromise
+          .then(
+            () => {
+              log("[CALLER] rtcMakeOffer: call_offer sent OK");
+              startOutgoingCallTimeout();
+            },
+            (err) => {
+              const reason = getSignalErrorReason(err);
+              log("[CALLER] rtcMakeOffer: call_offer send FAIL", err, "reason:", reason);
+              const msg = messageForSignalReason(reason, currentCall.username);
+              clearOutgoingCallTimeout();
+              endCurrentCall("rejected");
+              showWidgetErrorFromCall(msg);
+            }
+          )
+          .catch((err) => {
             const reason = getSignalErrorReason(err);
-            log("[CALLER] rtcMakeOffer: call_offer send FAIL", err, "reason:", reason);
             const msg = messageForSignalReason(reason, currentCall.username);
             clearOutgoingCallTimeout();
             endCurrentCall("rejected");
             showWidgetErrorFromCall(msg);
-          }
-        );
+          });
       }
     } else {
       log("[CALLER] rtcMakeOffer: no sdpPayload, not sending");
@@ -3349,7 +3371,7 @@ export default apiInitializer("0.8", (api) => {
         type: "call_answer",
         to_user_id: currentCall.userId,
         sdp: sdpPayload,
-      });
+      }).catch((e) => logWarn("call_answer send failed", e));
       log("[CALLEE] rtcSendAnswer: call_answer sent");
     } else {
       log("[CALLEE] rtcSendAnswer: no DiskuzCallSend or sdpPayload");
@@ -3513,7 +3535,7 @@ export default apiInitializer("0.8", (api) => {
       window.DiskuzCallSend({
         type: "call_end",
         to_user_id: currentCall.userId,
-      });
+      }).catch(() => {});
     }
     rtcEnd();
     resetCurrentCall();
@@ -3573,7 +3595,7 @@ export default apiInitializer("0.8", (api) => {
           type: "call_reject",
           to_user_id: data.from_user_id,
           reason: callStatus === "busy" ? "busy" : "not_available",
-        });
+        }).catch(() => {});
       }
       addHistoryEntry({
         direction: "incoming",
@@ -3594,7 +3616,7 @@ export default apiInitializer("0.8", (api) => {
           type: "call_reject",
           to_user_id: data.from_user_id,
           reason: "busy",
-        });
+        }).catch(() => {});
       }
       addHistoryEntry({
         direction: "incoming",
@@ -3619,7 +3641,7 @@ export default apiInitializer("0.8", (api) => {
     showBrowserNotification(data.from_username || "Someone");
     showIncomingCallUI(data.from_username, data.avatar_template);
     if (window.DiskuzCallSend && data.from_user_id) {
-      window.DiskuzCallSend({ type: "call_ringing", to_user_id: data.from_user_id });
+      window.DiskuzCallSend({ type: "call_ringing", to_user_id: data.from_user_id }).catch(() => {});
     }
   }
 
@@ -3767,7 +3789,7 @@ export default apiInitializer("0.8", (api) => {
         type: "call_reject",
         to_user_id: currentCall.userId,
         reason: "rejected",
-      });
+      }).catch(() => {});
     }
 
     addHistoryEntry({
@@ -4124,6 +4146,16 @@ export default apiInitializer("0.8", (api) => {
         updateNotificationsBadge();
         updateCallFeatureVisibility();
         onceDocumentInteractionForAudio();
+        /* Apri il widget se l'utente è arrivato cliccando sulla notifica "chiamata in arrivo" (customUrl con ?diskuz_call=incoming) */
+        try {
+          const urlParams = new URLSearchParams(window.location.search);
+          if (urlParams.get("diskuz_call") === "incoming" && widget && !widget.classList.contains("open")) {
+            toggleWidget();
+            const u = new URL(window.location.href);
+            u.searchParams.delete("diskuz_call");
+            window.history.replaceState({}, "", u.pathname + (u.search || "") || "/");
+          }
+        } catch (e) {}
         /* Nascondi il pulsante Call quando il composer (nuovo post / risposta) è aperto */
         let composerCheckScheduled = false;
         function scheduleComposerCheck() {
