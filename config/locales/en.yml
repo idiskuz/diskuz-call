@@ -29,3 +29,4 @@ en:
     call_unavailable: "This user has not enabled diskuz Call."
     you_need_to_enable: "Enable diskuz Call in your preferences to receive calls."
     cannot_call_yourself: "You cannot call yourself."
+    video_disable_info: "To turn off video during a call, please end this call and start a new voice-only call."

@@ -25,15 +25,17 @@ Installation is done **on the server** by cloning the GitHub repository into you
 ## Features
 
 ### Calls
-- **Voice call** between two users (WebRTC audio only, no video).
-- **Floating button** (bottom right): opens the widget to start a call (enter username).
+- **Voice and video call** between two users (WebRTC). Video can be toggled on/off during the call; when one user turns video off, the other sees a placeholder (avatar + duration) instead of a black frame.
+- **Floating button** (bottom right): opens the widget to start a call (enter username). The button is **hidden** when the Discourse composer (new post / reply) is open or when **chat is open** (drawer or full-page), because the chat has its own **Call** button in the composer for 1:1 conversations.
+- **Chat call button:** in the Discourse chat composer (1:1 channel), a **Call** (phone) button starts a call with the other user in the channel. When a chat is open, only this button is used; the floating button stays hidden.
 - **User status:** **Online**, **Busy**, **Offline** (Italian: **Occupato** for Busy). Status is saved in the browser (localStorage) and restored on reload; default on first load is **Online**. Incoming calls can be auto-rejected when status is Busy or Offline.
 - **Widget errors:** entering your own username shows "You cannot call yourself." (not "User not found"); calling a user who doesn't follow you (when require-follow is on) shows the exact reason at the bottom of the widget ("You cannot call a user who doesn't follow you."). If the signal send fails (403, network), the operation ends immediately and the error is shown at the bottom of the main widget. All errors at the bottom of the widget **disappear automatically after 5 seconds**.
 - **Outgoing call timeout:** if the callee doesn't answer within ~50 seconds, the call ends and the status message shows "User not available or not connected." Reject reasons (busy, not available, rejected) are shown in the call window status line and as a toast before the UI closes.
 - **Notifications** (call history): second page of the main widget (same layout and position). Clicking **Notifications** opens the Notifications view with tabs **Received**, **Sent**, **Recent**, **Missed** (up to 10 entries per tab). A prominent **← Indietro / ← Back** button in the header returns to the "Call a friend" page. All nicknames are clickable to start a call. Time in **HH:mm**; for completed calls, **duration** is shown (e.g. **Duration mm:ss** or **hh:mm:ss** if ≥ 1 hour). Notifications have a time limit to act (e.g. 10 s) and to answer when on the page (e.g. 30 s).
 
 ### During a call
-- **Duration timer** from connection time (MM:SS or HH:MM:SS).
+- **Duration timer** from connection time (MM:SS or HH:MM:SS); it is not reset when switching between voice-only and video.
+- **Video:** toggle camera on/off during the call. When you turn video off, the other user sees your placeholder (avatar + duration on a styled background) instead of a black screen; when they turn video off, you see the same. Turning video back on restores the live stream on both sides.
 - **Mute:** turn off microphone; button shows "Muted" when active.
 - **Speaker:** on **desktop**, cycles audio outputs (default → other devices). On **mobile**, when the browser supports it, opens the **native audio output picker** (e.g. earpiece, speaker, Bluetooth) so the user chooses where to hear the call from the device UI (similar to Meet); otherwise a message suggests using the device’s volume keys or sound settings.
 - **Hang up:** end the call.
@@ -60,8 +62,8 @@ Installation is done **on the server** by cloning the GitHub repository into you
 
 ### Call window
 - **Top bar** (desktop): draggable; shows **diskuz Call** (green) and **by diskuz.com** on the **same line**. Used to move the call window.
-- **Content order:** avatar, username, status (e.g. "Calling..." / "In call..."), then **diskuz Call** logo + by diskuz.com + slogan *Real Conversations, No Algorithms :-)*, then duration, then controls at the **bottom** (Hide, Mute, Speaker, Hang up). No fullscreen/video mode.
-- **Desktop:** window is **resizable** like the widget (same min 360×520); position and size follow the widget when opening and are saved (ResizeObserver); when hidden, controls slide off the bottom.
+- **Content order:** avatar, username, status (e.g. "Calling..." / "In call..."), then **diskuz Call** logo + by diskuz.com + slogan *Real Conversations, No Algorithms :-)*, then duration, then controls at the **bottom** (Hide, Mute, Video, Speaker, Hang up). When video is on, local preview and remote video (or placeholder when the other has video off) are shown.
+- **Desktop:** window is **resizable** like the widget (same min 360×520); position and size follow the widget when opening and are saved (ResizeObserver); when hidden, controls slide off the bottom. Opening/closing the call UI uses a short vortex animation toward/from the floating button.
 - **Mobile:** full-screen call UI; controls at bottom; Ear mode available.
 
 ### WebRTC and signaling
@@ -81,13 +83,14 @@ Installation is done **on the server** by cloning the GitHub repository into you
 - **Enable diskuz Call:** turn the plugin on or off.
 - **Who can see and use diskuz Call:** groups that can use calls (default: 1|2|3). Supports "all" or list of group IDs.
 - **Require the callee to follow the caller:** when discourse-follow is enabled. Boolean.
+- **Primary colour:** hex colour (e.g. `#13c98c`) for the floating button, accents, and backgrounds. A darker shade is computed automatically for gradients. Default: `#13c98c`.
 - **Sound for incoming calls:** `none`, `default`, `ding`, `bell`, `chat`, **`custom`** (user chooses one of up to 10 MP3s in the widget), or **`alternative`** (built-in presets). Ringtone plays up to 48 seconds.
 - **Custom ringtones (1–10):** up to 10 settings `diskuz_call_custom_ringtone_1` … `diskuz_call_custom_ringtone_10`; each is a full or relative MP3 URL. Used when Sound is **custom**; the user picks one in the widget (Preview + Select). Recommended max size ~500 KB per file.
 - **Alternative ringtone:** used when Sound is **alternative**. Presets: classic, modern, soft, double, melodic, retro, digital, pulse, star, cascade; lively: festivo, allegro, vivace, brillante, energico, dinamico, scintilla, campanella, trillo, marimba; relax: relax1–relax5. **Default when not set: soft (ringtone 3).**
 - **ICE servers:** optional JSON array for STUN/TURN; empty = Google STUN only. Example: `[{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:turn.example.com:3478","username":"user","credential":"pass"}]`.
 
 ### Backend API
-- `GET /diskuz-call/status` — plugin state: enabled, incoming_sound, **custom_ringtones** (array), **custom_ringtone_url** (selected URL), **alternative_ringtone**, ice_servers.
+- `GET /diskuz-call/status` — plugin state: enabled, incoming_sound, **primary_color**, **primary_color_dark**, **custom_ringtones** (array), **custom_ringtone_url** (selected URL), **alternative_ringtone**, ice_servers.
 - `GET /diskuz-call/watermark.png` — diskuz logo image for the call UI.
 - `PUT /diskuz-call/preferences` — user preferences (e.g. **selected_custom_ringtone_index** for custom ringtone choice).
 - `GET /diskuz-call/can-call/:user_id` — check if the current user can call the given user (groups + follow).
