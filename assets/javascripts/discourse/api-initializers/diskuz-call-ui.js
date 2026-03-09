@@ -973,7 +973,6 @@ export default apiInitializer("0.8", (api) => {
   }
 
   function showSpeakerMobileVolumePopup() {
-    ensureToastContainer();
     const isIt = document.documentElement.lang === "it";
     const message = isIt
       ? "Per regolare il volume della chiamata usa i tasti volume del telefono."
@@ -981,6 +980,11 @@ export default apiInitializer("0.8", (api) => {
     const pop = document.createElement("div");
     pop.className = "diskuz-call-speaker-mobile-popup";
     pop.textContent = message;
+    pop.style.position = "fixed";
+    pop.style.left = "50%";
+    pop.style.bottom = "20px";
+    pop.style.transform = "translateX(-50%) translateY(10px)";
+    pop.style.zIndex = "100002";
     pop.style.background = "rgba(15,23,42,0.95)";
     pop.style.color = "#fff";
     pop.style.padding = "12px 16px";
@@ -988,19 +992,18 @@ export default apiInitializer("0.8", (api) => {
     pop.style.fontSize = "14px";
     pop.style.boxShadow = "0 4px 16px rgba(0,0,0,0.35)";
     pop.style.opacity = "0";
-    pop.style.transform = "translateY(10px)";
     pop.style.transition = "opacity 0.2s ease, transform 0.2s ease";
     pop.style.maxWidth = "min(320px, calc(100vw - 32px))";
-    toastContainer.appendChild(pop);
+    document.body.appendChild(pop);
     requestAnimationFrame(() => {
       pop.style.opacity = "1";
-      pop.style.transform = "translateY(0)";
+      pop.style.transform = "translateX(-50%) translateY(0)";
     });
     setTimeout(() => {
       pop.style.opacity = "0";
-      pop.style.transform = "translateY(10px)";
+      pop.style.transform = "translateX(-50%) translateY(10px)";
       setTimeout(() => pop.remove(), 200);
-    }, 3000);
+    }, 5000);
   }
 
   /* --- HISTORY STORAGE --- */
@@ -1386,7 +1389,7 @@ export default apiInitializer("0.8", (api) => {
     if (!btn) {
       btn = document.createElement("button");
       btn.id = "diskuz-call-btn";
-      btn.innerHTML = `<span class="diskuz-call-btn-icon" aria-hidden="true">📱</span><span class="diskuz-call-btn-label">Call</span>`;
+      btn.innerHTML = `<span class="diskuz-call-btn-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></span><span class="diskuz-call-btn-label">Call</span>`;
       document.body.appendChild(btn);
       btn.addEventListener("click", function () {
         const isIncomingRinging =
@@ -1445,11 +1448,16 @@ export default apiInitializer("0.8", (api) => {
           updateFloatingButtonActiveCallState(true);
         });
       } else {
-        callUI.classList.add("diskuz-call-minimized");
+        callUI.classList.add("diskuz-call-minimized", "diskuz-call-ui-hiding");
         callUI.classList.remove("open");
-        callUI.style.display = "none";
-        ensureFullyHidden(callUI);
-        updateFloatingButtonActiveCallState(true);
+        const hideDuration = 350;
+        setTimeout(function () {
+          if (!callUI) return;
+          callUI.style.display = "none";
+          callUI.classList.remove("diskuz-call-ui-hiding");
+          ensureFullyHidden(callUI);
+          updateFloatingButtonActiveCallState(true);
+        }, hideDuration);
       }
     }
   }

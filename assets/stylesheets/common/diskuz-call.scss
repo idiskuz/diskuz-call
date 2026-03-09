@@ -40,9 +40,18 @@
 }
 
 #diskuz-call-btn .diskuz-call-btn-icon {
-  font-size: 24px;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
   margin-bottom: 2px;
+}
+
+#diskuz-call-btn .diskuz-call-btn-icon svg {
+  width: 100%;
+  height: 100%;
+  color: inherit;
 }
 
 #diskuz-call-btn .diskuz-call-btn-label {
@@ -2217,10 +2226,17 @@
     overflow: hidden !important;
     display: flex !important;
     flex-direction: column !important;
+    transition: transform 0.35s ease, opacity 0.35s ease;
   }
 
   #diskuz-call-ui.open {
     transform: translateY(0) !important;
+  }
+
+  /* Nascondi e naviga: fade-out verso il basso prima di nascondere */
+  #diskuz-call-ui.diskuz-call-ui-hiding {
+    opacity: 0 !important;
+    transform: translateY(100%) !important;
   }
 
   /* Top bar sempre visibile al bordo superiore (nessun overflow verso l'alto) */
