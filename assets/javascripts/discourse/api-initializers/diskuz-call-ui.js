@@ -972,6 +972,37 @@ export default apiInitializer("0.8", (api) => {
     }, duration);
   }
 
+  function showSpeakerMobileVolumePopup() {
+    ensureToastContainer();
+    const isIt = document.documentElement.lang === "it";
+    const message = isIt
+      ? "Per regolare il volume della chiamata usa i tasti volume del telefono."
+      : "To adjust call volume, use your phone's volume keys.";
+    const pop = document.createElement("div");
+    pop.className = "diskuz-call-speaker-mobile-popup";
+    pop.textContent = message;
+    pop.style.background = "rgba(15,23,42,0.95)";
+    pop.style.color = "#fff";
+    pop.style.padding = "12px 16px";
+    pop.style.borderRadius = "15px";
+    pop.style.fontSize = "14px";
+    pop.style.boxShadow = "0 4px 16px rgba(0,0,0,0.35)";
+    pop.style.opacity = "0";
+    pop.style.transform = "translateY(10px)";
+    pop.style.transition = "opacity 0.2s ease, transform 0.2s ease";
+    pop.style.maxWidth = "min(320px, calc(100vw - 32px))";
+    toastContainer.appendChild(pop);
+    requestAnimationFrame(() => {
+      pop.style.opacity = "1";
+      pop.style.transform = "translateY(0)";
+    });
+    setTimeout(() => {
+      pop.style.opacity = "0";
+      pop.style.transform = "translateY(10px)";
+      setTimeout(() => pop.remove(), 200);
+    }, 3000);
+  }
+
   /* --- HISTORY STORAGE --- */
   function loadHistory() {
     try {
@@ -1379,10 +1410,20 @@ export default apiInitializer("0.8", (api) => {
     }
   }
 
+  function updateFloatingButtonActiveCallState(minimized) {
+    if (!btn) return;
+    if (minimized) {
+      btn.classList.add("diskuz-call-active-hidden");
+    } else {
+      btn.classList.remove("diskuz-call-active-hidden");
+    }
+  }
+
   function toggleCallUIVisibility() {
     if (!callUI || !currentCall.active) return;
     if (callUI.classList.contains("diskuz-call-minimized")) {
       callUI.classList.remove("diskuz-call-minimized");
+      updateFloatingButtonActiveCallState(false);
       if (!isMobileDevice()) {
         loadWidgetRectFromStorage();
         applyWidgetRectToCallUI();
@@ -1401,12 +1442,14 @@ export default apiInitializer("0.8", (api) => {
         vortexCloseDesktop(callUI, function () {
           callUI.classList.add("diskuz-call-minimized");
           ensureFullyHidden(callUI);
+          updateFloatingButtonActiveCallState(true);
         });
       } else {
         callUI.classList.add("diskuz-call-minimized");
         callUI.classList.remove("open");
         callUI.style.display = "none";
         ensureFullyHidden(callUI);
+        updateFloatingButtonActiveCallState(true);
       }
     }
   }
@@ -1816,19 +1859,29 @@ export default apiInitializer("0.8", (api) => {
           </div>
           <div class="diskuz-call-controls-block">
             <div class="controls">
-              <button class="btn mute">Mute</button>
-              <button class="btn speaker">Speaker</button>
-              <button type="button" class="btn video" style="display:none;" aria-label="Video">📹</button>
+              <button type="button" class="btn mute" aria-label="Mute microphone"><span class="diskuz-call-icon diskuz-call-icon-mic" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 1 3 3v8a3 3 0 0 1-6 0V4a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></span><span class="diskuz-call-icon diskuz-call-icon-mic-off" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><path d="M12 19v4"/><path d="M8 23h8"/></svg></span></button>
+              <button type="button" class="btn speaker" aria-label="Speaker / audio output"><span class="diskuz-call-icon diskuz-call-icon-speaker" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span></button>
+              <button type="button" class="btn video" style="display:none;" aria-label="Video"><span class="diskuz-call-icon diskuz-call-icon-video" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></span><span class="diskuz-call-icon diskuz-call-icon-video-off" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16v1a4 4 0 0 1-4 4H3a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4h2"/><path d="M23 11v6l-4-3v-3"/><line x1="1" y1="1" x2="23" y2="23"/></svg></span></button>
               <button type="button" class="btn hangup" aria-label="Hang up"><span class="diskuz-call-hangup-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></span></button>
             </div>
           </div>
 
           <button type="button" class="ear-mode ear-mode-left" aria-label="Ear mode">Ear mode</button>
           <button type="button" class="ear-mode" aria-label="Ear mode">Ear mode</button>
+          <div class="diskuz-call-hide-ui-row">
+            <button type="button" class="diskuz-call-hide-ui-btn" aria-label="${isIt ? "Nascondi UI e naviga sul sito" : "Hide call UI and browse the site"}">${isIt ? "Nascondi e naviga" : "Hide and browse"}</button>
+          </div>
         </div>
       `;
 
       document.body.appendChild(callUI);
+
+      const hideUIBtn = callUI.querySelector(".diskuz-call-hide-ui-btn");
+      if (hideUIBtn) {
+        hideUIBtn.addEventListener("click", function () {
+          toggleCallUIVisibility();
+        });
+      }
 
       const hangupBtn = callUI.querySelector(".hangup");
       const muteBtn = callUI.querySelector(".mute");
@@ -1850,23 +1903,16 @@ export default apiInitializer("0.8", (api) => {
           rtcLocalStream.getAudioTracks().forEach((t) => (t.enabled = !isMuted));
         }
         muteBtn.setAttribute("aria-pressed", muteBtn.classList.contains("active"));
-        muteBtn.textContent = isMuted ? "Muted" : "Mute";
       });
 
       speakerBtn.addEventListener("click", async function () {
+        if (isMobileDevice()) {
+          showSpeakerMobileVolumePopup();
+          return;
+        }
         ensureRemoteAudio();
         if (!setSinkIdSupported()) {
           showToast("Audio output is controlled by your device.");
-          return;
-        }
-        const isIt = document.documentElement.lang === "it";
-        if (isMobileDevice() && selectAudioOutputSupported()) {
-          const applied = await openNativeAudioOutputPicker();
-          speakerBtn.classList.toggle("active", speakerOn);
-          speakerBtn.setAttribute("aria-pressed", String(speakerOn));
-          if (!applied) {
-            showToast(isIt ? "Usa i tasti volume o le impostazioni audio del telefono per scegliere dove sentire la chiamata." : "Use your device's volume keys or sound settings to choose where to hear the call.");
-          }
           return;
         }
         await cycleSpeakerOutput();
@@ -2285,6 +2331,7 @@ export default apiInitializer("0.8", (api) => {
   function closeCallUI() {
     if (!callUI) return;
     setIncomingCallButtonState(false);
+    updateFloatingButtonActiveCallState(false);
     callUI.classList.remove("open", "diskuz-call-minimized", "diskuz-call-incoming-ringing", "diskuz-call-video-active");
     if (proximityOverlay) {
       proximityOverlay.style.display = "none";
@@ -3519,7 +3566,9 @@ export default apiInitializer("0.8", (api) => {
 
     const acceptBtn = document.createElement("button");
     acceptBtn.className = "diskuz-accept-btn";
-    acceptBtn.innerHTML = "Accept <span class=\"accept-dots\"><span class=\"dot\">.</span><span class=\"dot\">.</span><span class=\"dot\">.</span><span class=\"dot\">.</span></span>";
+    acceptBtn.setAttribute("type", "button");
+    acceptBtn.setAttribute("aria-label", "Accept");
+    acceptBtn.innerHTML = "<span class=\"diskuz-call-incoming-icon diskuz-call-icon-accept\" aria-hidden=\"true\"><svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z\"/><path d=\"M22 2l-4 4 4 4\"/></svg></span>";
     acceptBtn.style.flex = "1";
     acceptBtn.style.padding = "10px 14px";
     acceptBtn.style.borderRadius = "15px";
@@ -3529,7 +3578,9 @@ export default apiInitializer("0.8", (api) => {
 
     const rejectBtn = document.createElement("button");
     rejectBtn.className = "diskuz-reject-btn";
-    rejectBtn.textContent = "Reject";
+    rejectBtn.setAttribute("type", "button");
+    rejectBtn.setAttribute("aria-label", "Reject");
+    rejectBtn.innerHTML = "<span class=\"diskuz-call-incoming-icon diskuz-call-icon-reject\" aria-hidden=\"true\"><svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z\"/></svg></span>";
     rejectBtn.style.flex = "1";
     rejectBtn.style.padding = "10px 14px";
     rejectBtn.style.borderRadius = "15px";
