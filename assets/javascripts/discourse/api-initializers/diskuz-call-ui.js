@@ -1908,15 +1908,24 @@ export default apiInitializer("0.8", (api) => {
           controlsToggle.setAttribute("title", label);
         };
         setControlsToggleLabel();
-        controlsToggle.addEventListener("click", function () {
+        const toggleControlsVisibility = function () {
           controlsBlock.classList.toggle("diskuz-call-controls-hidden");
           setControlsToggleLabel();
+        };
+        controlsToggle.addEventListener("click", function (e) {
+          e.preventDefault();
+          toggleControlsVisibility();
         });
+        if (isMobileDevice()) {
+          controlsToggle.addEventListener("touchend", function (e) {
+            e.preventDefault();
+            toggleControlsVisibility();
+          }, { passive: false });
+        }
         controlsToggle.addEventListener("keydown", function (e) {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            controlsBlock.classList.toggle("diskuz-call-controls-hidden");
-            setControlsToggleLabel();
+            toggleControlsVisibility();
           }
         });
       }
@@ -2200,6 +2209,21 @@ export default apiInitializer("0.8", (api) => {
           videoBtn.addEventListener("touchend", function (e) {
             e.preventDefault();
             handleVideoButtonTap();
+          }, { passive: false });
+        }
+      }
+      const blurBtnEl = callUI.querySelector(".btn.blur");
+      if (blurBtnEl) {
+        blurBtnEl.addEventListener("click", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleBlurButtonTap();
+        }, true);
+        if (isMobileDevice()) {
+          blurBtnEl.addEventListener("touchend", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            handleBlurButtonTap();
           }, { passive: false });
         }
       }
@@ -2709,7 +2733,7 @@ export default apiInitializer("0.8", (api) => {
     const blurBtn = callUI.querySelector(".btn.blur");
     const connected = rtcPeer && rtcPeer.connectionState === "connected";
     if (videoBtn) videoBtn.style.display = connected ? "" : "none";
-    if (blurBtn) blurBtn.style.display = connected ? "" : "none";
+    if (blurBtn) blurBtn.style.display = connected && localVideoOn ? "" : "none";
   }
 
   async function enableVideo() {
@@ -2855,6 +2879,7 @@ export default apiInitializer("0.8", (api) => {
       const blurBtn = callUI && callUI.querySelector(".btn.blur");
       if (blurBtn) blurBtn.classList.toggle("active", videoBlurOn);
       updateVideoLayout();
+      updateVideoButtonVisibility();
       if (typeof applyVideoEffectsToSentStream === "function") {
         applyVideoEffectsToSentStream(mirrorCb && mirrorCb.checked, videoBlurOn);
       }
@@ -3044,6 +3069,7 @@ export default apiInitializer("0.8", (api) => {
     if (blurBtn) blurBtn.classList.remove("active");
     if (callUI._updateSwitchCameraButton) callUI._updateSwitchCameraButton();
     updateVideoLayout();
+    updateVideoButtonVisibility();
   }
 
   async function rtcStartLocalAudio() {
