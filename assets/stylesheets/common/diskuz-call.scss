@@ -1325,6 +1325,22 @@
   font-weight: 400;
 }
 
+#diskuz-call-ui .call-top-bar-kofi {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s;
+}
+#diskuz-call-ui .call-top-bar-kofi:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
 @keyframes diskuz-call-bg {
   0% { background-position: 0% 0%; }
   50% { background-position: 100% 100%; }
@@ -1469,11 +1485,20 @@
     width: 80px;
     height: 112px;
   }
-  /* Desktop fullscreen widget: video in ingresso a tutto schermo, pulsanti in overlay in basso con sfondo = video */
+  /* Desktop fullscreen: layout a colonna così video e controlli non vanno in alto (portrait e landscape) */
   #diskuz-call-ui.diskuz-call-fullscreen-active.diskuz-call-remote-video-active {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    overflow: hidden;
+    .call-top-bar {
+      flex-shrink: 0;
+    }
     .call-inner {
       position: relative;
       overflow: hidden;
+      flex: 1 1 0 !important;
+      min-height: 0 !important;
     }
     .diskuz-call-video-wrap {
       position: absolute !important;

@@ -88,6 +88,9 @@ export default apiInitializer("0.8", (api) => {
   /* Dimensioni minime widget/call UI su desktop: evitano che si salvi/ripristini un rect ristretto per errore */
   const WIDGET_MIN_WIDTH = 360;
   const WIDGET_MIN_HEIGHT = 560;
+  /* Limite massimo: se per errore si salva un widget larghissimo, non ripristinarlo (evita di dover cancellare la cache) */
+  const WIDGET_MAX_WIDTH = 520;
+  const WIDGET_MAX_HEIGHT = 900;
 
   /* Default position/size: un po' più largo e alto per evitare scrollbar su desktop */
   function getDefaultWidgetRect() {
@@ -103,15 +106,17 @@ export default apiInitializer("0.8", (api) => {
     });
   }
 
-  /** Su desktop impone width/height minimi così non si applica mai un widget "schiacciato" da localStorage. */
+  /** Su desktop impone min/max width/height così non si salva/ripristina un widget schiacciato o larghissimo. */
   function clampWidgetRectToMinimum(rect) {
     if (!rect || rect.width <= 0 || rect.height <= 0) return rect;
     if (isMobileDevice()) return rect;
+    const H = typeof window !== "undefined" ? window.innerHeight : 768;
+    const maxH = Math.min(WIDGET_MAX_HEIGHT, Math.floor(H * 0.9));
     return {
       left: rect.left,
       top: rect.top,
-      width: Math.max(rect.width, WIDGET_MIN_WIDTH),
-      height: Math.max(rect.height, WIDGET_MIN_HEIGHT),
+      width: Math.max(WIDGET_MIN_WIDTH, Math.min(rect.width, WIDGET_MAX_WIDTH)),
+      height: Math.max(WIDGET_MIN_HEIGHT, Math.min(rect.height, maxH)),
     };
   }
 
@@ -145,11 +150,14 @@ export default apiInitializer("0.8", (api) => {
       const raw = window.localStorage.getItem(WIDGET_RECT_STORAGE_KEY);
       if (!raw) return;
       const o = JSON.parse(raw);
-      if (o && typeof o.left === "number" && typeof o.top === "number" && o.width > 0 && o.height > 0) {
-        const loaded = { left: o.left, top: o.top, width: o.width, height: o.height };
-        lastWidgetRect = clampRectToViewport(clampWidgetRectToMinimum(loaded));
-        saveWidgetRectToStorage();
-      }
+      if (!o || typeof o.left !== "number" || typeof o.top !== "number" || o.width <= 0 || o.height <= 0) return;
+      /* Scarta rect irragionevoli (es. larghissimo per bug): evita di dover cancellare la cache */
+      const H = window.innerHeight || 768;
+      const maxH = Math.min(WIDGET_MAX_HEIGHT, Math.floor(H * 0.9));
+      if (o.width > WIDGET_MAX_WIDTH || o.height > maxH) return;
+      const loaded = { left: o.left, top: o.top, width: o.width, height: o.height };
+      lastWidgetRect = clampRectToViewport(clampWidgetRectToMinimum(loaded));
+      saveWidgetRectToStorage();
     } catch (e) { /* ignore */ }
   }
 
@@ -1848,6 +1856,7 @@ export default apiInitializer("0.8", (api) => {
             <span class="call-top-bar-title">diskuz Call</span>
             <span class="call-top-bar-by">by diskuz.com</span>
           </div>
+          <a href="https://ko-fi.com/italy" target="_blank" rel="noopener noreferrer" class="call-top-bar-kofi" title="Support on Ko-fi">Ko-fi</a>
         </div>
         <div class="call-inner">
           <div class="avatar"></div>
