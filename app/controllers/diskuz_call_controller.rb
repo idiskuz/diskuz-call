@@ -35,6 +35,7 @@ class DiskuzCallController < ApplicationController
       ice_servers: ice_servers,
       primary_color: primary,
       primary_color_dark: primary_dark,
+      debug_log: SiteSetting.diskuz_call_debug_log,
     }
   end
 

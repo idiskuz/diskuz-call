@@ -103,3 +103,8 @@ plugins:
   diskuz_call_ice_servers:
     default: ""
     client: true
+  # Log di debug in console (F12): se attivo, gli utenti vedranno i messaggi [diskuz-call] durante le chiamate. Utile per supporto; disattivare in produzione.
+  diskuz_call_debug_log:
+    default: false
+    type: boolean
+    client: true

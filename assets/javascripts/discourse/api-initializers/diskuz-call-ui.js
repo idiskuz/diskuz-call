@@ -3,9 +3,22 @@ import { withPluginApi } from "discourse/lib/plugin-api";
 import { ajax } from "discourse/lib/ajax";
 import MessageBus from "message-bus-client";
 
-const DEBUG = true; // log in console (F12) per verificare flusso e eventi
+/* Log e warn/error diskuz-call: attivi solo se Admin ha abilitato "Log di debug" in Impostazioni plugin oppure localStorage diskuz_call_debug === "1". */
+function diskuzCallDebugEnabled() {
+  try {
+    return window.DiskuzCallDebugLog === true || window.localStorage.getItem("diskuz_call_debug") === "1";
+  } catch (e) {
+    return false;
+  }
+}
 function log(...args) {
-  if (DEBUG) console.log("[diskuz-call]", ...args);
+  if (diskuzCallDebugEnabled()) console.log("[diskuz-call]", ...args);
+}
+function logWarn(...args) {
+  if (diskuzCallDebugEnabled()) console.warn("[diskuz-call]", ...args);
+}
+function logError(...args) {
+  if (diskuzCallDebugEnabled()) console.error("[diskuz-call]", ...args);
 }
 
   const DEFAULT_ICE_SERVERS = [
@@ -280,13 +293,13 @@ export default apiInitializer("0.8", (api) => {
       try {
         incomingCallAudioContext = new (window.AudioContext || window.webkitAudioContext)();
       } catch (e) {
-        console.warn("diskuz-call: could not create AudioContext", e);
+        logWarn("could not create AudioContext", e);
         return Promise.resolve();
       }
     }
     if (incomingCallAudioContext.state === "suspended") {
       return incomingCallAudioContext.resume().catch((e) => {
-        console.warn("diskuz-call: AudioContext resume failed", e);
+        logWarn("AudioContext resume failed", e);
       });
     }
     return Promise.resolve();
@@ -321,7 +334,7 @@ export default apiInitializer("0.8", (api) => {
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + d);
     } catch (e) {
-      console.warn("diskuz-call: fallback beep failed", e);
+      logWarn("fallback beep failed", e);
     }
   }
 
@@ -346,7 +359,7 @@ export default apiInitializer("0.8", (api) => {
           playFallbackBeep(880, 200);
         });
       } catch (e) {
-        console.warn("diskuz-call: could not play custom ringtone", e);
+        logWarn("could not play custom ringtone", e);
         playFallbackBeep(880, 200);
       }
       return;
@@ -404,7 +417,7 @@ export default apiInitializer("0.8", (api) => {
       osc2.start(t1);
       osc2.stop(t1 + toneDuration);
     } catch (e) {
-      console.warn("diskuz-call: ring tone failed", e);
+      logWarn("ring tone failed", e);
       throw e;
     }
   }
@@ -657,7 +670,7 @@ export default apiInitializer("0.8", (api) => {
           return;
       }
     } catch (e) {
-      console.warn("diskuz-call: alternative preset failed", e);
+      logWarn("alternative preset failed", e);
       playIncomingCallBeep(ctx);
     }
   }
@@ -748,7 +761,7 @@ export default apiInitializer("0.8", (api) => {
         audio.src = url;
         currentRingingAudio = audio;
       } catch (e) {
-        console.warn("diskuz-call: could not play custom ringtone", e);
+        logWarn("could not play custom ringtone", e);
         playIncomingCallSound();
       }
       return;
@@ -883,7 +896,7 @@ export default apiInitializer("0.8", (api) => {
       gain.gain.setValueAtTime(0.35, t0 + 0.95);
       gain.gain.exponentialRampToValueAtTime(0.01, t0 + 1.5);
     } catch (e) {
-      console.warn("diskuz-call: busy beeps failed", e);
+      logWarn("busy beeps failed", e);
       throw e;
     }
   }
@@ -911,7 +924,7 @@ export default apiInitializer("0.8", (api) => {
       };
       setTimeout(() => n.close(), NOTIFICATION_VISIBLE_MS);
     } catch (e) {
-      console.warn("diskuz-call: browser notification failed", e);
+      logWarn("browser notification failed", e);
     }
   }
 
@@ -1655,7 +1668,7 @@ export default apiInitializer("0.8", (api) => {
           startOutgoingCall(username, userId, data.user.avatar_template);
           toggleWidgetForceClose();
         } catch (e) {
-          console.warn("[diskuz-call] Call start error", e);
+          logWarn("Call start error", e);
           if (e.message === "RATE_LIMIT") {
             showError("Too many requests. Please wait a moment and try again.");
           } else if (e && (e.message === "Failed to fetch" || e.name === "TypeError")) {
@@ -1806,7 +1819,7 @@ export default apiInitializer("0.8", (api) => {
               <button class="btn mute">Mute</button>
               <button class="btn speaker">Speaker</button>
               <button type="button" class="btn video" style="display:none;" aria-label="Video">📹</button>
-              <button class="btn hangup">Hang up</button>
+              <button type="button" class="btn hangup" aria-label="Hang up"><span class="diskuz-call-hangup-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></span></button>
             </div>
           </div>
 
@@ -1951,7 +1964,7 @@ export default apiInitializer("0.8", (api) => {
           e.stopPropagation();
           if (!isMobileDevice() || !localVideoOn) return;
           switchCamera().catch((err) => {
-            console.warn("diskuz-call: switchCamera failed", err);
+            logWarn("switchCamera failed", err);
             showToast(isIt ? "Impossibile cambiare fotocamera." : "Could not switch camera.");
           });
         });
@@ -2068,7 +2081,7 @@ export default apiInitializer("0.8", (api) => {
         }
         showToast(isIt ? "Avvio videocamera..." : "Starting camera...");
         enableVideo().catch((err) => {
-          console.warn("diskuz-call: enableVideo failed in handler", err);
+          logWarn("enableVideo failed in handler", err);
           showToast(isIt ? "Errore video: " + (err && err.message ? err.message : "riprova") : "Video error: " + (err && err.message ? err.message : "try again"));
         });
       }
@@ -2472,7 +2485,7 @@ export default apiInitializer("0.8", (api) => {
     try {
       await rtcRemoteAudio.setSinkId(sinkId || "");
     } catch (e) {
-      console.warn("diskuz-call: setSinkId failed", e);
+      logWarn("setSinkId failed", e);
     }
   }
 
@@ -2506,7 +2519,7 @@ export default apiInitializer("0.8", (api) => {
       }
     } catch (e) {
       if (e.name !== "NotAllowedError" && e.name !== "NotFoundError") {
-        console.warn("diskuz-call: selectAudioOutput failed", e);
+        logWarn("selectAudioOutput failed", e);
       }
     }
     return false;
@@ -2712,7 +2725,7 @@ export default apiInitializer("0.8", (api) => {
         }
       } catch (sendErr) {
         videoRequestInProgress = false;
-        console.warn("diskuz-call: video_offer send failed", sendErr);
+        logWarn("video_offer send failed", sendErr);
         if (wrap) wrap.style.display = "none";
         callUI.classList.remove("diskuz-call-video-active");
         showToast(isIt ? "Invio offerta video fallito." : "Failed to send video offer.");
@@ -2747,7 +2760,7 @@ export default apiInitializer("0.8", (api) => {
       currentVideoFacingMode = "user";
       if (callUI._updateSwitchCameraButton) callUI._updateSwitchCameraButton();
     } catch (e) {
-      console.warn("diskuz-call: enableVideo failed", e);
+      logWarn("enableVideo failed", e);
       if (wrap) wrap.style.display = "none";
       callUI.classList.remove("diskuz-call-video-active");
       showToast(isIt ? "Impossibile attivare la videocamera." : "Could not enable camera.");
@@ -2800,7 +2813,7 @@ export default apiInitializer("0.8", (api) => {
       if (callUI._updateSwitchCameraButton) callUI._updateSwitchCameraButton();
       showToast(isIt ? (newFacing === "environment" ? "Retrocamera attiva." : "Frontale attiva.") : (newFacing === "environment" ? "Rear camera on." : "Front camera on."));
     } catch (e) {
-      console.warn("diskuz-call: switchCamera failed", e);
+      logWarn("switchCamera failed", e);
       showToast(isIt ? "Impossibile usare l'altra fotocamera." : "Could not switch camera.");
     } finally {
       videoRequestInProgress = false;
@@ -2822,7 +2835,7 @@ export default apiInitializer("0.8", (api) => {
         });
       }
     } catch (e) {
-      console.warn("diskuz-call: video renegotiation failed", e);
+      logWarn("video renegotiation failed", e);
     }
   }
 
@@ -2933,7 +2946,7 @@ export default apiInitializer("0.8", (api) => {
       rtcLocalStream = await navigator.mediaDevices.getUserMedia(opts);
       return rtcLocalStream;
     } catch (e) {
-      console.error("Media permission denied", e);
+      logError("Media permission denied", e);
       showToast(withVideo ? "Camera or microphone blocked." : "Microphone blocked.");
       return null;
     }
@@ -2993,7 +3006,7 @@ export default apiInitializer("0.8", (api) => {
           to_user_id: targetUserId,
           candidate,
         }).catch((err) => {
-          console.warn("[diskuz-call] ICE send failed (will not retry this candidate)", err);
+          logWarn("ICE send failed (will not retry this candidate)", err);
         });
       }
       if (iceSendQueue.length > 0) iceSendTimer = setTimeout(flushIceSendQueue, ICE_SEND_INTERVAL_MS);
@@ -3185,7 +3198,7 @@ export default apiInitializer("0.8", (api) => {
       try {
         await rtcPeer.addIceCandidate(new RTCIceCandidate(c));
       } catch (err) {
-        console.error("[diskuz-call] Error adding queued ICE candidate", err);
+        logError("Error adding queued ICE candidate", err);
       }
     }
     iceCandidateQueue = [];
@@ -3227,7 +3240,7 @@ export default apiInitializer("0.8", (api) => {
         await rtcPeer.addIceCandidate(new RTCIceCandidate(c));
         log("[CALLER] rtcHandleAnswer: added queued ICE candidate");
       } catch (err) {
-        console.error("[diskuz-call] Caller: error adding queued ICE candidate", err);
+        logError("Caller: error adding queued ICE candidate", err);
       }
     }
     iceCandidateQueue = [];
@@ -3242,7 +3255,7 @@ export default apiInitializer("0.8", (api) => {
         await rtcPeer.addIceCandidate(new RTCIceCandidate(candidate));
         log("[*] rtcHandleIce: added ICE candidate (sequential)");
       } catch (e) {
-        console.error("[diskuz-call] Error adding ICE candidate", e);
+        logError("Error adding ICE candidate", e);
       }
     }
     iceAddInProgress = false;
@@ -3813,7 +3826,7 @@ export default apiInitializer("0.8", (api) => {
               showToast(document.documentElement.lang === "it" ? "Video ricevuto, risposta inviata." : "Video received, answer sent.");
             }
           } catch (err) {
-            console.warn("diskuz-call: video_offer handling failed", err);
+            logWarn("video_offer handling failed", err);
             showToast(document.documentElement.lang === "it" ? "Errore negoziazione video." : "Video negotiation error.");
           }
         })();
@@ -3842,7 +3855,7 @@ export default apiInitializer("0.8", (api) => {
             }
             showToast(document.documentElement.lang === "it" ? "Video connesso." : "Video connected.");
           } catch (err) {
-            console.warn("diskuz-call: video_answer handling failed", err);
+            logWarn("video_answer handling failed", err);
             showToast(document.documentElement.lang === "it" ? "Errore risposta video." : "Video answer error.");
           }
         })();
@@ -3953,6 +3966,7 @@ export default apiInitializer("0.8", (api) => {
         if (data.primary_color_dark && /^#[0-9a-fA-F]{6}$/.test(data.primary_color_dark)) {
           document.documentElement.style.setProperty("--diskuz-call-primary-dark", data.primary_color_dark);
         }
+        window.DiskuzCallDebugLog = data.debug_log === true;
         subscribeMessageBus();
         loadHistory();
         try {
