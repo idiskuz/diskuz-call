@@ -29,4 +29,4 @@ it:
     call_unavailable: "L'utente non ha abilitato diskuz Call."
     you_need_to_enable: "Abilita diskuz Call nelle tue preferenze per ricevere chiamate."
     cannot_call_yourself: "Non puoi chiamare te stesso."
-    video_disable_info: "Per disattivare il video durante la chiamata, termina questa chiamata e avvia una nuova chiamata in solo voce."
+    video_disable_info: "Per spegnere il video termina la conversazione e richiama in solo voce."

@@ -2165,7 +2165,7 @@
   }
   #diskuz-call-ui.diskuz-call-video-active.diskuz-call-remote-video-active .diskuz-call-local-preview-outer {
     z-index: 2;
-    bottom: calc(14px + env(safe-area-inset-bottom, 0));
+    bottom: calc(110px + env(safe-area-inset-bottom, 0));
     right: 12px;
   }
   /* Solo video attivo senza remoto (preview only): layout compatto */
@@ -2181,13 +2181,13 @@
     inset: auto;
   }
   #diskuz-call-ui .diskuz-call-local-preview-outer {
-    bottom: calc(14px + env(safe-area-inset-bottom, 0));
+    bottom: calc(72px + env(safe-area-inset-bottom, 0));
     right: 12px;
   }
   #diskuz-call-ui .diskuz-call-local-preview-wrap {
-    width: 64px;
-    height: 96px;
-    border-radius: 12px;
+    width: 80px;
+    height: 120px;
+    border-radius: 15px;
     touch-action: none;
     cursor: grab;
   }

@@ -2030,7 +2030,7 @@ export default apiInitializer("0.8", (api) => {
       function showVideoDisableInfoPopup() {
         const isIt = document.documentElement.lang === "it";
         const msg = isIt
-          ? "Per disattivare il video durante la chiamata, termina questa chiamata e avvia una nuova chiamata in solo voce."
+          ? "Per spegnere il video termina la conversazione e richiama in solo voce."
           : "To turn off video during a call, please end this call and start a new voice-only call.";
         let pop = callUI.querySelector(".diskuz-call-video-disable-info");
         if (!pop) {
@@ -2182,6 +2182,7 @@ export default apiInitializer("0.8", (api) => {
         }
         callUI.addEventListener("mousedown", function (e) {
           if (e.target.closest(".call-top-bar")) return;
+          if (e.target.closest(".diskuz-call-local-preview-wrap")) return;
           if (e.target.closest("button, input, a, select, textarea, [contenteditable=\"true\"]")) return;
           if (e.button !== 0) return;
           e.preventDefault();
@@ -2391,7 +2392,6 @@ export default apiInitializer("0.8", (api) => {
   let currentSinkIndex = 0;
   let audioOutputDevices = [];
   let callDurationIntervalId = null;
-  let videoLayoutPollIntervalId = null;
   let callConnectedAt = null;
   let outgoingCallTimeoutId = null;
   let calleeNotRingingTimeoutId = null;
@@ -2568,31 +2568,6 @@ export default apiInitializer("0.8", (api) => {
   }
 
 
-  function startVideoLayoutPoll() {
-    stopVideoLayoutPoll();
-    if (!rtcPeer || !hasRemoteVideoTrack()) return;
-    videoLayoutPollIntervalId = setInterval(function () {
-      if (!callUI || !rtcPeer) {
-        stopVideoLayoutPoll();
-        return;
-      }
-      const wrap = callUI.querySelector(".diskuz-call-video-wrap");
-      if (!wrap || wrap.style.display !== "block") {
-        stopVideoLayoutPoll();
-        return;
-      }
-      syncRemoteVideoState();
-      if (typeof updateVideoLayout === "function") updateVideoLayout();
-    }, 400);
-  }
-
-  function stopVideoLayoutPoll() {
-    if (videoLayoutPollIntervalId) {
-      clearInterval(videoLayoutPollIntervalId);
-      videoLayoutPollIntervalId = null;
-    }
-  }
-
   function updateVideoLayout() {
     if (!callUI) return;
     syncRemoteVideoState();
@@ -2601,7 +2576,6 @@ export default apiInitializer("0.8", (api) => {
     const hasRemoteTrack = hasRemoteVideoTrack();
     const show = localVideoOn || remoteVideoActive || hasRemoteTrack;
     if (wrap) wrap.style.display = show ? "block" : "none";
-    if (show && hasRemoteTrack) { if (!videoLayoutPollIntervalId) startVideoLayoutPoll(); } else stopVideoLayoutPoll();
     callUI.classList.toggle("diskuz-call-video-active", !!show);
     callUI.classList.toggle("diskuz-call-remote-video-active", !!remoteVideoActive);
     callUI.classList.toggle("diskuz-call-preview-only", !!localVideoOn && !remoteVideoActive);
@@ -3304,9 +3278,6 @@ export default apiInitializer("0.8", (api) => {
       const s = sec % 60;
       const timeStr = (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
       el.textContent = timeStr;
-      if (callUI && callUI.querySelector(".diskuz-call-video-wrap")?.style.display === "block") {
-        if (typeof updateVideoLayout === "function") updateVideoLayout();
-      }
     }
     tick();
     callDurationIntervalId = setInterval(tick, 1000);
@@ -3327,7 +3298,6 @@ export default apiInitializer("0.8", (api) => {
 
   function rtcEnd() {
     stopCallDurationTimer();
-    stopVideoLayoutPoll();
     resetCallDurationDisplay();
     if (localVideoTrack) {
       localVideoTrack.stop();
