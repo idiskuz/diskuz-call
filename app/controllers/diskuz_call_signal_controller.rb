@@ -67,7 +67,8 @@ class DiskuzCallSignalController < ApplicationController
   end
 
   def create_incoming_call_notification(callee, caller)
-    # Notifica nativa Discourse (campanella): tipo :custom così compaiono icona, messaggio e link al click (come nel plugin Follow)
+    # Notifica nativa Discourse (campanella): tipo :custom per icona, messaggio e link al click.
+    # display_username/username servono a populate_acting_user per mostrare l'avatar del chiamante.
     full_message = I18n.t("diskuz_call.calling_you", username: caller.username, default: "#{caller.username} is calling you")
     title_short = I18n.t("diskuz_call.incoming_call_title", default: "Incoming call")
     base_url = Discourse.base_url.presence || "/"
@@ -75,7 +76,6 @@ class DiskuzCallSignalController < ApplicationController
     Notification.create!(
       notification_type: Notification.types[:custom],
       user_id: callee.id,
-      acting_user_id: caller.id,
       topic_id: nil,
       post_number: nil,
       high_priority: true,
@@ -84,6 +84,8 @@ class DiskuzCallSignalController < ApplicationController
         "customTranslatedTitle" => title_short,
         "customIcon" => "phone",
         "customUrl" => custom_url,
+        "display_username" => caller.username,
+        "username" => caller.username,
       }.to_json,
     )
   rescue StandardError => e

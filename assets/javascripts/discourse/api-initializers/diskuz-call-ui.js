@@ -1950,9 +1950,18 @@ export default apiInitializer("0.8", (api) => {
       speakerBtn.setAttribute("aria-pressed", "false");
       speakerBtn.setAttribute("aria-label", "Speaker / audio output");
 
-      hangupBtn.addEventListener("click", function () {
+      hangupBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
         endCurrentCall("ended");
       });
+      if (isMobileDevice()) {
+        hangupBtn.addEventListener("touchend", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          endCurrentCall("ended");
+        }, { passive: false });
+      }
 
       muteBtn.addEventListener("click", function () {
         const isMuted = muteBtn.classList.toggle("active");
@@ -2164,6 +2173,32 @@ export default apiInitializer("0.8", (api) => {
         setTimeout(hide, 5500);
       }
 
+      function showBlurActivePopup() {
+        const isIt = document.documentElement.lang === "it";
+        const msg = isIt ? "Video offuscato" : "Video blurred";
+        let pop = callUI.querySelector(".diskuz-call-blur-active-info");
+        if (!pop) {
+          pop = document.createElement("div");
+          pop.className = "diskuz-call-blur-active-info";
+          pop.setAttribute("role", "status");
+          callUI.appendChild(pop);
+        }
+        pop.textContent = msg;
+        pop.classList.add("is-visible");
+        const blurBtn = callUI.querySelector(".btn.blur");
+        if (blurBtn) {
+          const rect = blurBtn.getBoundingClientRect();
+          const callRect = callUI.getBoundingClientRect();
+          pop.style.left = rect.left - callRect.left + (rect.width / 2) + "px";
+          pop.style.bottom = callRect.bottom - rect.top + 8 + "px";
+          pop.style.transform = "translateX(-50%)";
+        }
+        clearTimeout(pop._blurPopupTimer);
+        pop._blurPopupTimer = setTimeout(function () {
+          pop.classList.remove("is-visible");
+        }, 5000);
+      }
+
       function handleVideoButtonTap() {
         const isIt = document.documentElement.lang === "it";
         if (videoRequestInProgress && !localVideoOn) {
@@ -2192,8 +2227,13 @@ export default apiInitializer("0.8", (api) => {
           const isIt = document.documentElement.lang === "it";
           blurBtn.setAttribute("aria-label", videoBlurOn ? (isIt ? "Sfoca video attiva" : "Blur on") : (isIt ? "Sfoca video" : "Blur video"));
         }
+        if (videoBlurOn && typeof showBlurActivePopup === "function") showBlurActivePopup();
         if (typeof applyVideoEffectsToSentStream === "function") {
-          applyVideoEffectsToSentStream(mirrorCb && mirrorCb.checked, videoBlurOn);
+          applyVideoEffectsToSentStream(mirrorCb && mirrorCb.checked, videoBlurOn).catch((err) => {
+            logWarn("applyVideoEffectsToSentStream failed (blur)", err);
+            videoBlurOn = !videoBlurOn;
+            if (blurBtn) blurBtn.classList.toggle("active", videoBlurOn);
+          });
         }
       }
 
@@ -2207,6 +2247,11 @@ export default apiInitializer("0.8", (api) => {
           e.preventDefault();
           e.stopPropagation();
           handleBlurButtonTap();
+        }
+        if (e.target.closest(".btn.hangup")) {
+          e.preventDefault();
+          e.stopPropagation();
+          endCurrentCall("ended");
         }
       }, true);
       if (videoBtn) {
@@ -2994,8 +3039,18 @@ export default apiInitializer("0.8", (api) => {
 
     const useEffects = (mirrorOn || blurOn) && localVideoTrack;
     if (useEffects) {
-      const w = srcVideo.videoWidth || 640;
-      const h = srcVideo.videoHeight || 480;
+      /* Su mobile il video può avere videoWidth/videoHeight 0 all'inizio: aspetta fino a 600ms che siano disponibili */
+      let w = srcVideo.videoWidth || 0;
+      let h = srcVideo.videoHeight || 0;
+      if (w <= 0 || h <= 0) {
+        const deadline = Date.now() + 600;
+        while ((w = srcVideo.videoWidth || 0) <= 0 || (h = srcVideo.videoHeight || 0) <= 0) {
+          if (Date.now() >= deadline) break;
+          await new Promise((r) => requestAnimationFrame(r));
+        }
+        if (w <= 0) w = 640;
+        if (h <= 0) h = 480;
+      }
       if (!mirrorCanvasEl) {
         mirrorCanvasEl = document.createElement("canvas");
         mirrorCanvasEl.width = w;
@@ -3009,6 +3064,7 @@ export default apiInitializer("0.8", (api) => {
       mirrorCanvasStream = mirrorCanvasEl.captureStream(30);
       const canvasTrack = mirrorCanvasStream.getVideoTracks()[0];
       if (!canvasTrack) return;
+      let firstFrameDrawn = false;
       function drawEffects() {
         if (!mirrorCanvasEl || !srcVideo || !srcVideo.srcObject) return;
         if (srcVideo.videoWidth > 0 && srcVideo.videoHeight > 0) {
@@ -3021,10 +3077,21 @@ export default apiInitializer("0.8", (api) => {
           if (mirrorOn) ctx.scale(-1, 1);
           ctx.drawImage(srcVideo, mirrorOn ? -mirrorCanvasEl.width : 0, 0, mirrorCanvasEl.width, mirrorCanvasEl.height);
           ctx.restore();
+          firstFrameDrawn = true;
         }
         mirrorDrawLoopId = requestAnimationFrame(drawEffects);
       }
       drawEffects();
+      /* Su mobile aspetta almeno un frame disegnato prima di sostituire il track */
+      const waitFirstFrame = new Promise((resolve) => {
+        const check = () => {
+          if (firstFrameDrawn) return resolve();
+          requestAnimationFrame(check);
+        };
+        requestAnimationFrame(check);
+      });
+      const timeout = new Promise((r) => setTimeout(r, 800));
+      await Promise.race([waitFirstFrame, timeout]);
       await sender.replaceTrack(canvasTrack);
     } else {
       await sender.replaceTrack(localVideoTrack);

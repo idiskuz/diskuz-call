@@ -1511,6 +1511,25 @@
       bottom: 14px;
     }
   }
+
+  /* Fullscreen + video verticale (da smartphone): video resta verticale al centro, spazio a sinistra/destra = sfondo animato come la UI */
+  #diskuz-call-ui.diskuz-call-fullscreen-active.diskuz-call-remote-video-active.diskuz-call-remote-video-portrait {
+    .diskuz-call-video-wrap {
+      display: flex !important;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(ellipse at 50% 50%, #111827 0%, #0d0d0d 40%, #020617 100%);
+      background-size: 200% 200%;
+      animation: diskuz-call-bg 8s ease-in-out infinite;
+    }
+    .diskuz-call-remote-video {
+      width: auto !important;
+      height: 100% !important;
+      max-width: 100% !important;
+      object-fit: contain !important;
+      border-radius: 15px;
+    }
+  }
   /* Solo nostro video (altro ha spento): wrap a tutta area, placeholder verde + tre punti al centro */
   #diskuz-call-ui.diskuz-call-preview-only .diskuz-call-video-wrap {
     position: absolute !important;
@@ -1576,6 +1595,17 @@
     max-width: 56px;
     font-size: 13px;
   }
+  /* Mobile: tap immediato sui controlli (hangup, blur, ecc.) senza ritardo 300ms */
+  #diskuz-call-ui .diskuz-call-controls-block,
+  #diskuz-call-ui .diskuz-call-controls-block .controls,
+  #diskuz-call-ui .diskuz-call-controls-block .btn {
+    touch-action: manipulation;
+    pointer-events: auto;
+  }
+  #diskuz-call-ui .controls .btn.hangup {
+    min-width: 56px;
+    min-height: 56px;
+  }
 }
 
 /* Mobile: video remoto con contain; solo nostro video (altro spento) = wrap a tutta area, placeholder verde + tre punti */
@@ -1634,6 +1664,31 @@
     opacity: 1;
     visibility: visible;
     pointer-events: auto;
+  }
+}
+
+/* Popup "Video offuscato" vicino al tasto Blur quando attivato (5 secondi), border-radius 15px */
+#diskuz-call-ui .diskuz-call-blur-active-info {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 16px;
+  background: rgba(15, 23, 42, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 15px;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+  &.is-visible {
+    opacity: 1;
+    visibility: visible;
   }
 }
 
@@ -2382,6 +2437,13 @@
     padding-bottom: calc(12px + env(safe-area-inset-bottom, 0));
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
+    pointer-events: auto;
+    touch-action: manipulation;
+  }
+  #diskuz-call-ui.diskuz-call-video-active.diskuz-call-remote-video-active .diskuz-call-controls-block .controls,
+  #diskuz-call-ui.diskuz-call-video-active.diskuz-call-remote-video-active .diskuz-call-controls-block .btn {
+    pointer-events: auto;
+    touch-action: manipulation;
   }
   #diskuz-call-ui.diskuz-call-video-active.diskuz-call-remote-video-active .diskuz-call-local-preview-outer {
     z-index: 2;
