@@ -2219,12 +2219,18 @@ export default apiInitializer("0.8", (api) => {
       /* Delegazione click su callUI: così il Video viene gestito come Mute/Speaker anche se un tema o altro codice tocca i pulsanti. */
       function handleBlurButtonTap() {
         if (!localVideoOn || !rtcPeer) return;
+        const isIt = document.documentElement.lang === "it";
+        if (isIOS()) {
+          if (!videoBlurOn) {
+            showToast(isIt ? "Blur non disponibile su iPhone/iPad." : "Blur is not available on iPhone/iPad.");
+            return;
+          }
+        }
         const mirrorCb = callUI && callUI.querySelector(".diskuz-call-video-mirror-cb");
         videoBlurOn = !videoBlurOn;
         const blurBtn = callUI && callUI.querySelector(".btn.blur");
         if (blurBtn) {
           blurBtn.classList.toggle("active", videoBlurOn);
-          const isIt = document.documentElement.lang === "it";
           blurBtn.setAttribute("aria-label", videoBlurOn ? (isIt ? "Sfoca video attiva" : "Blur on") : (isIt ? "Sfoca video" : "Blur video"));
         }
         if (videoBlurOn && typeof showBlurActivePopup === "function") showBlurActivePopup();
@@ -2482,6 +2488,10 @@ export default apiInitializer("0.8", (api) => {
 
   function isMobileDevice() {
     return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (typeof window.orientation !== "undefined") || (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
+  }
+
+  function isIOS() {
+    return /iPhone|iPad|iPod/i.test(navigator.userAgent);
   }
 
   function updateBodyScrollLock() {
@@ -3037,7 +3047,8 @@ export default apiInitializer("0.8", (api) => {
       mirrorCanvasStream = null;
     }
 
-    const useEffects = (mirrorOn || blurOn) && localVideoTrack;
+    /* Su iOS Safari canvas.captureStream() non funziona con WebRTC (stream nero/bug WebKit): blur disabilitato */
+    const useEffects = (mirrorOn || (blurOn && !isIOS())) && localVideoTrack;
     if (useEffects) {
       /* Su mobile il video può avere videoWidth/videoHeight 0 all'inizio: aspetta fino a 600ms che siano disponibili */
       let w = srcVideo.videoWidth || 0;
@@ -3293,6 +3304,20 @@ export default apiInitializer("0.8", (api) => {
           videoEl.addEventListener("loadedmetadata", updateRemoteVideoOrientation);
           videoEl.addEventListener("resize", updateRemoteVideoOrientation);
           [100, 300, 600, 1200].forEach((ms) => setTimeout(updateRemoteVideoOrientation, ms));
+          /* Polling: quando lo smartphone ruota (portrait→landscape) il resize può non arrivare; aggiorniamo la classe periodicamente */
+          let lastW = 0;
+          let lastH = 0;
+          const orientationPollId = setInterval(() => {
+            if (!callUI || !videoEl || !videoEl.srcObject) return;
+            const w = videoEl.videoWidth || 0;
+            const h = videoEl.videoHeight || 0;
+            if (w > 0 && h > 0 && (w !== lastW || h !== lastH)) {
+              lastW = w;
+              lastH = h;
+              updateRemoteVideoOrientation();
+            }
+          }, 500);
+          videoEl._remoteOrientationPollId = orientationPollId;
           const tryRemotePlay = () => {
             if (!videoEl || !videoEl.srcObject) return;
             videoEl.play().catch(() => {});
@@ -3303,6 +3328,8 @@ export default apiInitializer("0.8", (api) => {
         remoteVideoActive = true;
         if (typeof updateVideoLayout === "function") updateVideoLayout();
         event.track.onended = () => {
+          const el = callUI && callUI.querySelector(".diskuz-call-remote-video");
+          if (el && el._remoteOrientationPollId) clearInterval(el._remoteOrientationPollId);
           remoteVideoActive = false;
           if (typeof updateVideoLayout === "function") updateVideoLayout();
         };

@@ -32,7 +32,8 @@ class DiskuzCallSignalController < ApplicationController
       payload["avatar_template"] = current_user.avatar_template
     end
 
-    # Canale unico per tutti (come Resenha): tutti si sottoscrivono, user_ids filtra il destinatario
+    # MessageBus: push in tempo reale allo smartphone/desktop del destinatario (squillo, UI chiamata).
+    # Indipendente dalle notifiche Discourse (campanella).
     message = {
       "from_user_id" => current_user.id,
       "from_username" => current_user.username,
@@ -45,7 +46,7 @@ class DiskuzCallSignalController < ApplicationController
       user_ids: [target.id],
     )
 
-    # Discourse notification (bell) so the callee sees "Incoming call from @caller"
+    # Notifica Discourse (campanella): elenco persistente "X ti sta chiamando". Non influisce su MessageBus.
     if signal_type == "call_offer"
       create_incoming_call_notification(target, current_user)
     end
@@ -67,26 +68,33 @@ class DiskuzCallSignalController < ApplicationController
   end
 
   def create_incoming_call_notification(callee, caller)
-    # Notifica nativa Discourse (campanella): tipo :custom per icona, messaggio e link al click.
-    # display_username/username servono a populate_acting_user per mostrare l'avatar del chiamante.
     full_message = I18n.t("diskuz_call.calling_you", username: caller.username, default: "#{caller.username} is calling you")
     title_short = I18n.t("diskuz_call.incoming_call_title", default: "Incoming call")
     base_url = Discourse.base_url.presence || "/"
     custom_url = base_url.end_with?("/") ? "#{base_url}?diskuz_call=incoming" : "#{base_url}/?diskuz_call=incoming"
+
+    types = Notification.types
+    data_hash = {
+      "display_username" => caller.username,
+      "username" => caller.username,
+      "message" => full_message,
+      "notification_message" => full_message,
+    }
+
+    custom_type = types[:custom] if types.key?(:custom)
+    custom_type ||= 14 # valore standard :custom se l’Enum non espone la chiave
     Notification.create!(
-      notification_type: Notification.types[:custom],
+      notification_type: custom_type,
       user_id: callee.id,
       topic_id: nil,
       post_number: nil,
       high_priority: true,
-      data: {
+      data: data_hash.merge(
         "customMessage" => full_message,
         "customTranslatedTitle" => title_short,
         "customIcon" => "phone",
         "customUrl" => custom_url,
-        "display_username" => caller.username,
-        "username" => caller.username,
-      }.to_json,
+      ).to_json,
     )
   rescue StandardError => e
     Rails.logger.warn("diskuz-call: could not create notification: #{e.message}")

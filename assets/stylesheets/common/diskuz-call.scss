@@ -1512,6 +1512,11 @@
     }
   }
 
+  /* Fullscreen: wrap con overflow hidden così il video non esce mai dallo schermo quando lo smartphone ruota */
+  #diskuz-call-ui.diskuz-call-fullscreen-active.diskuz-call-remote-video-active .diskuz-call-video-wrap {
+    overflow: hidden;
+  }
+
   /* Fullscreen + video verticale (da smartphone): video resta verticale al centro, spazio a sinistra/destra = sfondo animato come la UI */
   #diskuz-call-ui.diskuz-call-fullscreen-active.diskuz-call-remote-video-active.diskuz-call-remote-video-portrait {
     .diskuz-call-video-wrap {
@@ -1529,6 +1534,13 @@
       object-fit: contain !important;
       border-radius: 15px;
     }
+  }
+
+  /* Fullscreen + video orizzontale: flusso già orizzontale, resta nel widget con contain e niente overflow (nessuno sfondo animato) */
+  #diskuz-call-ui.diskuz-call-fullscreen-active.diskuz-call-remote-video-active.diskuz-call-remote-video-landscape .diskuz-call-remote-video {
+    max-width: 100% !important;
+    max-height: 100% !important;
+    object-fit: contain !important;
   }
   /* Solo nostro video (altro ha spento): wrap a tutta area, placeholder verde + tre punti al centro */
   #diskuz-call-ui.diskuz-call-preview-only .diskuz-call-video-wrap {
