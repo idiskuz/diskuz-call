@@ -2122,17 +2122,15 @@
   display: inline-flex;
 }
 
+/* Video: stessa icona videocamera in entrambi gli stati; differenza solo colore/evidenza (.active) */
 #diskuz-call-ui .controls .btn.video .diskuz-call-icon-video {
-  display: none;
-}
-#diskuz-call-ui .controls .btn.video .diskuz-call-icon-video-off {
   display: inline-flex;
+}
+#diskuz-call-ui .controls .btn.video:not(.active) .diskuz-call-icon-video {
+  opacity: 0.85;
 }
 #diskuz-call-ui .controls .btn.video.active .diskuz-call-icon-video {
-  display: inline-flex;
-}
-#diskuz-call-ui .controls .btn.video.active .diskuz-call-icon-video-off {
-  display: none;
+  opacity: 1;
 }
 
 #diskuz-call-ui .controls .btn.video.active {
