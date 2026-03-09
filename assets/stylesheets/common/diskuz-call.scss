@@ -1829,8 +1829,47 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  transition: opacity 0.35s ease, transform 0.35s ease;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+/* Fascia nascosta per nascondere/mostrare i pulsanti (click = fade out/in) */
+#diskuz-call-ui .diskuz-call-controls-toggle {
+  width: 100%;
+  min-height: 10px;
+  cursor: pointer;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  padding: 4px 0;
+  margin: 0;
+  outline: none;
+}
+
+#diskuz-call-ui .diskuz-call-controls-toggle:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+#diskuz-call-ui .diskuz-call-controls-inner {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.3s ease, transform 0.3s ease, max-height 0.3s ease;
+  max-height: 120px;
+  overflow: hidden;
+}
+
+#diskuz-call-ui .diskuz-call-controls-block.diskuz-call-controls-hidden .diskuz-call-controls-inner {
+  opacity: 0;
+  transform: translateY(100%);
+  max-height: 0;
+  pointer-events: none;
+}
+
+#diskuz-call-ui.diskuz-call-incoming-ringing .diskuz-call-controls-toggle {
+  display: none;
 }
 /* Blocco pulsanti (mute, speaker, hangup) centrato; pulsanti stessa grandezza in chiamata e videochiamata */
 #diskuz-call-ui:not(.diskuz-call-incoming-ringing) .diskuz-call-controls-block {
@@ -2134,6 +2173,15 @@
 }
 
 #diskuz-call-ui .controls .btn.video.active {
+  background: color-mix(in srgb, var(--diskuz-call-primary, #13c98c) 45%, rgba(255, 255, 255, 0.15));
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 2px 12px rgba(19, 201, 140, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+#diskuz-call-ui .controls .btn.blur .diskuz-call-icon-blur {
+  display: inline-flex;
+}
+#diskuz-call-ui .controls .btn.blur.active {
   background: color-mix(in srgb, var(--diskuz-call-primary, #13c98c) 45%, rgba(255, 255, 255, 0.15));
   border-color: rgba(255, 255, 255, 0.4);
   box-shadow: 0 2px 12px rgba(19, 201, 140, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1);

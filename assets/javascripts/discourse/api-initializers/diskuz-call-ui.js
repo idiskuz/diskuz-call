@@ -1866,11 +1866,15 @@ export default apiInitializer("0.8", (api) => {
             <button type="button" class="diskuz-call-fullscreen-btn" aria-label="Fullscreen" style="display:none;">⛶</button>
           </div>
           <div class="diskuz-call-controls-block">
+            <div class="diskuz-call-controls-toggle" role="button" tabindex="0" aria-label="" title=""></div>
+            <div class="diskuz-call-controls-inner">
             <div class="controls">
               <button type="button" class="btn mute" aria-label="Mute microphone"><span class="diskuz-call-icon diskuz-call-icon-mic" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 1 3 3v8a3 3 0 0 1-6 0V4a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></span><span class="diskuz-call-icon diskuz-call-icon-mic-off" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><path d="M12 19v4"/><path d="M8 23h8"/></svg></span></button>
               <button type="button" class="btn speaker" aria-label="Speaker / audio output"><span class="diskuz-call-icon diskuz-call-icon-speaker" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></span></button>
               <button type="button" class="btn video" style="display:none;" aria-label="Video"><span class="diskuz-call-icon diskuz-call-icon-video" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></span></button>
+              <button type="button" class="btn blur" style="display:none;" aria-label="Blur video"><span class="diskuz-call-icon diskuz-call-icon-blur" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M6 10.5 Q12 8 18 10.5"/><path d="M6 13.5 Q12 16 18 13.5"/></svg></span></button>
               <button type="button" class="btn hangup" aria-label="Hang up"><span class="diskuz-call-hangup-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></span></button>
+            </div>
             </div>
           </div>
 
@@ -1888,6 +1892,32 @@ export default apiInitializer("0.8", (api) => {
       if (hideUIBtn) {
         hideUIBtn.addEventListener("click", function () {
           toggleCallUIVisibility();
+        });
+      }
+
+      const controlsBlock = callUI.querySelector(".diskuz-call-controls-block");
+      const controlsToggle = callUI.querySelector(".diskuz-call-controls-toggle");
+      if (controlsBlock && controlsToggle) {
+        const setControlsToggleLabel = function () {
+          const hidden = controlsBlock.classList.contains("diskuz-call-controls-hidden");
+          const isIt = document.documentElement.lang === "it";
+          const label = hidden
+            ? (isIt ? "Mostra pulsanti" : "Show controls")
+            : (isIt ? "Nascondi pulsanti" : "Hide controls");
+          controlsToggle.setAttribute("aria-label", label);
+          controlsToggle.setAttribute("title", label);
+        };
+        setControlsToggleLabel();
+        controlsToggle.addEventListener("click", function () {
+          controlsBlock.classList.toggle("diskuz-call-controls-hidden");
+          setControlsToggleLabel();
+        });
+        controlsToggle.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            controlsBlock.classList.toggle("diskuz-call-controls-hidden");
+            setControlsToggleLabel();
+          }
         });
       }
 
@@ -1975,14 +2005,7 @@ export default apiInitializer("0.8", (api) => {
         applyMirrorToLocalPreview();
       }
       if (mirrorCb) applyMirrorToLocalPreview();
-      if (localPreviewWrap) {
-        localPreviewWrap.addEventListener("click", function (e) {
-          if (e.target.closest(".diskuz-call-switch-camera-btn")) return;
-          e.preventDefault();
-          e.stopPropagation();
-          toggleMirrorFromPreview();
-        });
-      }
+      /* Mirror: su desktop solo click senza drag (in onMouseUp moved < 8); su mobile in touchend moved < 12. Nessun listener "click" per evitare che il mirror si attivi dopo un drag. */
       if (fsButtonEl) {
         fsButtonEl.addEventListener("click", function () {
           if (!document.fullscreenElement) {
@@ -2085,7 +2108,7 @@ export default apiInitializer("0.8", (api) => {
               localPreviewWrap.classList.remove("diskuz-local-preview-dragging");
               if (ev.target.closest && ev.target.closest(".diskuz-call-local-preview-wrap") === localPreviewWrap) {
                 const moved = Math.abs(dragOffsetX - dragStartOffX) + Math.abs(dragOffsetY - dragStartOffY);
-                if (moved < 5) toggleMirrorFromPreview();
+                if (moved < 8) toggleMirrorFromPreview();
               }
             }
             document.addEventListener("mousemove", onMouseMove);
@@ -2140,11 +2163,31 @@ export default apiInitializer("0.8", (api) => {
         });
       }
       /* Delegazione click su callUI: così il Video viene gestito come Mute/Speaker anche se un tema o altro codice tocca i pulsanti. */
+      function handleBlurButtonTap() {
+        if (!localVideoOn || !rtcPeer) return;
+        const mirrorCb = callUI && callUI.querySelector(".diskuz-call-video-mirror-cb");
+        videoBlurOn = !videoBlurOn;
+        const blurBtn = callUI && callUI.querySelector(".btn.blur");
+        if (blurBtn) {
+          blurBtn.classList.toggle("active", videoBlurOn);
+          const isIt = document.documentElement.lang === "it";
+          blurBtn.setAttribute("aria-label", videoBlurOn ? (isIt ? "Sfoca video attiva" : "Blur on") : (isIt ? "Sfoca video" : "Blur video"));
+        }
+        if (typeof applyVideoEffectsToSentStream === "function") {
+          applyVideoEffectsToSentStream(mirrorCb && mirrorCb.checked, videoBlurOn);
+        }
+      }
+
       callUI.addEventListener("click", function (e) {
         if (e.target.closest(".btn.video")) {
           e.preventDefault();
           e.stopPropagation();
           handleVideoButtonTap();
+        }
+        if (e.target.closest(".btn.blur")) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleBlurButtonTap();
         }
       }, true);
       if (videoBtn) {
@@ -2451,6 +2494,7 @@ export default apiInitializer("0.8", (api) => {
   let mirrorCanvasEl = null;
   let mirrorCanvasStream = null;
   let mirrorDrawLoopId = null;
+  let videoBlurOn = false;
   let currentVideoFacingMode = "user";
   let iceCandidateQueue = [];
   let pendingIceCandidatesToAdd = [];
@@ -2662,9 +2706,10 @@ export default apiInitializer("0.8", (api) => {
   function updateVideoButtonVisibility() {
     if (!callUI) return;
     const videoBtn = callUI.querySelector(".btn.video");
-    if (!videoBtn) return;
+    const blurBtn = callUI.querySelector(".btn.blur");
     const connected = rtcPeer && rtcPeer.connectionState === "connected";
-    videoBtn.style.display = connected ? "" : "none";
+    if (videoBtn) videoBtn.style.display = connected ? "" : "none";
+    if (blurBtn) blurBtn.style.display = connected ? "" : "none";
   }
 
   async function enableVideo() {
@@ -2807,9 +2852,11 @@ export default apiInitializer("0.8", (api) => {
       }
       const videoBtn = callUI && callUI.querySelector(".btn.video");
       if (videoBtn) videoBtn.classList.add("active");
+      const blurBtn = callUI && callUI.querySelector(".btn.blur");
+      if (blurBtn) blurBtn.classList.toggle("active", videoBlurOn);
       updateVideoLayout();
-      if (mirrorCb && mirrorCb.checked && typeof applyMirrorToSentStream === "function") {
-        applyMirrorToSentStream(true);
+      if (typeof applyVideoEffectsToSentStream === "function") {
+        applyVideoEffectsToSentStream(mirrorCb && mirrorCb.checked, videoBlurOn);
       }
       showToast(isIt ? "Video avviato." : "Video started.");
       currentVideoFacingMode = "user";
@@ -2859,8 +2906,8 @@ export default apiInitializer("0.8", (api) => {
         requestAnimationFrame(tryPlay);
       }
       const sender = rtcPeer.getSenders().find((s) => s.track && s.track.kind === "video");
-      if (sender && mirrorCb && mirrorCb.checked && typeof applyMirrorToSentStream === "function") {
-        await applyMirrorToSentStream(true);
+      if (sender && typeof applyVideoEffectsToSentStream === "function") {
+        await applyVideoEffectsToSentStream(mirrorCb && mirrorCb.checked, videoBlurOn);
       } else if (sender) {
         await sender.replaceTrack(newTrack);
         await sendVideoRenegotiation();
@@ -2894,7 +2941,7 @@ export default apiInitializer("0.8", (api) => {
     }
   }
 
-  async function applyMirrorToSentStream(mirrorOn) {
+  async function applyVideoEffectsToSentStream(mirrorOn, blurOn) {
     if (!rtcPeer || !currentCall.userId || !window.DiskuzCallSend) return;
     const sender = rtcPeer.getSenders().find((s) => s.track && s.track.kind === "video");
     if (!sender) return;
@@ -2910,7 +2957,8 @@ export default apiInitializer("0.8", (api) => {
       mirrorCanvasStream = null;
     }
 
-    if (mirrorOn && localVideoTrack) {
+    const useEffects = (mirrorOn || blurOn) && localVideoTrack;
+    if (useEffects) {
       const w = srcVideo.videoWidth || 640;
       const h = srcVideo.videoHeight || 480;
       if (!mirrorCanvasEl) {
@@ -2926,7 +2974,7 @@ export default apiInitializer("0.8", (api) => {
       mirrorCanvasStream = mirrorCanvasEl.captureStream(30);
       const canvasTrack = mirrorCanvasStream.getVideoTracks()[0];
       if (!canvasTrack) return;
-      function drawMirror() {
+      function drawEffects() {
         if (!mirrorCanvasEl || !srcVideo || !srcVideo.srcObject) return;
         if (srcVideo.videoWidth > 0 && srcVideo.videoHeight > 0) {
           if (mirrorCanvasEl.width !== srcVideo.videoWidth || mirrorCanvasEl.height !== srcVideo.videoHeight) {
@@ -2934,18 +2982,23 @@ export default apiInitializer("0.8", (api) => {
             mirrorCanvasEl.height = srcVideo.videoHeight;
           }
           ctx.save();
-          ctx.scale(-1, 1);
-          ctx.drawImage(srcVideo, -mirrorCanvasEl.width, 0, mirrorCanvasEl.width, mirrorCanvasEl.height);
+          if (blurOn) ctx.filter = "blur(12px)";
+          if (mirrorOn) ctx.scale(-1, 1);
+          ctx.drawImage(srcVideo, mirrorOn ? -mirrorCanvasEl.width : 0, 0, mirrorCanvasEl.width, mirrorCanvasEl.height);
           ctx.restore();
         }
-        mirrorDrawLoopId = requestAnimationFrame(drawMirror);
+        mirrorDrawLoopId = requestAnimationFrame(drawEffects);
       }
-      drawMirror();
+      drawEffects();
       await sender.replaceTrack(canvasTrack);
     } else {
       await sender.replaceTrack(localVideoTrack);
     }
     await sendVideoRenegotiation();
+  }
+
+  async function applyMirrorToSentStream(mirrorOn) {
+    await applyVideoEffectsToSentStream(mirrorOn, videoBlurOn);
   }
 
   async function disableVideo() {
@@ -2986,6 +3039,9 @@ export default apiInitializer("0.8", (api) => {
     if (localPreview) localPreview.srcObject = null;
     const videoBtn = callUI && callUI.querySelector(".btn.video");
     if (videoBtn) videoBtn.classList.remove("active");
+    videoBlurOn = false;
+    const blurBtn = callUI && callUI.querySelector(".btn.blur");
+    if (blurBtn) blurBtn.classList.remove("active");
     if (callUI._updateSwitchCameraButton) callUI._updateSwitchCameraButton();
     updateVideoLayout();
   }
