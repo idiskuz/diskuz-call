@@ -1535,7 +1535,7 @@ export default apiInitializer("0.8", (api) => {
                 <div id="diskuz-call-suggestions" class="diskuz-call-suggestions" role="listbox" aria-hidden="true"></div>
               </div>
             </div>
-            <button id="diskuz-call-start">Call</button>
+            <button id="diskuz-call-start" type="button" aria-label="${isIt ? "Chiama" : "Call"}"><span class="diskuz-call-widget-start-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></span></button>
             <div id="diskuz-call-error"></div>
             <div class="diskuz-widget-status-label">${isIt ? "Stato:" : "Status:"}</div>
             <div class="diskuz-widget-status-btns">
@@ -2087,6 +2087,27 @@ export default apiInitializer("0.8", (api) => {
 
       if (localPreviewWrap) {
         let dragOffsetX = 0, dragOffsetY = 0, dragStartX = 0, dragStartY = 0, dragStartOffX = 0, dragStartOffY = 0;
+        const localPreviewOuter = localPreviewWrap.closest(".diskuz-call-local-preview-outer");
+        const callInner = callUI && callUI.querySelector(".call-inner");
+        function clampPreviewOffset(offX, offY) {
+          if (!callInner || !localPreviewOuter) return { x: offX, y: offY };
+          const container = callInner.getBoundingClientRect();
+          const outer = localPreviewOuter.getBoundingClientRect();
+          const wrap = localPreviewWrap.getBoundingClientRect();
+          const minX = container.left - outer.left;
+          const maxX = container.right - outer.left - wrap.width;
+          const minY = container.top - outer.top;
+          const maxY = container.bottom - outer.top - wrap.height;
+          const x = Math.min(Math.max(offX, minX), maxX);
+          const y = Math.min(Math.max(offY, minY), maxY);
+          return { x, y };
+        }
+        function applyClampedTransform(offX, offY) {
+          const c = clampPreviewOffset(offX, offY);
+          dragOffsetX = c.x;
+          dragOffsetY = c.y;
+          localPreviewWrap.style.transform = "translate(" + dragOffsetX + "px, " + dragOffsetY + "px)";
+        }
         if (isMobileDevice()) {
           localPreviewWrap.addEventListener("touchstart", function (e) {
             if (!e.touches || e.touches.length === 0) return;
@@ -2103,9 +2124,7 @@ export default apiInitializer("0.8", (api) => {
             e.preventDefault();
             const dx = e.touches[0].clientX - dragStartX;
             const dy = e.touches[0].clientY - dragStartY;
-            dragOffsetX = dragStartOffX + dx;
-            dragOffsetY = dragStartOffY + dy;
-            localPreviewWrap.style.transform = "translate(" + dragOffsetX + "px, " + dragOffsetY + "px)";
+            applyClampedTransform(dragStartOffX + dx, dragStartOffY + dy);
           }, { passive: false });
           localPreviewWrap.addEventListener("touchend", function (e) {
             localPreviewWrap.classList.remove("diskuz-local-preview-dragging");
@@ -2135,9 +2154,7 @@ export default apiInitializer("0.8", (api) => {
               ev.preventDefault();
               const dx = ev.clientX - dragStartX;
               const dy = ev.clientY - dragStartY;
-              dragOffsetX = dragStartOffX + dx;
-              dragOffsetY = dragStartOffY + dy;
-              localPreviewWrap.style.transform = "translate(" + dragOffsetX + "px, " + dragOffsetY + "px)";
+              applyClampedTransform(dragStartOffX + dx, dragStartOffY + dy);
             }
             function onMouseUp(ev) {
               document.removeEventListener("mousemove", onMouseMove);
@@ -4298,12 +4315,9 @@ export default apiInitializer("0.8", (api) => {
   api.onPageChange(initPage);
   initPage();
 
-  /* Notifiche Discourse (campanella): rendering corretto per "chiamata in arrivo" (icona + descrizione) */
+  /* Notifiche Discourse (campanella): rendering corretto per "chiamata in arrivo" (icona + descrizione). Discourse 2026 usa registerNotificationTypeRenderer con chiave "custom" e classe che estende la base. */
   withPluginApi("1.0.0", (pluginApi) => {
-    const CUSTOM_NOTIFICATION_TYPE = 14;
-    const register =
-      pluginApi.registerUserMenuNotificationTypeDirector ||
-      pluginApi.registerUserMenuComponentForNotificationType;
+    const register = pluginApi.registerNotificationTypeRenderer;
     if (typeof register !== "function") return;
     function parseData(notification) {
       const raw = notification?.data;
@@ -4315,27 +4329,34 @@ export default apiInitializer("0.8", (api) => {
         return {};
       }
     }
-    class DiskuzCallCustomNotificationDirector {
-      constructor(notification) {
-        this.notification = notification;
-        this._data = parseData(notification);
-      }
-      get icon() {
-        return this._data.customIcon || "bell";
-      }
-      get description() {
-        const d = this._data;
-        return d.customMessage || d.notification_message || d.message || "";
-      }
-      get link() {
-        return this._data.customUrl || "";
-      }
-      get label() {
-        return this._data.customTranslatedTitle || this._data.display_username || "";
-      }
-    }
-    register(CUSTOM_NOTIFICATION_TYPE, DiskuzCallCustomNotificationDirector);
-    log("diskuz-call: user menu notification director registered for custom type");
+    register("custom", (NotificationTypeBase) => {
+      return class DiskuzCallCustomNotificationRenderer extends NotificationTypeBase {
+        get _data() {
+          return parseData(this.notification);
+        }
+        get linkHref() {
+          const url = this._data.customUrl;
+          return url || super.linkHref;
+        }
+        get linkTitle() {
+          return this._data.customTranslatedTitle || this._data.customMessage || super.linkTitle;
+        }
+        get icon() {
+          return this._data.customIcon || "phone";
+        }
+        get label() {
+          const d = this._data;
+          if (d.display_username) return d.display_username;
+          if (d.username) return d.username;
+          return super.label;
+        }
+        get description() {
+          const d = this._data;
+          return d.customMessage || d.notification_message || d.message || super.description || "";
+        }
+      };
+    });
+    log("diskuz-call: notification type renderer registered for custom (campanella)");
   });
 
   /* Pulsante "Chiamata" nel composer della chat (stesso punto di Jitsi): con withPluginApi come fa Jitsi, così registerChatComposerButton è disponibile */
