@@ -1581,6 +1581,13 @@ export default apiInitializer("0.8", (api) => {
 
       document.body.appendChild(widget);
 
+      /* Mobile (verticale): impedisce zoom a pinza sull'intero widget */
+      if (isMobileDevice()) {
+        widget.addEventListener("touchmove", function (e) {
+          if (e.touches && e.touches.length >= 2) e.preventDefault();
+        }, { passive: false });
+      }
+
       if (!isMobileDevice()) {
         widget.addEventListener("mousedown", function (e) {
           if (e.target.closest("input, button, a, select, textarea, [contenteditable=\"true\"]")) return;
@@ -1981,13 +1988,13 @@ export default apiInitializer("0.8", (api) => {
       });
 
       speakerBtn.addEventListener("click", async function () {
-        if (isMobileDevice()) {
-          showSpeakerMobileVolumePopup();
-          return;
-        }
         ensureRemoteAudio();
         if (!setSinkIdSupported()) {
-          showToast("Audio output is controlled by your device.");
+          if (isMobileDevice()) {
+            showSpeakerMobileVolumePopup();
+          } else {
+            showToast("Audio output is controlled by your device.");
+          }
           return;
         }
         await cycleSpeakerOutput();
@@ -2742,6 +2749,7 @@ export default apiInitializer("0.8", (api) => {
 
   async function cycleSpeakerOutput() {
     if (!setSinkIdSupported()) return;
+    const isIt = document.documentElement.lang === "it";
     await refreshAudioOutputDevices();
     const totalOptions = audioOutputDevices.length + 1;
     currentSinkIndex = (currentSinkIndex + 1) % totalOptions;
@@ -2749,14 +2757,14 @@ export default apiInitializer("0.8", (api) => {
       currentSinkId = "";
       speakerOn = false;
       await applySpeakerSink();
-      showToast(isMobileDevice() ? "Earpiece" : "Default");
+      showToast(isMobileDevice() ? (isIt ? "Orecchio" : "Earpiece") : (isIt ? "Predefinito" : "Default"));
       return;
     }
     const device = audioOutputDevices[currentSinkIndex - 1];
     currentSinkId = device.deviceId;
     speakerOn = true;
     await applySpeakerSink();
-    const label = (device.label || "Speaker").slice(0, 28);
+    const label = (device.label || (isIt ? "Vivavoce" : "Speaker")).slice(0, 28);
     showToast(label);
   }
 
