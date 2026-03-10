@@ -1965,6 +1965,7 @@ export default apiInitializer("0.8", (api) => {
       `;
 
       document.body.appendChild(callUI);
+      if (typeof isIOS === "function" && isIOS()) callUI.classList.add("diskuz-call-ios");
 
       /* Mobile (anche orizzontale): impedisce zoom a pinza sull'intera UI chiamata */
       if (isMobileDevice()) {
@@ -2052,7 +2053,7 @@ export default apiInitializer("0.8", (api) => {
       speakerBtn.addEventListener("click", async function () {
         ensureRemoteAudio();
         if (!setSinkIdSupported()) {
-          if (isMobileDevice()) {
+          if (isMobileDevice() || isIOS()) {
             showSpeakerMobileVolumePopup();
           } else {
             showToast("Audio output is controlled by your device.");
@@ -2111,28 +2112,49 @@ export default apiInitializer("0.8", (api) => {
         applyMirrorToLocalPreview();
       }
       if (mirrorCb) applyMirrorToLocalPreview();
-      /* Mirror: su desktop solo click senza drag (in onMouseUp moved < 8); su mobile in touchend moved < 12. Nessun listener "click" per evitare che il mirror si attivi dopo un drag. */
+      /* Fullscreen: su mobile prova prima il video (fullscreen nativo stile YouTube, sopra a tutto incluso UI telefono); fallback su call UI o CSS (iOS). */
       if (fsButtonEl) {
         fsButtonEl.addEventListener("click", function () {
-          /* iOS Safari non supporta requestFullscreen() su elementi non-video: usiamo solo il toggle CSS (fullscreen "simulato") */
+          const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+          const remoteVideoEl = callUI.querySelector(".diskuz-call-remote-video");
+
+          if (fsEl) {
+            (document.exitFullscreen || document.webkitExitFullscreen)?.().call(document);
+            return;
+          }
+          const reqFsVideo = remoteVideoEl && (remoteVideoEl.requestFullscreen || remoteVideoEl.webkitRequestFullscreen);
+          const reqFsCallUI = callUI.requestFullscreen || callUI.webkitRequestFullscreen;
+          /* Prova prima il video (desktop e mobile): fullscreen nativo sul video spesso più affidabile */
+          if (reqFsVideo && callUI.classList.contains("diskuz-call-remote-video-active")) {
+            (remoteVideoEl.requestFullscreen || remoteVideoEl.webkitRequestFullscreen).call(remoteVideoEl).then(() => {
+              callUI.classList.add("diskuz-call-fullscreen-active");
+            }).catch((err) => {
+              logWarn("fullscreen on video failed", err);
+              if (reqFsCallUI) reqFsCallUI.call(callUI).catch((e) => logWarn("fullscreen on callUI failed", e));
+            });
+            return;
+          }
+          /* iOS senza supporto video fullscreen: solo CSS fallback */
           if (isIOS()) {
             const active = callUI.classList.toggle("diskuz-call-fullscreen-active");
             if (!active && document.body) document.body.classList.remove("diskuz-call-ios-fullscreen-fallback");
             else if (active && document.body) document.body.classList.add("diskuz-call-ios-fullscreen-fallback");
             return;
           }
-          const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
-          if (!fsEl) {
-            (callUI.requestFullscreen || callUI.webkitRequestFullscreen)?.().call(callUI).catch(() => {});
-          } else {
-            (document.exitFullscreen || document.webkitExitFullscreen)?.().call(document);
-          }
+          if (reqFsCallUI) reqFsCallUI.call(callUI).catch((e) => logWarn("fullscreen failed", e));
         });
         const onFullscreenChange = () => {
           const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
-          const isFs = !!fsEl && fsEl === callUI;
-          callUI.classList.toggle("diskuz-call-fullscreen-active", isFs);
-          if (document.body) document.body.classList.toggle("diskuz-call-ios-fullscreen-fallback", isFs);
+          const remoteVideoEl = callUI.querySelector(".diskuz-call-remote-video");
+          const isCallUIFs = !!fsEl && fsEl === callUI;
+          const isVideoFs = !!fsEl && remoteVideoEl && fsEl === remoteVideoEl;
+          if (!fsEl) {
+            callUI.classList.remove("diskuz-call-fullscreen-active");
+            if (document.body) document.body.classList.remove("diskuz-call-ios-fullscreen-fallback");
+          } else if (isCallUIFs || isVideoFs) {
+            callUI.classList.add("diskuz-call-fullscreen-active");
+            if (isCallUIFs && document.body) document.body.classList.add("diskuz-call-ios-fullscreen-fallback");
+          }
         };
         document.addEventListener("fullscreenchange", onFullscreenChange);
         document.addEventListener("webkitfullscreenchange", onFullscreenChange);
@@ -2509,6 +2531,15 @@ export default apiInitializer("0.8", (api) => {
 
   function updateCallUI(username, avatarTemplate, statusText) {
     createCallUI();
+    /* Ogni nuova chiamata parte con microfono non muto (icona e stato reale) */
+    const muteBtn = callUI && callUI.querySelector(".mute");
+    if (muteBtn) {
+      muteBtn.classList.remove("active");
+      muteBtn.setAttribute("aria-pressed", "false");
+    }
+    if (rtcLocalStream) {
+      rtcLocalStream.getAudioTracks().forEach((t) => (t.enabled = true));
+    }
 
     const inner = callUI && callUI.querySelector(".call-inner");
     const oldIncoming = inner && inner.querySelector(".incoming-row");
@@ -3767,7 +3798,9 @@ export default apiInitializer("0.8", (api) => {
       callUI.classList.remove("diskuz-call-video-active", "diskuz-call-remote-video-active", "diskuz-call-preview-only", "diskuz-call-remote-video-landscape", "diskuz-call-remote-video-portrait", "diskuz-call-fullscreen-active");
       if (document.body) document.body.classList.remove("diskuz-call-ios-fullscreen-fallback");
       const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
-      if (fsEl === callUI) (document.exitFullscreen || document.webkitExitFullscreen)?.().call(document);
+      if (fsEl === callUI || (callUI && fsEl === callUI.querySelector(".diskuz-call-remote-video"))) {
+        (document.exitFullscreen || document.webkitExitFullscreen)?.().call(document);
+      }
     }
     if (rtcPeer) {
       rtcPeer.close();
@@ -3931,6 +3964,15 @@ export default apiInitializer("0.8", (api) => {
 
   function showIncomingCallUI(username, avatarTemplate) {
     createCallUI();
+    /* Incoming: parte sempre con icona microfono attiva */
+    const muteBtn = callUI && callUI.querySelector(".mute");
+    if (muteBtn) {
+      muteBtn.classList.remove("active");
+      muteBtn.setAttribute("aria-pressed", "false");
+    }
+    if (rtcLocalStream) {
+      rtcLocalStream.getAudioTracks().forEach((t) => (t.enabled = true));
+    }
     callUI.classList.add("diskuz-call-incoming-ringing");
 
     const avatarUrl = avatarTemplate ? avatarTemplate.replace("{size}", "120") : null;
@@ -4502,6 +4544,11 @@ export default apiInitializer("0.8", (api) => {
         return {};
       }
     }
+    function missedCallText(field) {
+      const lang = typeof document !== "undefined" && document.documentElement ? document.documentElement.lang : "en";
+      if (field === "title") return lang === "it" ? "Chiamata persa" : "Missed call";
+      return lang === "it" ? "Chiamata persa" : "Missed a call";
+    }
     register("custom", (NotificationTypeBase) => {
       return class DiskuzCallCustomNotificationRenderer extends NotificationTypeBase {
         get _data() {
@@ -4512,7 +4559,9 @@ export default apiInitializer("0.8", (api) => {
           return url || super.linkHref;
         }
         get linkTitle() {
-          return this._data.customTranslatedTitle || this._data.customMessage || super.linkTitle;
+          const d = this._data;
+          if (d.diskuz_call_missed) return missedCallText("title");
+          return d.customTranslatedTitle || d.customMessage || super.linkTitle;
         }
         get icon() {
           return this._data.customIcon || "phone";
@@ -4525,7 +4574,12 @@ export default apiInitializer("0.8", (api) => {
         }
         get description() {
           const d = this._data;
-          const msg = d.customMessage || d.notification_message || d.message || super.description || "";
+          let msg;
+          if (d.diskuz_call_missed) {
+            msg = missedCallText("description");
+          } else {
+            msg = d.customMessage || d.notification_message || d.message || super.description || "";
+          }
           const eventAt = d.event_at;
           if (!eventAt) return msg;
           const date = new Date(eventAt);

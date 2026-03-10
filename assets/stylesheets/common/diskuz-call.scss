@@ -2488,6 +2488,16 @@ body.diskuz-call-ios-fullscreen-fallback {
     transition: transform 0.35s ease, opacity 0.35s ease;
     box-sizing: border-box !important;
   }
+  /* iOS: niente fullscreen automatico della UI (barra indirizzi Chrome in basso taglia i tasti); layout verticale come prima */
+  #diskuz-call-ui.diskuz-call-ios {
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+  }
+  #diskuz-call-ui.diskuz-call-ios .diskuz-call-controls-block,
+  #diskuz-call-ui.diskuz-call-ios .controls {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0) + 48px) !important; /* spazio per barra indirizzi Chrome in basso */
+  }
   #diskuz-call-ui.diskuz-call-video-active.open {
     transform: translateY(0) !important;
   }
@@ -2537,8 +2547,8 @@ body.diskuz-call-ios-fullscreen-fallback {
     padding-bottom: 12px;
   }
 
-  /* Mobile portrait + video call: UI già fullscreen verticale; nascondi tasto fullscreen (serve solo in landscape) */
-  #diskuz-call-ui.diskuz-call-video-active:not(.diskuz-call-mobile-landscape) .diskuz-call-fullscreen-btn {
+  /* Mobile portrait + video call: nascondi tasto fullscreen (serve solo in landscape). Su iOS lo mostriamo per fullscreen manuale sul video. */
+  #diskuz-call-ui.diskuz-call-video-active:not(.diskuz-call-mobile-landscape):not(.diskuz-call-ios) .diskuz-call-fullscreen-btn {
     display: none !important;
   }
   /* Video call mobile: video riempie tutto lo schermo; top bar in overlay in alto; pulsanti in overlay in basso con sfondo = video */
@@ -2941,7 +2951,20 @@ body.diskuz-call-ios-fullscreen-fallback {
   object-fit: contain !important;
   border-radius: 12px !important;
 }
-/* Video call landscape: pulsanti in top bar (prima di Ko-fi), senza sfondo sotto; "Nascondi Tasti" a sinistra di Mute */
+/* Video call landscape: top bar un'unica riga = logo centrato a sinistra (140px) + pulsanti + ko-fi a destra; pulsanti più piccoli per stare in 48px */
+#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-remote-video-active:not(.diskuz-call-fullscreen-active) .call-top-bar {
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
+  padding-bottom: 0 !important;
+  min-height: 48px !important;
+  height: 48px !important;
+}
+#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-remote-video-active:not(.diskuz-call-fullscreen-active) .call-top-bar .call-drag-handle {
+  flex: 0 0 140px !important;
+  justify-content: center !important;
+  min-width: 140px !important;
+}
 #diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-remote-video-active:not(.diskuz-call-fullscreen-active) .call-inner .diskuz-call-controls-block {
   grid-column: 1 / -1 !important;
   grid-row: 1 !important;
@@ -2954,12 +2977,12 @@ body.diskuz-call-ios-fullscreen-fallback {
   height: 48px !important;
   min-height: 48px !important;
   margin: 0 !important;
-  padding: 0 8px !important;
+  padding: 0 6px !important;
   padding-top: env(safe-area-inset-top, 0) !important;
   flex-direction: row !important;
   align-items: center !important;
   justify-content: flex-start !important;
-  gap: 6px !important;
+  gap: 4px !important;
   background: transparent !important;
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
@@ -2968,21 +2991,50 @@ body.diskuz-call-ios-fullscreen-fallback {
   pointer-events: auto !important;
   border-radius: 0 !important;
 }
+/* "Nascondi Tasti" vicino a Mute: solo testo cliccabile, non pulsante */
 #diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-remote-video-active:not(.diskuz-call-fullscreen-active) .diskuz-call-controls-block .diskuz-call-controls-toggle {
   order: -1 !important;
-  margin: 0 !important;
-  margin-right: 4px !important;
-  padding: 4px 8px !important;
-  font-size: 10px !important;
-  min-height: 28px !important;
-  border-radius: 6px !important;
-  background: rgba(255, 255, 255, 0.2) !important;
-  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  margin: 0 6px 0 0 !important;
+  padding: 0 4px !important;
+  font-size: 11px !important;
+  line-height: 1.2 !important;
+  min-height: 0 !important;
+  height: auto !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: none !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  flex-shrink: 0 !important;
+}
+#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-remote-video-active:not(.diskuz-call-fullscreen-active) .diskuz-call-controls-block .diskuz-call-controls-toggle:hover {
   color: #fff !important;
+  text-decoration: underline !important;
+}
+#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-remote-video-active:not(.diskuz-call-fullscreen-active) .diskuz-call-controls-block .diskuz-call-controls-inner {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  max-height: none !important;
 }
 #diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-remote-video-active:not(.diskuz-call-fullscreen-active) .diskuz-call-controls-block .controls {
   flex-direction: row !important;
-  gap: 6px !important;
+  gap: 4px !important;
+  align-items: center !important;
+}
+#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-remote-video-active:not(.diskuz-call-fullscreen-active) .diskuz-call-controls-block .controls .btn {
+  min-width: 36px !important;
+  min-height: 36px !important;
+  width: 36px !important;
+  height: 36px !important;
+  max-width: 36px !important;
+  max-height: 36px !important;
+  padding: 0 !important;
+  border-radius: 10px !important;
+}
+#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-remote-video-active:not(.diskuz-call-fullscreen-active) .diskuz-call-controls-block .controls .btn .diskuz-call-icon,
+#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-remote-video-active:not(.diskuz-call-fullscreen-active) .diskuz-call-controls-block .controls .btn .diskuz-call-hangup-icon {
+  width: 18px !important;
+  height: 18px !important;
 }
 #diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-remote-video-active:not(.diskuz-call-fullscreen-active) .diskuz-call-controls-block.diskuz-call-controls-hidden .diskuz-call-controls-inner {
   display: none !important;
