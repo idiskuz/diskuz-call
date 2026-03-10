@@ -40,6 +40,29 @@ function logError(...args) {
     return DEFAULT_ICE_SERVERS;
   }
 
+  /** True se la connessione sta effettivamente usando un candidato relay (TURN). Verifica in tempo reale via getStats(), nessun dato salvato. */
+  async function isConnectionUsingRelay() {
+    if (!rtcPeer) return false;
+    try {
+      const report = await rtcPeer.getStats();
+      for (const stat of report.values()) {
+        if (stat.type !== "candidate-pair") continue;
+        if (stat.state !== "succeeded") continue;
+        const localId = stat.localCandidateId;
+        const remoteId = stat.remoteCandidateId;
+        if (localId) {
+          const local = report.get(localId);
+          if (local && local.candidateType === "relay") return true;
+        }
+        if (remoteId) {
+          const remote = report.get(remoteId);
+          if (remote && remote.candidateType === "relay") return true;
+        }
+      }
+    } catch (e) {}
+    return false;
+  }
+
   function waitForDiskuzCallSend(maxMs) {
   return new Promise((resolve) => {
     if (typeof window.DiskuzCallSend === "function") {
@@ -1891,7 +1914,7 @@ export default apiInitializer("0.8", (api) => {
             <button type="button" class="diskuz-call-fullscreen-btn" aria-label="Fullscreen" style="display:none;">⛶</button>
           </div>
           <div class="diskuz-call-controls-block">
-            <button type="button" class="diskuz-call-controls-drawer-btn" aria-label="${isIt ? "Mostra pulsanti" : "Show controls"}" title="${isIt ? "Mostra pulsanti" : "Show controls"}" tabindex="0" style="display:none;">⎡</button>
+            <button type="button" class="diskuz-call-controls-drawer-btn" aria-label="${isIt ? "Mostra pulsanti" : "Show controls"}" title="${isIt ? "Mostra pulsanti" : "Show controls"}" tabindex="0" style="display:none;">\u22EE</button>
             <button type="button" class="diskuz-call-controls-toggle" tabindex="0" aria-label="" title=""></button>
             <div class="diskuz-call-controls-inner">
             <div class="controls">
@@ -1935,18 +1958,20 @@ export default apiInitializer("0.8", (api) => {
         const setControlsToggleLabel = function () {
           const hidden = controlsBlock.classList.contains("diskuz-call-controls-hidden");
           const isIt = document.documentElement.lang === "it";
-          const label = hidden
-            ? (isIt ? "Mostra pulsanti" : "Show controls")
-            : (isIt ? "Nascondi pulsanti" : "Hide controls");
+          const landscape = callUI && callUI.classList.contains("diskuz-call-mobile-landscape");
+          const label = landscape
+            ? (hidden ? (isIt ? "Mostra" : "Show") : (isIt ? "Nascondi" : "Hide"))
+            : (hidden ? (isIt ? "Mostra pulsanti" : "Show controls") : (isIt ? "Nascondi pulsanti" : "Hide controls"));
           controlsToggle.textContent = label;
           controlsToggle.setAttribute("aria-label", label);
           controlsToggle.setAttribute("title", label);
           if (controlsDrawerBtn) {
             controlsDrawerBtn.setAttribute("aria-label", label);
             controlsDrawerBtn.setAttribute("title", label);
-            controlsDrawerBtn.style.display = isMobileDevice() && hidden ? "flex" : "none";
+            controlsDrawerBtn.style.display = isMobileDevice() && hidden && !landscape ? "flex" : "none";
           }
         };
+        if (callUI) callUI._setControlsToggleLabel = setControlsToggleLabel;
         setControlsToggleLabel();
         const toggleControlsVisibility = function () {
           controlsBlock.classList.toggle("diskuz-call-controls-hidden");
@@ -2080,15 +2105,25 @@ export default apiInitializer("0.8", (api) => {
       /* Mirror: su desktop solo click senza drag (in onMouseUp moved < 8); su mobile in touchend moved < 12. Nessun listener "click" per evitare che il mirror si attivi dopo un drag. */
       if (fsButtonEl) {
         fsButtonEl.addEventListener("click", function () {
-          if (!document.fullscreenElement) {
-            callUI.requestFullscreen?.().catch(() => {});
+          /* iOS Safari non supporta requestFullscreen() su elementi non-video: usiamo solo il toggle CSS (fullscreen "simulato") */
+          if (isIOS()) {
+            const active = callUI.classList.toggle("diskuz-call-fullscreen-active");
+            if (!active && document.body) document.body.classList.remove("diskuz-call-ios-fullscreen-fallback");
+            else if (active && document.body) document.body.classList.add("diskuz-call-ios-fullscreen-fallback");
+            return;
+          }
+          const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+          if (!fsEl) {
+            (callUI.requestFullscreen || callUI.webkitRequestFullscreen)?.().call(callUI).catch(() => {});
           } else {
-            document.exitFullscreen?.();
+            (document.exitFullscreen || document.webkitExitFullscreen)?.().call(document);
           }
         });
         const onFullscreenChange = () => {
-          const isFs = !!document.fullscreenElement && document.fullscreenElement === callUI;
+          const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+          const isFs = !!fsEl && fsEl === callUI;
           callUI.classList.toggle("diskuz-call-fullscreen-active", isFs);
+          if (document.body) document.body.classList.toggle("diskuz-call-ios-fullscreen-fallback", isFs);
         };
         document.addEventListener("fullscreenchange", onFullscreenChange);
         document.addEventListener("webkitfullscreenchange", onFullscreenChange);
@@ -2278,6 +2313,10 @@ export default apiInitializer("0.8", (api) => {
         });
       }
       /* Delegazione click su callUI: così il Video viene gestito come Mute/Speaker anche se un tema o altro codice tocca i pulsanti. */
+      function updateLocalPreviewBlur() {
+        const preview = callUI && callUI.querySelector(".diskuz-call-local-preview");
+        if (preview) preview.classList.toggle("diskuz-call-preview-blurred", videoBlurOn);
+      }
       function handleBlurButtonTap() {
         if (!localVideoOn || !rtcPeer) return;
         const isIt = document.documentElement.lang === "it";
@@ -2294,12 +2333,14 @@ export default apiInitializer("0.8", (api) => {
           blurBtn.classList.toggle("active", videoBlurOn);
           blurBtn.setAttribute("aria-label", videoBlurOn ? (isIt ? "Sfoca video attiva" : "Blur on") : (isIt ? "Sfoca video" : "Blur video"));
         }
+        updateLocalPreviewBlur();
         if (videoBlurOn && typeof showBlurActivePopup === "function") showBlurActivePopup();
         if (typeof applyVideoEffectsToSentStream === "function") {
           applyVideoEffectsToSentStream(mirrorCb && mirrorCb.checked, videoBlurOn).catch((err) => {
             logWarn("applyVideoEffectsToSentStream failed (blur)", err);
             videoBlurOn = !videoBlurOn;
             if (blurBtn) blurBtn.classList.toggle("active", videoBlurOn);
+            updateLocalPreviewBlur();
           });
         }
       }
@@ -2515,6 +2556,11 @@ export default apiInitializer("0.8", (api) => {
 
     setTimeout(function () {
       callUI.classList.add("open");
+      if (currentCall.direction === "outgoing" && currentCall.isRinging) {
+        callUI.classList.add("diskuz-call-outgoing-ringing");
+      } else {
+        callUI.classList.remove("diskuz-call-outgoing-ringing");
+      }
     }, 10);
   }
 
@@ -2529,7 +2575,7 @@ export default apiInitializer("0.8", (api) => {
     if (!callUI) return;
     setIncomingCallButtonState(false);
     updateFloatingButtonActiveCallState(false);
-    callUI.classList.remove("open", "diskuz-call-minimized", "diskuz-call-incoming-ringing", "diskuz-call-video-active", "diskuz-call-connected");
+    callUI.classList.remove("open", "diskuz-call-minimized", "diskuz-call-incoming-ringing", "diskuz-call-outgoing-ringing", "diskuz-call-video-active", "diskuz-call-connected");
     if (proximityOverlay) {
       proximityOverlay.style.display = "none";
     }
@@ -2907,12 +2953,13 @@ export default apiInitializer("0.8", (api) => {
       localPreview.playsInline = true;
     }
     try {
-      /* Video massima qualità; il browser adatta automaticamente in base alla connessione (come WhatsApp) */
-      const isMobile = isMobileDevice();
+      /* Video massima qualità: 1080p su tutti i dispositivi; Android spesso restituisce bassa risoluzione se i vincoli sono deboli */
+      const isAndroid = /Android/i.test(navigator.userAgent);
       const videoOpt = {
         facingMode: "user",
-        width: { ideal: isMobile ? 1280 : 1920 },
-        height: { ideal: isMobile ? 720 : 1080 },
+        width: { ideal: 1920, min: isAndroid ? 1280 : 640 },
+        height: { ideal: 1080, min: isAndroid ? 720 : 480 },
+        frameRate: { ideal: 30, min: 24 },
       };
       if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== "function") {
         videoRequestInProgress = false;
@@ -2933,7 +2980,17 @@ export default apiInitializer("0.8", (api) => {
           });
         });
       };
-      const videoStream = await getUserMediaWithTimeout(20000);
+      let videoStream = null;
+      try {
+        videoStream = await getUserMediaWithTimeout(20000);
+      } catch (err) {
+        if (isAndroid && err.name === "OverconstrainedError") {
+          const fallbackOpt = { facingMode: "user", width: { ideal: 1920, min: 640 }, height: { ideal: 1080, min: 480 }, frameRate: { ideal: 30 } };
+          videoStream = await navigator.mediaDevices.getUserMedia({ video: fallbackOpt });
+        } else {
+          throw err;
+        }
+      }
       const videoTrack = videoStream.getVideoTracks()[0];
       if (!videoTrack) {
         videoRequestInProgress = false;
@@ -2943,20 +3000,20 @@ export default apiInitializer("0.8", (api) => {
         showToast(isIt ? "Nessun track video." : "No video track.");
         return;
       }
+      if (videoTrack.getSettings && isAndroid) {
+        const s = videoTrack.getSettings();
+        if ((s.width || 0) < 1280 || (s.height || 0) < 720) {
+          try {
+            await videoTrack.applyConstraints({ width: 1280, height: 720 });
+          } catch (e) {}
+        }
+      }
       rtcLocalStream.addTrack(videoTrack);
       localVideoTrack = videoTrack;
       rtcPeer.addTrack(videoTrack, rtcLocalStream);
+      await setVideoSenderHighQuality();
       const offer = await rtcPeer.createOffer();
       await rtcPeer.setLocalDescription(offer);
-      try {
-        const sender = rtcPeer.getSenders().find((s) => s.track && s.track.kind === "video");
-        if (sender && sender.getParameters) {
-          const params = sender.getParameters();
-          if (!params.encodings) params.encodings = [{}];
-          params.encodings[0].maxBitrate = 4000000;
-          await sender.setParameters(params);
-        }
-      } catch (e) {}
       const sdpPayload = serializeSdp(rtcPeer.localDescription);
       if (!sdpPayload || !sdpPayload.type || !sdpPayload.sdp) {
         videoRequestInProgress = false;
@@ -3006,6 +3063,7 @@ export default apiInitializer("0.8", (api) => {
       if (videoBtn) videoBtn.classList.add("active");
       const blurBtn = callUI && callUI.querySelector(".btn.blur");
       if (blurBtn) blurBtn.classList.toggle("active", videoBlurOn);
+      if (localPreview) localPreview.classList.toggle("diskuz-call-preview-blurred", videoBlurOn);
       updateVideoLayout();
       updateVideoButtonVisibility();
       if (typeof applyVideoEffectsToSentStream === "function") {
@@ -3030,10 +3088,12 @@ export default apiInitializer("0.8", (api) => {
     const mirrorCb = callUI && callUI.querySelector(".diskuz-call-video-mirror-cb");
     const isIt = document.documentElement.lang === "it";
     const newFacing = currentVideoFacingMode === "user" ? "environment" : "user";
+    const isAndroid = /Android/i.test(navigator.userAgent);
     const videoOpt = {
       facingMode: { exact: newFacing },
-      width: { ideal: 1280 },
-      height: { ideal: 720 },
+      width: { ideal: 1920, min: isAndroid ? 1280 : 640 },
+      height: { ideal: 1080, min: isAndroid ? 720 : 480 },
+      frameRate: { ideal: 30, min: 24 },
     };
     videoRequestInProgress = true;
     try {
@@ -3075,9 +3135,23 @@ export default apiInitializer("0.8", (api) => {
     }
   }
 
+  /** Imposta bitrate massimo sul sender video (qualità massima invio/ricezione) */
+  async function setVideoSenderHighQuality() {
+    if (!rtcPeer) return;
+    const sender = rtcPeer.getSenders().find((s) => s.track && s.track.kind === "video");
+    if (!sender || !sender.getParameters) return;
+    try {
+      const params = sender.getParameters();
+      if (!params.encodings) params.encodings = [{}];
+      params.encodings[0].maxBitrate = 8000000; // 8 Mbps per qualità massima (1080p+)
+      await sender.setParameters(params);
+    } catch (e) {}
+  }
+
   async function sendVideoRenegotiation() {
     if (!rtcPeer || !currentCall.userId || !window.DiskuzCallSend) return;
     try {
+      await setVideoSenderHighQuality();
       const offer = await rtcPeer.createOffer();
       await rtcPeer.setLocalDescription(offer);
       const sdpPayload = serializeSdp(rtcPeer.localDescription);
@@ -3218,6 +3292,8 @@ export default apiInitializer("0.8", (api) => {
     videoBlurOn = false;
     const blurBtn = callUI && callUI.querySelector(".btn.blur");
     if (blurBtn) blurBtn.classList.remove("active");
+    const localPrev = callUI && callUI.querySelector(".diskuz-call-local-preview");
+    if (localPrev) localPrev.classList.remove("diskuz-call-preview-blurred");
     if (callUI._updateSwitchCameraButton) callUI._updateSwitchCameraButton();
     updateVideoLayout();
     updateVideoButtonVisibility();
@@ -3253,8 +3329,12 @@ export default apiInitializer("0.8", (api) => {
       const connState = rtcPeer?.connectionState;
       log("[*] RTCPeerConnection state:", connState);
       if (callUI) {
-        if (connState === "connected") callUI.classList.add("diskuz-call-connected");
-        else callUI.classList.remove("diskuz-call-connected");
+        if (connState === "connected") {
+          callUI.classList.add("diskuz-call-connected");
+          callUI.classList.remove("diskuz-call-outgoing-ringing");
+        } else {
+          callUI.classList.remove("diskuz-call-connected");
+        }
       }
       if (connState === "connected" && !callDurationIntervalId && callConnectedAt == null) {
         callConnectedAt = Date.now();
@@ -3264,6 +3344,9 @@ export default apiInitializer("0.8", (api) => {
         rtcRemoteAudio.muted = false;
         applySpeakerSink();
         scheduleRemoteAudioPlayRetries();
+      }
+      if (connState === "connected" && localVideoOn && typeof setVideoSenderHighQuality === "function") {
+        setVideoSenderHighQuality();
       }
       updateVideoButtonVisibility();
     };
@@ -3646,7 +3729,9 @@ export default apiInitializer("0.8", (api) => {
       if (localP) localP.srcObject = null;
       if (fsBtn) fsBtn.style.display = "none";
       callUI.classList.remove("diskuz-call-video-active", "diskuz-call-remote-video-active", "diskuz-call-preview-only", "diskuz-call-remote-video-landscape", "diskuz-call-remote-video-portrait", "diskuz-call-fullscreen-active");
-      if (document.fullscreenElement === callUI) document.exitFullscreen?.();
+      if (document.body) document.body.classList.remove("diskuz-call-ios-fullscreen-fallback");
+      const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+      if (fsEl === callUI) (document.exitFullscreen || document.webkitExitFullscreen)?.().call(document);
     }
     if (rtcPeer) {
       rtcPeer.close();
@@ -3700,14 +3785,15 @@ export default apiInitializer("0.8", (api) => {
     closeCallUI();
   }
 
-  /* Desktop: non terminare su minimize/tab (solo su freeze = sospensione/blocco/standby).
-     Mobile: videochiamata termina su hidden (risparmio TURN); voce solo su freeze (blocco schermo). */
-  document.addEventListener("visibilitychange", function () {
+  /* Tab/scheda nascosta: verifica in tempo reale se la connessione usa relay (TURN). Solo in quel caso fermiamo il video. */
+  document.addEventListener("visibilitychange", async function () {
     if (document.visibilityState !== "hidden" || !currentCall.active) return;
     const hasVideo = localVideoOn || remoteVideoActive;
-    if (hasVideo && isMobileDevice()) {
-      log("[diskuz-call] Video call (mobile) – page hidden, ending call");
-      endCurrentCall("ended");
+    if (!hasVideo) return;
+    const usingRelay = await isConnectionUsingRelay();
+    if (usingRelay) {
+      log("[diskuz-call] Page hidden and connection using TURN relay – stopping video stream");
+      if (typeof disableVideo === "function" && localVideoOn) disableVideo();
     }
   });
 
@@ -4338,6 +4424,7 @@ export default apiInitializer("0.8", (api) => {
           const landscape = window.innerWidth > window.innerHeight;
           if (callUI) callUI.classList.toggle("diskuz-call-mobile-landscape", landscape);
           if (widget) widget.classList.toggle("diskuz-call-mobile-landscape", landscape);
+          if (callUI && typeof callUI._setControlsToggleLabel === "function") callUI._setControlsToggleLabel();
         }
         window.addEventListener("orientationchange", updateMobileOrientationClass);
         window.addEventListener("resize", updateMobileOrientationClass);

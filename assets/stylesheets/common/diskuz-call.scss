@@ -5,6 +5,16 @@
   }
 }
 
+/* iOS: fullscreen video "simulato" (Safari non supporta requestFullscreen su div): blocca body per coprire tutto lo schermo */
+body.diskuz-call-ios-fullscreen-fallback {
+  overflow: hidden !important;
+  position: fixed !important;
+  width: 100% !important;
+  height: 100% !important;
+  left: 0 !important;
+  top: 0 !important;
+}
+
 /* Animazione vortice: widget/UI aspirati verso il pulsante floating (solo desktop) */
 #diskuz-call-widget.diskuz-call-vortex-out,
 #diskuz-call-ui.diskuz-call-vortex-out,
@@ -1822,8 +1832,11 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
-  border-radius: 12px;
+}
+/* Blur attivo: anteprima locale sfocata come il flusso inviato (Android/desktop) */
+#diskuz-call-ui .diskuz-call-local-preview.diskuz-call-preview-blurred {
+  filter: blur(12px);
+  transition: filter 0.2s ease;
 }
 
 /* Anteprima locale: trascinabile (grab), clic per mirror */
@@ -2016,7 +2029,7 @@
   pointer-events: none;
 }
 
-/* Pulsante parentesi "⎡" per mostrare i pulsanti quando nascosti (mobile/tablet, soprattutto landscape con video) */
+/* Pulsante per mostrare i controlli quando nascosti (mobile/tablet, ritratto) */
 #diskuz-call-ui .diskuz-call-controls-drawer-btn {
   display: none;
   position: absolute;
@@ -2048,8 +2061,9 @@
   background: color-mix(in srgb, var(--diskuz-call-primary, #13c98c) 40%, rgba(0, 0, 0, 0.6));
 }
 
-/* Toggle nascosto in attesa risposta (incoming o outgoing) */
-#diskuz-call-ui.diskuz-call-incoming-ringing .diskuz-call-controls-toggle {
+/* Toggle "Nascondi pulsanti" solo durante chiamata/videochiamata attiva, mai in tentativo (incoming o outgoing) */
+#diskuz-call-ui.diskuz-call-incoming-ringing .diskuz-call-controls-toggle,
+#diskuz-call-ui.diskuz-call-outgoing-ringing .diskuz-call-controls-toggle {
   display: none !important;
 }
 /* Blocco pulsanti (mute, speaker, hangup) centrato; pulsanti stessa grandezza in chiamata e videochiamata */
@@ -2557,6 +2571,21 @@
     bottom: calc(110px + env(safe-area-inset-bottom, 0));
     right: 12px;
   }
+  /* Mobile: flusso orizzontale da desktop = riquadro orizzontale centrato, bande sopra/sotto con sfondo dinamico (colore principale) */
+  #diskuz-call-ui.diskuz-call-video-active.diskuz-call-remote-video-active.diskuz-call-remote-video-landscape .diskuz-call-video-wrap {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: radial-gradient(circle at top left, var(--diskuz-call-primary, #13c98c) 0%, var(--diskuz-call-primary-dark, #0f8f6a) 30%, #111827 70%, #020617 100%) !important;
+    background-size: 200% 200% !important;
+    animation: diskuz-call-bg 8s ease-in-out infinite;
+  }
+  #diskuz-call-ui.diskuz-call-video-active.diskuz-call-remote-video-active.diskuz-call-remote-video-landscape .diskuz-call-remote-video {
+    width: 100% !important;
+    height: auto !important;
+    max-height: 100% !important;
+    object-fit: contain !important;
+  }
   /* Solo video attivo senza remoto (preview only): layout compatto */
   #diskuz-call-ui.diskuz-call-video-active:not(.diskuz-call-remote-video-active) .call-inner {
     position: relative;
@@ -2749,7 +2778,7 @@
   overflow: hidden !important;
 }
 
-/* Call UI in orizzontale su mobile: a schermo intero come il widget, blocca zoom e doppio tap */
+/* Call UI in orizzontale su mobile: riempie tutto lo schermo, sito sotto non visibile neanche un millimetro */
 #diskuz-call-ui.diskuz-call-mobile-landscape {
   position: fixed !important;
   top: 0 !important;
@@ -2757,6 +2786,7 @@
   right: 0 !important;
   bottom: 0 !important;
   width: 100% !important;
+  width: 100vw !important;
   height: 100% !important;
   height: 100vh !important;
   height: 100dvh !important;
@@ -2772,8 +2802,11 @@
   z-index: 99999 !important;
   touch-action: manipulation !important;
   -ms-touch-action: manipulation !important;
-  isolation: isolate;
-  box-sizing: border-box;
+  isolation: isolate !important;
+  box-sizing: border-box !important;
+  background: radial-gradient(circle at top left, var(--diskuz-call-primary, #13c98c) 0%, var(--diskuz-call-primary-dark, #0f8f6a) 30%, #111827 70%, #020617 100%) !important;
+  background-size: 200% 200% !important;
+  animation: diskuz-call-bg 8s ease-in-out infinite;
 }
 #diskuz-call-ui.diskuz-call-mobile-landscape.open {
   display: flex !important;
@@ -2787,24 +2820,28 @@
   grid-template-rows: auto auto auto auto auto 1fr auto auto !important;
   align-content: start !important;
   gap: 0 12px !important;
-  padding: 12px 12px 0 !important;
+  padding: 12px 0 0 12px !important;
   padding-top: calc(12px + env(safe-area-inset-top, 0)) !important;
+  padding-right: 0 !important;
 }
-/* Colonna sinistra: avatar, nome, logo diskuz Call + slogan + durata */
+/* Colonna sinistra: elementi centrati */
 #diskuz-call-ui.diskuz-call-mobile-landscape .call-inner .avatar {
   grid-column: 1 !important;
   grid-row: 1 !important;
   width: 72px !important;
   height: 72px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
   margin-bottom: 8px !important;
-  justify-self: start !important;
+  justify-self: center !important;
 }
 #diskuz-call-ui.diskuz-call-mobile-landscape .call-inner .username {
   grid-column: 1 !important;
   grid-row: 2 !important;
   font-size: 15px !important;
   margin-bottom: 4px !important;
-  justify-self: start !important;
+  justify-self: center !important;
+  text-align: center !important;
   word-break: break-word !important;
 }
 #diskuz-call-ui.diskuz-call-mobile-landscape .call-inner .status {
@@ -2812,13 +2849,18 @@
   grid-row: 3 !important;
   font-size: 12px !important;
   margin-bottom: 6px !important;
-  justify-self: start !important;
+  justify-self: center !important;
+  text-align: center !important;
 }
 #diskuz-call-ui.diskuz-call-mobile-landscape .call-inner .diskuz-call-watermark {
   grid-column: 1 !important;
   grid-row: 4 !important;
   margin: 0 0 4px 0 !important;
-  justify-self: start !important;
+  justify-self: center !important;
+  text-align: center !important;
+}
+#diskuz-call-ui.diskuz-call-mobile-landscape .call-inner .diskuz-call-watermark-inner {
+  text-align: center !important;
 }
 #diskuz-call-ui.diskuz-call-mobile-landscape .call-inner .diskuz-call-watermark-title {
   font-size: 0.9rem !important;
@@ -2832,9 +2874,9 @@
   grid-row: 5 !important;
   font-size: 13px !important;
   margin-bottom: 0 !important;
-  justify-self: start !important;
+  justify-self: center !important;
+  text-align: center !important;
 }
-/* In landscape mostriamo avatar, nome, watermark e durata anche con video remoto attivo */
 #diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-remote-video-active .avatar,
 #diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-remote-video-active .username,
 #diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-remote-video-active .status,
@@ -2842,50 +2884,98 @@
 #diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-remote-video-active .duration {
   display: block !important;
 }
-/* Area video a destra: occupa tutta la colonna 2 dalle righe 1 a 6 */
+/* Riquadro video solo quando c'è flusso video in ingresso; dimensioni standard orizzontali (16:9) */
 #diskuz-call-ui.diskuz-call-mobile-landscape .call-inner .diskuz-call-video-wrap {
+  display: none !important;
+}
+#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-remote-video-active .call-inner .diskuz-call-video-wrap {
   grid-column: 2 !important;
   grid-row: 1 / 7 !important;
   position: relative !important;
   inset: auto !important;
+  width: 100% !important;
   min-height: 0 !important;
+  aspect-ratio: 16 / 9 !important;
+  max-height: 100% !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   background: #0d0d0d !important;
   border-radius: 12px !important;
+  overflow: hidden !important;
 }
-#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-video-active .call-inner .diskuz-call-video-wrap {
-  display: flex !important;
-}
-#diskuz-call-ui.diskuz-call-mobile-landscape .diskuz-call-remote-video {
+/* Flusso orizzontale: riempie tutto il rettangolo */
+#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-remote-video-landscape .diskuz-call-remote-video {
   width: 100% !important;
   height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 12px !important;
+}
+/* Flusso verticale: resta verticale dentro il rettangolo */
+#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-remote-video-portrait .diskuz-call-video-wrap {
+  background: radial-gradient(ellipse at 50% 50%, #111827 0%, #0d0d0d 40%, #020617 100%) !important;
+}
+#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-remote-video-portrait .diskuz-call-remote-video {
+  width: auto !important;
+  height: 100% !important;
+  max-width: 100% !important;
   object-fit: contain !important;
   border-radius: 12px !important;
 }
-/* Pulsanti in basso a tutta larghezza */
+/* Pulsanti sul bordo destro (lato caricabatteria), uno sotto l'altro, quasi attaccati al bordo, semi-trasparenti, nascondibili con mini "Nascondi"/"Hide" */
+#diskuz-call-ui.diskuz-call-mobile-landscape .diskuz-call-controls-drawer-btn {
+  display: none !important;
+}
 #diskuz-call-ui.diskuz-call-mobile-landscape .call-inner .diskuz-call-controls-block {
-  grid-column: 1 / -1 !important;
-  grid-row: 7 !important;
-  position: relative !important;
-  bottom: auto !important;
+  grid-column: 2 !important;
+  grid-row: 1 / 8 !important;
+  position: absolute !important;
+  right: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
   left: auto !important;
-  right: auto !important;
+  width: auto !important;
   margin: 0 !important;
-  padding: 10px 12px 14px !important;
-  padding-bottom: calc(14px + env(safe-area-inset-bottom, 0)) !important;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.2)) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
-  backdrop-filter: blur(8px) !important;
+  padding: 10px 4px 10px 8px !important;
+  padding-right: calc(4px + env(safe-area-inset-right, 0)) !important;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0)) !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.2)) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  backdrop-filter: blur(10px) !important;
   z-index: 10 !important;
   pointer-events: auto !important;
+  border-radius: 12px 0 0 12px !important;
 }
-#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-video-active.diskuz-call-remote-video-active .call-inner .diskuz-call-controls-block {
-  position: relative !important;
-  bottom: auto !important;
+#diskuz-call-ui.diskuz-call-mobile-landscape .diskuz-call-controls-block .controls {
+  flex-direction: column !important;
+  gap: 10px !important;
 }
-/* Ear mode in landscape: in alto a destra sopra il video */
+#diskuz-call-ui.diskuz-call-mobile-landscape .diskuz-call-controls-toggle {
+  order: 10 !important;
+  margin-top: 6px !important;
+  padding: 6px 10px !important;
+  font-size: 11px !important;
+  min-height: 32px !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  color: #fff !important;
+}
+#diskuz-call-ui.diskuz-call-mobile-landscape .diskuz-call-controls-block.diskuz-call-controls-hidden .diskuz-call-controls-inner {
+  display: none !important;
+}
+#diskuz-call-ui.diskuz-call-mobile-landscape .diskuz-call-controls-block.diskuz-call-controls-hidden {
+  min-width: 56px !important;
+  padding: 8px 4px !important;
+  padding-right: calc(4px + env(safe-area-inset-right, 0)) !important;
+}
+#diskuz-call-ui.diskuz-call-mobile-landscape .diskuz-call-controls-block.diskuz-call-controls-hidden .diskuz-call-controls-toggle {
+  margin-top: 0 !important;
+}
 #diskuz-call-ui.diskuz-call-mobile-landscape .call-inner .ear-mode {
   grid-column: 2 !important;
   grid-row: 1 !important;
@@ -2898,64 +2988,66 @@
   justify-self: start !important;
   margin: 4px 0 0 4px !important;
 }
-/* Riga "Nascondi e naviga" sotto i controlli */
 #diskuz-call-ui.diskuz-call-mobile-landscape .call-inner .diskuz-call-hide-ui-row {
   grid-column: 1 / -1 !important;
   grid-row: 8 !important;
   padding: 8px 0 12px !important;
   padding-bottom: calc(12px + env(safe-area-inset-bottom, 0)) !important;
 }
-/* Incoming: Accetta/Rifiuta nella colonna sinistra sotto la durata */
 #diskuz-call-ui.diskuz-call-mobile-landscape .call-inner .incoming-row {
   grid-column: 1 !important;
   grid-row: 6 !important;
-  justify-self: start !important;
+  justify-self: center !important;
   align-self: start !important;
 }
-/* Anteprima locale in landscape: angolo in basso a destra dell'area video */
 #diskuz-call-ui.diskuz-call-mobile-landscape .diskuz-call-local-preview-outer {
   position: absolute !important;
-  right: 16px !important;
-  bottom: calc(80px + env(safe-area-inset-bottom, 0)) !important;
+  right: calc(72px + env(safe-area-inset-right, 0)) !important;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0)) !important;
   z-index: 4 !important;
 }
 #diskuz-call-ui.diskuz-call-mobile-landscape .diskuz-call-local-preview-wrap {
   width: 64px !important;
   height: 96px !important;
 }
-/* Landscape mobile: pulsante fullscreen visibile sul video */
-#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-video-active.diskuz-call-remote-video-active .diskuz-call-fullscreen-btn {
+#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-remote-video-active .diskuz-call-fullscreen-btn {
   display: flex !important;
   top: 8px !important;
-  right: 8px !important;
+  right: calc(72px + env(safe-area-inset-right, 0)) !important;
   z-index: 5 !important;
 }
-/* Landscape: pulsanti in verticale a destra; quando nascosti resta solo il pulsante parentesi */
-#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-video-active.diskuz-call-remote-video-active .diskuz-call-controls-block {
-  flex-direction: column !important;
-  align-items: center !important;
+/* Fullscreen: video a schermo intero, resto nascosto, pulsanti semi-trasparenti a destra */
+#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-fullscreen-active.diskuz-call-remote-video-active .call-inner .avatar,
+#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-fullscreen-active.diskuz-call-remote-video-active .call-inner .username,
+#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-fullscreen-active.diskuz-call-remote-video-active .call-inner .status,
+#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-fullscreen-active.diskuz-call-remote-video-active .call-inner .diskuz-call-watermark,
+#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-fullscreen-active.diskuz-call-remote-video-active .call-inner .duration,
+#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-fullscreen-active.diskuz-call-remote-video-active .call-inner .incoming-row,
+#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-fullscreen-active.diskuz-call-remote-video-active .call-inner .diskuz-call-hide-ui-row {
+  display: none !important;
+}
+#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-fullscreen-active.diskuz-call-remote-video-active .call-inner .diskuz-call-video-wrap {
+  position: absolute !important;
+  inset: 0 !important;
+  grid-column: 1 / -1 !important;
+  grid-row: 1 / -1 !important;
+  aspect-ratio: auto !important;
+  max-height: none !important;
+  border-radius: 0 !important;
+}
+#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-fullscreen-active .diskuz-call-controls-block {
+  position: absolute !important;
   right: 0 !important;
-  left: auto !important;
   top: 0 !important;
   bottom: 0 !important;
-  transform: none !important;
-  width: auto !important;
-  padding: 12px 8px !important;
-  border-radius: 12px 0 0 12px !important;
+  left: auto !important;
+  grid-column: unset !important;
+  grid-row: unset !important;
+  padding: 10px 4px 10px 8px !important;
+  padding-right: calc(4px + env(safe-area-inset-right, 0)) !important;
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.6), transparent) !important;
 }
-#diskuz-call-ui.diskuz-call-mobile-landscape .diskuz-call-controls-block .controls {
-  flex-direction: column !important;
-  gap: 10px !important;
-}
-#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-video-active .diskuz-call-controls-block.diskuz-call-controls-hidden {
-  min-width: 48px !important;
-  padding: 12px 4px !important;
-}
-#diskuz-call-ui.diskuz-call-mobile-landscape .diskuz-call-controls-drawer-btn {
-  position: relative !important;
-  right: auto !important;
-  top: auto !important;
-  transform: none !important;
-  margin: 0 !important;
+#diskuz-call-ui.diskuz-call-mobile-landscape.diskuz-call-fullscreen-active .diskuz-call-fullscreen-btn {
+  right: calc(72px + env(safe-area-inset-right, 0)) !important;
 }
 
