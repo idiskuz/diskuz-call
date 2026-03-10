@@ -1891,6 +1891,7 @@ export default apiInitializer("0.8", (api) => {
             <button type="button" class="diskuz-call-fullscreen-btn" aria-label="Fullscreen" style="display:none;">⛶</button>
           </div>
           <div class="diskuz-call-controls-block">
+            <button type="button" class="diskuz-call-controls-drawer-btn" aria-label="${isIt ? "Mostra pulsanti" : "Show controls"}" title="${isIt ? "Mostra pulsanti" : "Show controls"}" tabindex="0" style="display:none;">⎡</button>
             <button type="button" class="diskuz-call-controls-toggle" tabindex="0" aria-label="" title=""></button>
             <div class="diskuz-call-controls-inner">
             <div class="controls">
@@ -1913,6 +1914,13 @@ export default apiInitializer("0.8", (api) => {
 
       document.body.appendChild(callUI);
 
+      /* Mobile (anche orizzontale): impedisce zoom a pinza sull'intera UI chiamata */
+      if (isMobileDevice()) {
+        callUI.addEventListener("touchmove", function (e) {
+          if (e.touches && e.touches.length >= 2) e.preventDefault();
+        }, { passive: false });
+      }
+
       const hideUIBtn = callUI.querySelector(".diskuz-call-hide-ui-btn");
       if (hideUIBtn) {
         hideUIBtn.addEventListener("click", function () {
@@ -1922,6 +1930,7 @@ export default apiInitializer("0.8", (api) => {
 
       const controlsBlock = callUI.querySelector(".diskuz-call-controls-block");
       const controlsToggle = callUI.querySelector(".diskuz-call-controls-toggle");
+      const controlsDrawerBtn = callUI.querySelector(".diskuz-call-controls-drawer-btn");
       if (controlsBlock && controlsToggle) {
         const setControlsToggleLabel = function () {
           const hidden = controlsBlock.classList.contains("diskuz-call-controls-hidden");
@@ -1932,6 +1941,11 @@ export default apiInitializer("0.8", (api) => {
           controlsToggle.textContent = label;
           controlsToggle.setAttribute("aria-label", label);
           controlsToggle.setAttribute("title", label);
+          if (controlsDrawerBtn) {
+            controlsDrawerBtn.setAttribute("aria-label", label);
+            controlsDrawerBtn.setAttribute("title", label);
+            controlsDrawerBtn.style.display = isMobileDevice() && hidden ? "flex" : "none";
+          }
         };
         setControlsToggleLabel();
         const toggleControlsVisibility = function () {
@@ -1942,6 +1956,20 @@ export default apiInitializer("0.8", (api) => {
           e.preventDefault();
           toggleControlsVisibility();
         });
+        if (controlsDrawerBtn) {
+          controlsDrawerBtn.addEventListener("click", function (e) {
+            e.preventDefault();
+            controlsBlock.classList.remove("diskuz-call-controls-hidden");
+            setControlsToggleLabel();
+          });
+          if (isMobileDevice()) {
+            controlsDrawerBtn.addEventListener("touchend", function (e) {
+              e.preventDefault();
+              controlsBlock.classList.remove("diskuz-call-controls-hidden");
+              setControlsToggleLabel();
+            }, { passive: false });
+          }
+        }
         if (isMobileDevice()) {
           controlsToggle.addEventListener("touchend", function (e) {
             e.preventDefault();
@@ -2824,7 +2852,7 @@ export default apiInitializer("0.8", (api) => {
     }
     const localPreviewOuter = callUI.querySelector(".diskuz-call-local-preview-outer");
     if (localPreviewOuter) localPreviewOuter.style.display = localVideoOn ? "flex" : "none";
-    if (fsBtn) fsBtn.style.display = show && !isMobileDevice() && remoteVideoActive ? "block" : "none";
+    if (fsBtn) fsBtn.style.display = show && remoteVideoActive ? "block" : "none";
   }
 
   function updateVideoButtonVisibility() {
