@@ -2,7 +2,10 @@
 en:
   diskuz_call:
     calling_you: "%{username} is calling you"
+    calling_you_short: "is calling you"
     incoming_call_title: "Incoming call"
+    missed_call_short: "Missed a call"
+    missed_call_title: "Missed call"
     custom_ringtone_n: "Ringtone %{n}"
   site_settings:
     diskuz_call_enabled: "Enable diskuz Call (VoIP calls between users)"

@@ -1159,8 +1159,10 @@ export default apiInitializer("0.8", (api) => {
     const listEl = getWidgetHistoryListEl();
     if (!listEl) return;
 
-    const isIt = document.documentElement.lang === "it";
+    const lang = (document.documentElement && document.documentElement.lang || "").toLowerCase();
+    const isIt = lang === "it" || lang.startsWith("it-");
     const emptyMsg = isIt ? "Nessuna chiamata." : "No calls yet.";
+    const durationLabel = isIt ? "Durata" : "Duration";
     const myUsername = (currentUserUsername || "").toLowerCase().trim();
     const isOther = (h) => {
       const u = (h.username || "").toLowerCase().trim();
@@ -1202,7 +1204,7 @@ export default apiInitializer("0.8", (api) => {
         const durationStr = h.result === "ended" && h.durationSeconds != null ? formatDuration(h.durationSeconds) : "";
         const metaParts = [dateStr, timeStr];
         if (durationStr) {
-          metaParts.push((isIt ? "Durata" : "Duration") + " " + durationStr);
+          metaParts.push(durationLabel + " " + durationStr);
         } else {
           metaParts.push(h.result);
         }
@@ -1852,15 +1854,38 @@ export default apiInitializer("0.8", (api) => {
     }
   }
 
-  /* --- PROXIMITY OVERLAY --- */
+  /* --- PROXIMITY OVERLAY (Ear mode): sblocco con 3 tocchi per evitare touch accidentali all'orecchio --- */
+  let proximityUnlockTapCount = 0;
+  let proximityUnlockTapResetTimer = null;
+  let lastProximityTouchTime = 0;
   function ensureProximityOverlay() {
     if (!proximityOverlay) {
+      const isIt = typeof document !== "undefined" && document.documentElement && document.documentElement.lang === "it";
       proximityOverlay = document.createElement("div");
       proximityOverlay.id = "diskuz-call-proximity-overlay";
+      proximityOverlay.innerHTML = "<div class=\"diskuz-call-proximity-overlay-inner\"><span class=\"diskuz-call-proximity-overlay-title\">Ear mode</span><span class=\"diskuz-call-proximity-overlay-hint\">" + (isIt ? "Tocca lo schermo 3 volte per sbloccarlo." : "Tap the screen 3 times to unlock.") + "</span></div>";
       document.body.appendChild(proximityOverlay);
 
+      function onUnlockTap() {
+        proximityUnlockTapCount++;
+        if (proximityUnlockTapResetTimer) clearTimeout(proximityUnlockTapResetTimer);
+        if (proximityUnlockTapCount >= 3) {
+          proximityOverlay.style.display = "none";
+          proximityUnlockTapCount = 0;
+        } else {
+          proximityUnlockTapResetTimer = setTimeout(function () {
+            proximityUnlockTapCount = 0;
+            proximityUnlockTapResetTimer = null;
+          }, 2000);
+        }
+      }
+      proximityOverlay.addEventListener("touchend", function () {
+        lastProximityTouchTime = Date.now();
+        onUnlockTap();
+      }, { passive: true });
       proximityOverlay.addEventListener("click", function () {
-        proximityOverlay.style.display = "none";
+        if ("ontouchstart" in window && (Date.now() - lastProximityTouchTime) < 400) return;
+        onUnlockTap();
       });
     }
   }
@@ -1870,7 +1895,12 @@ export default apiInitializer("0.8", (api) => {
     if (proximityOverlay && proximityOverlay.parentNode) {
       proximityOverlay.parentNode.appendChild(proximityOverlay);
     }
-    proximityOverlay.style.display = "block";
+    proximityUnlockTapCount = 0;
+    if (proximityUnlockTapResetTimer) {
+      clearTimeout(proximityUnlockTapResetTimer);
+      proximityUnlockTapResetTimer = null;
+    }
+    proximityOverlay.style.display = "flex";
   }
 
   /* --- CALL UI --- */
@@ -1914,7 +1944,6 @@ export default apiInitializer("0.8", (api) => {
             <button type="button" class="diskuz-call-fullscreen-btn" aria-label="Fullscreen" style="display:none;">⛶</button>
           </div>
           <div class="diskuz-call-controls-block">
-            <button type="button" class="diskuz-call-controls-drawer-btn" aria-label="${isIt ? "Mostra pulsanti" : "Show controls"}" title="${isIt ? "Mostra pulsanti" : "Show controls"}" tabindex="0" style="display:none;">\u22EE</button>
             <button type="button" class="diskuz-call-controls-toggle" tabindex="0" aria-label="" title=""></button>
             <div class="diskuz-call-controls-inner">
             <div class="controls">
@@ -1953,23 +1982,17 @@ export default apiInitializer("0.8", (api) => {
 
       const controlsBlock = callUI.querySelector(".diskuz-call-controls-block");
       const controlsToggle = callUI.querySelector(".diskuz-call-controls-toggle");
-      const controlsDrawerBtn = callUI.querySelector(".diskuz-call-controls-drawer-btn");
       if (controlsBlock && controlsToggle) {
         const setControlsToggleLabel = function () {
           const hidden = controlsBlock.classList.contains("diskuz-call-controls-hidden");
           const isIt = document.documentElement.lang === "it";
           const landscape = callUI && callUI.classList.contains("diskuz-call-mobile-landscape");
           const label = landscape
-            ? (hidden ? (isIt ? "Mostra" : "Show") : (isIt ? "Nascondi" : "Hide"))
+            ? (hidden ? (isIt ? "Mostra" : "Show") : (isIt ? "Nascondi Tasti" : "Hide buttons"))
             : (hidden ? (isIt ? "Mostra pulsanti" : "Show controls") : (isIt ? "Nascondi pulsanti" : "Hide controls"));
           controlsToggle.textContent = label;
           controlsToggle.setAttribute("aria-label", label);
           controlsToggle.setAttribute("title", label);
-          if (controlsDrawerBtn) {
-            controlsDrawerBtn.setAttribute("aria-label", label);
-            controlsDrawerBtn.setAttribute("title", label);
-            controlsDrawerBtn.style.display = isMobileDevice() && hidden && !landscape ? "flex" : "none";
-          }
         };
         if (callUI) callUI._setControlsToggleLabel = setControlsToggleLabel;
         setControlsToggleLabel();
@@ -1981,20 +2004,6 @@ export default apiInitializer("0.8", (api) => {
           e.preventDefault();
           toggleControlsVisibility();
         });
-        if (controlsDrawerBtn) {
-          controlsDrawerBtn.addEventListener("click", function (e) {
-            e.preventDefault();
-            controlsBlock.classList.remove("diskuz-call-controls-hidden");
-            setControlsToggleLabel();
-          });
-          if (isMobileDevice()) {
-            controlsDrawerBtn.addEventListener("touchend", function (e) {
-              e.preventDefault();
-              controlsBlock.classList.remove("diskuz-call-controls-hidden");
-              setControlsToggleLabel();
-            }, { passive: false });
-          }
-        }
         if (isMobileDevice()) {
           controlsToggle.addEventListener("touchend", function (e) {
             e.preventDefault();
@@ -2953,12 +2962,12 @@ export default apiInitializer("0.8", (api) => {
       localPreview.playsInline = true;
     }
     try {
-      /* Video massima qualità: 1080p su tutti i dispositivi; Android spesso restituisce bassa risoluzione se i vincoli sono deboli */
+      /* Video qualità massima/origine: su Android richiedi 1080p (o massimo supportato dal dispositivo) */
       const isAndroid = /Android/i.test(navigator.userAgent);
       const videoOpt = {
         facingMode: "user",
-        width: { ideal: 1920, min: isAndroid ? 1280 : 640 },
-        height: { ideal: 1080, min: isAndroid ? 720 : 480 },
+        width: { ideal: 1920, min: isAndroid ? 1920 : 640 },
+        height: { ideal: 1080, min: isAndroid ? 1080 : 480 },
         frameRate: { ideal: 30, min: 24 },
       };
       if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== "function") {
@@ -2985,7 +2994,7 @@ export default apiInitializer("0.8", (api) => {
         videoStream = await getUserMediaWithTimeout(20000);
       } catch (err) {
         if (isAndroid && err.name === "OverconstrainedError") {
-          const fallbackOpt = { facingMode: "user", width: { ideal: 1920, min: 640 }, height: { ideal: 1080, min: 480 }, frameRate: { ideal: 30 } };
+          const fallbackOpt = { facingMode: "user", width: { ideal: 1920, min: 1280 }, height: { ideal: 1080, min: 720 }, frameRate: { ideal: 30 } };
           videoStream = await navigator.mediaDevices.getUserMedia({ video: fallbackOpt });
         } else {
           throw err;
@@ -3000,8 +3009,15 @@ export default apiInitializer("0.8", (api) => {
         showToast(isIt ? "Nessun track video." : "No video track.");
         return;
       }
-      if (videoTrack.getSettings && isAndroid) {
-        const s = videoTrack.getSettings();
+      /* Android: spingi alla risoluzione massima supportata (getCapabilities) o almeno 1080p/720p */
+      if (videoTrack.getCapabilities && videoTrack.applyConstraints && isAndroid) {
+        try {
+          const cap = videoTrack.getCapabilities();
+          const w = (cap.width && cap.width.max) ? Math.min(1920, cap.width.max) : 1920;
+          const h = (cap.height && cap.height.max) ? Math.min(1080, cap.height.max) : 1080;
+          await videoTrack.applyConstraints({ width: w, height: h, frameRate: { ideal: 30 } });
+        } catch (e) {}
+        const s = videoTrack.getSettings ? videoTrack.getSettings() : {};
         if ((s.width || 0) < 1280 || (s.height || 0) < 720) {
           try {
             await videoTrack.applyConstraints({ width: 1280, height: 720 });
@@ -3091,18 +3107,37 @@ export default apiInitializer("0.8", (api) => {
     const isAndroid = /Android/i.test(navigator.userAgent);
     const videoOpt = {
       facingMode: { exact: newFacing },
-      width: { ideal: 1920, min: isAndroid ? 1280 : 640 },
-      height: { ideal: 1080, min: isAndroid ? 720 : 480 },
+      width: { ideal: 1920, min: isAndroid ? 1920 : 640 },
+      height: { ideal: 1080, min: isAndroid ? 1080 : 480 },
       frameRate: { ideal: 30, min: 24 },
     };
     videoRequestInProgress = true;
     try {
-      const newStream = await navigator.mediaDevices.getUserMedia({ video: videoOpt });
-      const newTrack = newStream.getVideoTracks()[0];
+      let newStream;
+      try {
+        newStream = await navigator.mediaDevices.getUserMedia({ video: videoOpt });
+      } catch (err) {
+        if (isAndroid && err.name === "OverconstrainedError") {
+          newStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { exact: newFacing }, width: { ideal: 1920, min: 1280 }, height: { ideal: 1080, min: 720 }, frameRate: { ideal: 30 } },
+          });
+        } else {
+          throw err;
+        }
+      }
+      let newTrack = newStream.getVideoTracks()[0];
       if (!newTrack) {
         newStream.getTracks().forEach((t) => t.stop());
         showToast(isIt ? "Nessun track video." : "No video track.");
         return;
+      }
+      if (newTrack.getCapabilities && newTrack.applyConstraints && isAndroid) {
+        try {
+          const cap = newTrack.getCapabilities();
+          const w = (cap.width && cap.width.max) ? Math.min(1920, cap.width.max) : 1920;
+          const h = (cap.height && cap.height.max) ? Math.min(1080, cap.height.max) : 1080;
+          await newTrack.applyConstraints({ width: w, height: h, frameRate: { ideal: 30 } });
+        } catch (e) {}
       }
       if (localVideoTrack) {
         localVideoTrack.stop();
@@ -3135,7 +3170,7 @@ export default apiInitializer("0.8", (api) => {
     }
   }
 
-  /** Imposta bitrate massimo sul sender video (qualità massima invio/ricezione) */
+  /** Imposta bitrate massimo e nessun downscale sul sender video (qualità origine/massima) */
   async function setVideoSenderHighQuality() {
     if (!rtcPeer) return;
     const sender = rtcPeer.getSenders().find((s) => s.track && s.track.kind === "video");
@@ -3144,6 +3179,7 @@ export default apiInitializer("0.8", (api) => {
       const params = sender.getParameters();
       if (!params.encodings) params.encodings = [{}];
       params.encodings[0].maxBitrate = 8000000; // 8 Mbps per qualità massima (1080p+)
+      if (params.encodings[0].scaleResolutionDownBy !== undefined) params.encodings[0].scaleResolutionDownBy = 1;
       await sender.setParameters(params);
     } catch (e) {}
   }
@@ -3775,9 +3811,13 @@ export default apiInitializer("0.8", (api) => {
       });
     }
     if (currentCall.userId && window.DiskuzCallSend) {
+      const wasOutgoing = currentCall.direction === "outgoing";
+      const neverConnected = callConnectedAt == null;
+      const noAnswer = (result === "ended" || result === "no_answer") && wasOutgoing && neverConnected;
       window.DiskuzCallSend({
         type: "call_end",
         to_user_id: currentCall.userId,
+        reason: noAnswer ? "no_answer" : undefined,
       }).catch(() => {});
     }
     rtcEnd();
@@ -4165,16 +4205,16 @@ export default apiInitializer("0.8", (api) => {
         if (currentCall.active && currentCall.userId === data.from_user_id) {
           if (currentCall.direction === "outgoing") stopOutgoingRingback();
           if (currentCall.direction === "incoming") stopIncomingRing();
-          const durationSeconds = callConnectedAt != null
-            ? Math.floor((Date.now() - callConnectedAt) / 1000)
-            : null;
+          const wasConnected = callConnectedAt != null;
+          const durationSeconds = wasConnected ? Math.floor((Date.now() - callConnectedAt) / 1000) : null;
+          const resultForCallee = (currentCall.direction === "incoming" && !wasConnected) ? "missed" : "ended";
           addHistoryEntry({
             direction: currentCall.direction || "incoming",
-            result: "ended",
+            result: resultForCallee,
             username: currentCall.username || "Unknown",
             durationSeconds,
           });
-          showToast("Call ended.");
+          showToast(wasConnected ? "Call ended." : (document.documentElement.lang === "it" ? "Chiamata persa." : "Missed call."));
           rtcEnd();
           resetCurrentCall();
           closeCallUI();
@@ -4395,14 +4435,24 @@ export default apiInitializer("0.8", (api) => {
         updateNotificationsBadge();
         updateCallFeatureVisibility();
         onceDocumentInteractionForAudio();
-        /* Apri il widget se l'utente è arrivato cliccando sulla notifica "chiamata in arrivo" (customUrl con ?diskuz_call=incoming) */
+        /* Apri il widget se l'utente è arrivato cliccando su una notifica diskuz-call (customUrl con ?diskuz_call=...) */
         try {
           const urlParams = new URLSearchParams(window.location.search);
-          if (urlParams.get("diskuz_call") === "incoming" && widget && !widget.classList.contains("open")) {
+          const diskuzCall = urlParams.get("diskuz_call");
+          const diskuzCallTab = urlParams.get("diskuz_call_tab");
+          if ((diskuzCall === "incoming" || diskuzCall === "notifications") && widget && !widget.classList.contains("open")) {
             toggleWidget();
+            showWidgetPage(WIDGET_PAGE_NOTIFICATIONS);
+            const tab = diskuzCall === "incoming" ? "received" : (diskuzCallTab === "missed" || diskuzCallTab === "received" || diskuzCallTab === "sent" || diskuzCallTab === "recent" ? diskuzCallTab : "received");
+            notificationsTab = tab;
+            widget.querySelectorAll(".diskuz-widget-page-notifications .diskuz-ntab").forEach((b) => {
+              b.classList.toggle("active", b.getAttribute("data-tab") === notificationsTab);
+            });
+            renderHistoryList();
             const u = new URL(window.location.href);
             u.searchParams.delete("diskuz_call");
-            window.history.replaceState({}, "", u.pathname + (u.search || "") || "/");
+            u.searchParams.delete("diskuz_call_tab");
+            window.history.replaceState({}, "", u.pathname + (u.search ? "?" + u.searchParams.toString() : "") || "/");
           }
         } catch (e) {}
         /* Nascondi il pulsante Call quando il composer (nuovo post / risposta) è aperto */
@@ -4475,7 +4525,15 @@ export default apiInitializer("0.8", (api) => {
         }
         get description() {
           const d = this._data;
-          return d.customMessage || d.notification_message || d.message || super.description || "";
+          const msg = d.customMessage || d.notification_message || d.message || super.description || "";
+          const eventAt = d.event_at;
+          if (!eventAt) return msg;
+          const date = new Date(eventAt);
+          if (isNaN(date.getTime())) return msg;
+          const lang = typeof document !== "undefined" && document.documentElement ? document.documentElement.lang : "en";
+          const isUS = lang === "en" && typeof navigator !== "undefined" && /^en-US$/i.test(navigator.language || "");
+          const timeStr = date.toLocaleTimeString(isUS ? "en-US" : lang, { hour: "2-digit", minute: "2-digit", hour12: isUS });
+          return msg + " " + timeStr;
         }
       };
     });

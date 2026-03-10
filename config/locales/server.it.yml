@@ -1,7 +1,10 @@
 it:
   diskuz_call:
     calling_you: "%{username} ti sta chiamando"
+    calling_you_short: "ti sta chiamando"
     incoming_call_title: "Chiamata in arrivo"
+    missed_call_short: "Chiamata persa"
+    missed_call_title: "Chiamata persa"
     custom_ringtone_n: "Suoneria %{n}"
   site_settings:
     diskuz_call_enabled: "Abilita diskuz Call (chiamate VoIP tra utenti)"

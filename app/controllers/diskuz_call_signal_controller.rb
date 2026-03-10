@@ -46,9 +46,11 @@ class DiskuzCallSignalController < ApplicationController
       user_ids: [target.id],
     )
 
-    # Notifica Discourse (campanella): elenco persistente "X ti sta chiamando". Non influisce su MessageBus.
+    # Notifica Discourse (campanella)
     if signal_type == "call_offer"
       create_incoming_call_notification(target, current_user)
+    elsif signal_type == "call_end" && payload["reason"].to_s == "no_answer"
+      create_missed_call_notification(target, current_user)
     end
 
     render json: success_json
@@ -61,17 +63,18 @@ class DiskuzCallSignalController < ApplicationController
   end
 
   def signal_params
-    raw = params.permit(payload: { sdp: {}, candidate: {}, avatar_template: {}, from_user_id: {}, quality: [] }).fetch(:payload, {})
+    raw = params.permit(payload: { sdp: {}, candidate: {}, avatar_template: {}, from_user_id: {}, quality: [], reason: {} }).fetch(:payload, {})
     raw.respond_to?(:to_unsafe_h) ? raw.to_unsafe_h.stringify_keys : raw.to_h.stringify_keys
   rescue StandardError
     {}
   end
 
   def create_incoming_call_notification(callee, caller)
-    full_message = I18n.t("diskuz_call.calling_you", username: caller.username, default: "#{caller.username} is calling you")
+    full_message = I18n.t("diskuz_call.calling_you_short", default: "is calling you")
     title_short = I18n.t("diskuz_call.incoming_call_title", default: "Incoming call")
     base_url = Discourse.base_url.presence || "/"
-    custom_url = base_url.end_with?("/") ? "#{base_url}?diskuz_call=incoming" : "#{base_url}/?diskuz_call=incoming"
+    custom_url = base_url.end_with?("/") ? "#{base_url}?diskuz_call=notifications&diskuz_call_tab=received" : "#{base_url}/?diskuz_call=notifications&diskuz_call_tab=received"
+    event_at = Time.current.utc.iso8601
 
     types = Notification.types
     data_hash = {
@@ -85,6 +88,7 @@ class DiskuzCallSignalController < ApplicationController
       "customUrl" => custom_url,
       "diskuz_call_incoming" => true,
       "from_user_id" => caller.id,
+      "event_at" => event_at,
     }
 
     custom_type = types[:custom] if types.key?(:custom)
@@ -100,5 +104,42 @@ class DiskuzCallSignalController < ApplicationController
     Rails.logger.info("diskuz-call: incoming call notification created for user_id=#{callee.id} from #{caller.username} (user_id=#{caller.id})")
   rescue StandardError => e
     Rails.logger.warn("diskuz-call: could not create notification: #{e.message}")
+  end
+
+  def create_missed_call_notification(callee, caller)
+    full_message = I18n.t("diskuz_call.missed_call_short", default: "Missed a call")
+    title_short = I18n.t("diskuz_call.missed_call_title", default: "Missed call")
+    base_url = Discourse.base_url.presence || "/"
+    custom_url = base_url.end_with?("/") ? "#{base_url}?diskuz_call=notifications&diskuz_call_tab=missed" : "#{base_url}/?diskuz_call=notifications&diskuz_call_tab=missed"
+    event_at = Time.current.utc.iso8601
+
+    types = Notification.types
+    data_hash = {
+      "display_username" => caller.username,
+      "username" => caller.username,
+      "message" => full_message,
+      "notification_message" => full_message,
+      "customMessage" => full_message,
+      "customTranslatedTitle" => title_short,
+      "customIcon" => "phone-slash",
+      "customUrl" => custom_url,
+      "diskuz_call_missed" => true,
+      "from_user_id" => caller.id,
+      "event_at" => event_at,
+    }
+
+    custom_type = types[:custom] if types.key?(:custom)
+    custom_type ||= 14
+    Notification.create!(
+      notification_type: custom_type,
+      user_id: callee.id,
+      topic_id: nil,
+      post_number: nil,
+      high_priority: false,
+      data: data_hash.to_json,
+    )
+    Rails.logger.info("diskuz-call: missed call notification created for user_id=#{callee.id} from #{caller.username} (user_id=#{caller.id})")
+  rescue StandardError => e
+    Rails.logger.warn("diskuz-call: could not create missed call notification: #{e.message}")
   end
 end
