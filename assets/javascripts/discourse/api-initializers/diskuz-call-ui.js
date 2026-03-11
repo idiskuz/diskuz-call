@@ -2632,6 +2632,11 @@ export default apiInitializer("0.8", (api) => {
       clearTimeout(earModeAutoTimerId);
       earModeAutoTimerId = null;
     }
+    if (desktopBackgroundEndCallTimeoutId) {
+      clearTimeout(desktopBackgroundEndCallTimeoutId);
+      desktopBackgroundEndCallTimeoutId = null;
+    }
+    if (document.pictureInPictureElement) document.exitPictureInPicture().catch(function () {});
     setIncomingCallButtonState(false);
     updateFloatingButtonActiveCallState(false);
     callUI.classList.remove("open", "diskuz-call-minimized", "diskuz-call-incoming-ringing", "diskuz-call-outgoing-ringing", "diskuz-call-video-active", "diskuz-call-connected");
@@ -2763,6 +2768,7 @@ export default apiInitializer("0.8", (api) => {
   let callConnectedAt = null;
   let outgoingCallTimeoutId = null;
   let calleeNotRingingTimeoutId = null;
+  let desktopBackgroundEndCallTimeoutId = null;
   const OUTGOING_CALL_TIMEOUT_MS = 30000;
   const CALLEE_NOT_RINGING_MS = 5000;
 
@@ -3908,16 +3914,42 @@ export default apiInitializer("0.8", (api) => {
     closeCallUI();
   }
 
-  /* Tab/scheda nascosta: verifica in tempo reale se la connessione usa relay (TURN). Solo in quel caso fermiamo il video. */
-  document.addEventListener("visibilitychange", async function () {
-    if (document.visibilityState !== "hidden" || !currentCall.active) return;
-    const hasVideo = localVideoOn || remoteVideoActive;
-    if (!hasVideo) return;
-    const usingRelay = await isConnectionUsingRelay(rtcPeer);
-    if (usingRelay) {
-      log("[diskuz-call] Page hidden and connection using TURN relay – stopping video stream");
-      if (typeof disableVideo === "function" && localVideoOn) disableVideo();
+  /* Desktop: in background/altro tab non terminare mai il flusso video (no track/stream/RTC).
+     Opzionale: se il browser lo consente, apri PiP sul video in ingresso (solo display). Dopo 60 s in background si chiude la chiamata. */
+  const DESKTOP_BACKGROUND_END_CALL_MS = 60000;
+  document.addEventListener("visibilitychange", function () {
+    if (isMobileDevice()) return;
+    if (document.visibilityState === "visible") {
+      if (desktopBackgroundEndCallTimeoutId) {
+        clearTimeout(desktopBackgroundEndCallTimeoutId);
+        desktopBackgroundEndCallTimeoutId = null;
+      }
+      if (document.pictureInPictureElement) {
+        document.exitPictureInPicture().catch(function () {});
+      }
+      return;
     }
+    if (document.visibilityState !== "hidden" || !currentCall.active) return;
+    if (document.pictureInPictureEnabled && !document.pictureInPictureElement && callUI) {
+      const remoteVideoEl = callUI.querySelector(".diskuz-call-remote-video");
+      if (remoteVideoEl && remoteVideoEl.srcObject) {
+        setTimeout(function () {
+          if (!currentCall.active || document.visibilityState !== "hidden") return;
+          remoteVideoEl.requestPictureInPicture().then(function () {
+            log("[diskuz-call] Desktop: PiP opened");
+          }).catch(function () {});
+        }, 300);
+      }
+    }
+    if (desktopBackgroundEndCallTimeoutId) return;
+    desktopBackgroundEndCallTimeoutId = setTimeout(function () {
+      desktopBackgroundEndCallTimeoutId = null;
+      if (!currentCall.active) return;
+      if (document.visibilityState !== "hidden") return;
+      if (document.pictureInPictureElement) document.exitPictureInPicture().catch(function () {});
+      log("[diskuz-call] Desktop: still in background after 60s, ending call");
+      endCurrentCall("ended");
+    }, DESKTOP_BACKGROUND_END_CALL_MS);
   });
 
   document.addEventListener("freeze", function () {

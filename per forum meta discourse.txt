@@ -1,0 +1,168 @@
+================================================================================
+  diskuz Call – Descrizione dettagliata delle funzioni (per Meta Discourse)
+================================================================================
+
+diskuz Call è un plugin per Discourse che abilita chiamate vocali e video P2P (WebRTC) tra utenti, con interfaccia integrata. Un solo plugin, nessun theme component richiesto. Nome directory: diskuz-call.
+
+Autori: diskuz.com, Cristian Deraco
+Repository: https://github.com/idiskuz/diskuz-call
+
+
+--------------------------------------------------------------------------------
+1. AVVIO CHIAMATA
+--------------------------------------------------------------------------------
+
+• Pulsante flottante (in basso a destra): apre il widget per inserire lo username e avviare una chiamata. Il pulsante è nascosto quando è aperto il composer del topic o la chat; in chat 1:1 un pulsante "Call" nel composer della chat avvia direttamente la chiamata con l’altro utente del canale.
+
+• Stato utente: Online, Occupato (Busy), Offline. Lo stato è memorizzato nel browser; le chiamate in arrivo possono essere rifiutate automaticamente se lo stato è Occupato o Offline.
+
+• Messaggi di errore nel widget: ad esempio "Non puoi chiamare te stesso", motivazioni legate a follow/gruppi; gli errori compaiono in fondo al widget e si nascondono automaticamente dopo 5 secondi.
+
+• Chiamata in uscita: se il destinatario non risponde entro 30 secondi, la chiamata termina; lo stato e i toast mostrano l’esito (es. utente non disponibile).
+
+
+--------------------------------------------------------------------------------
+2. DURANTE LA CHIAMATA
+--------------------------------------------------------------------------------
+
+• Durata: calcolata dal momento della connessione (formato MM:SS o HH:MM:SS).
+
+• Voce e video: possibilità di attivare/disattivare la telecamera; quando il video è spento, l’altro utente vede un placeholder (avatar + durata) invece di uno schermo nero.
+
+• Blur (solo desktop e Android): opzione per sfocare l’immagine della propria telecamera; non disponibile su iOS per limiti del browser.
+
+• Mute: attiva/disattiva il microfono. Ogni nuova chiamata inizia con microfono attivo (lo stato mute non viene portato da una chiamata alla successiva).
+
+• Speaker – Desktop: ciclo tra le uscite audio (predefinita e altri dispositivi). Mobile (iOS e Android): il pulsante speaker non cambia la route audio; al tocco viene mostrato un messaggio che invita a usare i tasti volume del telefono.
+
+• Volume su mobile: in chiamata solo voce il volume remoto è più basso; quando la chiamata diventa video il volume remoto è al massimo. Comportamento applicato su iOS e Android.
+
+• Nascondi / Mostra controlli: nasconde la riga dei pulsanti (Mute, Speaker, Video, Hang up); un altro tocco la rimostra. In landscape mobile l’etichetta è "Nascondi Tasti" / "Mostra".
+
+• Ear mode (solo mobile): overlay a schermo intero scuro per tenere il telefono all’orecchio. Sblocco toccando lo schermo 3 volte. Layout: logo e slogan in alto, "Ear mode" e hint di sblocco al centro. Si attiva automaticamente dopo 1 minuto in chiamata solo voce. In landscape solo voce i pulsanti Ear sono nascosti e avatar/nome compaiono in basso a sinistra.
+
+• Anteprima video locale: posizione fissa in alto a sinistra quando il video è attivo, trascinabile; la posizione viene resettata all’inizio di ogni videochiamata.
+
+
+--------------------------------------------------------------------------------
+3. CHIAMATA IN ARRIVO
+--------------------------------------------------------------------------------
+
+• Il pulsante flottante pulsa (verde) quando c’è una chiamata in arrivo.
+
+• Suoneria: configurabile dall’admin. Opzioni: none, default, ding, bell, chat, custom (l’utente sceglie una tra fino a 10 MP3 configurati dall’admin, con Anteprima e Seleziona nel widget), alternative (preset integrati). La suoneria suona fino a 48 secondi.
+
+• Notifica del browser (se consentita): mostra il nome del chiamante; clic per portare il focus sulla scheda.
+
+• Campanella Discourse: tipo di notifica custom. In arrivo: stile "ti sta chiamando". Chiamate perse: titolo "Chiamata persa" / "Missed call", descrizione con orario.
+
+• Schermata in arrivo: Accetta e Rifiuta; dopo aver accettato compaiono Mute, Speaker, Video, Hang up e Nascondi controlli.
+
+
+--------------------------------------------------------------------------------
+4. WIDGET PRINCIPALE
+--------------------------------------------------------------------------------
+
+• Due pagine: home ("Chiama un amico") e Notifiche. Nella pagina Notifiche sono disponibili i tab Ricevute, Inviate, Recenti, Perse (fino a 10 voci per tab). Pulsante Indietro per tornare alla home. Gli username nell’elenco sono cliccabili per avviare una chiamata.
+
+• Desktop: widget trascinabile dalla barra superiore; "diskuz Call" e "by diskuz.com" sulla stessa riga. Ridimensionabile (minimo 360×560 px); posizione e dimensioni salvate e ripristinate. Pulsante Nascondi su entrambe le pagine.
+
+• Mobile: quando aperto il widget è a schermo intero. Pulsante Nascondi per chiuderlo.
+
+• Suonerie custom: quando l’admin imposta "Suono chiamate in arrivo" su custom, nel widget compare la sezione Suonerie con l’elenco degli MP3 configurati; per ciascuno sono disponibili Anteprima (circa 12 s) e Seleziona; la scelta è salvata per utente.
+
+
+--------------------------------------------------------------------------------
+5. FINESTRA CHIAMATA
+--------------------------------------------------------------------------------
+
+• Desktop: finestra trascinabile e ridimensionabile; barra superiore con "diskuz Call", "by diskuz.com" e link Ko-fi. Avatar, username, stato, durata, poi controlli in basso. Area video con flusso remoto (o placeholder) e anteprima locale.
+
+• Mobile: interfaccia chiamata a schermo intero (Android e iOS). Portrait: controlli con effetto blur in basso. Landscape: barra superiore nascosta in videochiamata; colonna sinistra con foto profilo, nome, stato "in chiamata", logo diskuz Call, "by diskuz.com", slogan, timer, pulsanti; a destra il video remoto; pulsante fullscreen sul video (nascosto su iOS). Pulsante fullscreen utilizzabile su Android in landscape.
+
+• Fullscreen video: su desktop e su mobile in landscape (non iOS) è supportato il fullscreen sull’elemento video.
+
+
+--------------------------------------------------------------------------------
+6. WEBRTC E SEGNALAZIONE
+--------------------------------------------------------------------------------
+
+• Segnalazione tramite MessageBus (canale filtrato per destinatario). Offer/answer SDP e candidati ICE sono inoltrati dal backend; i candidati ICE sono accodati e applicati dopo la remote description.
+
+• STUN predefinito (Google). TURN opzionale configurabile dall’admin (JSON) per reti con NAT restrittivi o corporate/mobile.
+
+• In caso di ICE failed: messaggio all’utente e fine chiamata.
+
+
+--------------------------------------------------------------------------------
+7. PERMESSI E RESTRIZIONI
+--------------------------------------------------------------------------------
+
+• Gruppi consentiti: solo gli utenti appartenenti ai gruppi configurati possono vedere e usare diskuz Call.
+
+• Richiedi follow: se attivo (con discourse-follow), il destinatario deve seguire il chiamante per ricevere chiamate.
+
+• Gruppi abilitati al video: impostazione separata che definisce chi può usare il pulsante Video durante una chiamata.
+
+• I motivi di errore 403 (es. cannot_call_yourself, follow_required, restrizioni di gruppo) sono mostrati nell’interfaccia e nei toast.
+
+
+--------------------------------------------------------------------------------
+8. IMPOSTAZIONI ADMIN (Settings → Plugins)
+--------------------------------------------------------------------------------
+
+• Enable diskuz Call: interruttore principale.
+
+• Who can see and use diskuz Call: elenco di gruppi (es. 1|2|3).
+
+• Require the callee to follow the caller: quando discourse-follow è attivo.
+
+• Primary color: colore hex (es. #13c98c) per pulsante e accenti.
+
+• Sound for incoming calls: none, default, ding, bell, chat, custom, alternative.
+
+• Custom ringtones 1–10: URL di file MP3; l’utente ne sceglie uno nel widget quando Sound è custom.
+
+• Alternative ringtone: preset quando Sound è alternative (es. soft, classic, modern, festivo, marimba, relax1–5).
+
+• Groups that can enable video: elenco di gruppi per il pulsante Video in chiamata.
+
+• ICE servers: array JSON opzionale; vuoto = solo STUN Google.
+
+• Debug log: se attivo, in console (F12) compaiono messaggi [diskuz-call] durante le chiamate; utile per supporto; disattivare in produzione.
+
+
+--------------------------------------------------------------------------------
+9. API BACKEND (per integrazioni)
+--------------------------------------------------------------------------------
+
+• GET /diskuz-call/status – stato del plugin: enabled, incoming_sound, primary_color, custom_ringtones, alternative_ringtone, ice_servers, video_allowed, debug_log, ecc.
+
+• GET /diskuz-call/watermark.png – immagine logo per l’interfaccia chiamata.
+
+• PUT /diskuz-call/preferences – preferenze utente (es. selected_custom_ringtone_index).
+
+• GET /diskuz-call/can-call/:user_id – verifica se l’utente corrente può chiamare l’utente indicato.
+
+• POST /diskuz-call/signal – invio segnale (offer, answer, ice_candidate, call_end, call_reject); recapito via MessageBus.
+
+
+--------------------------------------------------------------------------------
+10. LOCALIZZAZIONE
+--------------------------------------------------------------------------------
+
+• Inglese e italiano (stringhe client e server).
+
+
+--------------------------------------------------------------------------------
+REQUISITI
+--------------------------------------------------------------------------------
+
+• Discourse con MessageBus.
+• Opzionale: discourse-follow per "Require the callee to follow the caller".
+• Browser con supporto WebRTC, microfono (e telecamera per il video).
+
+
+================================================================================
+Fine descrizione funzioni – per la community Meta Discourse
+================================================================================
