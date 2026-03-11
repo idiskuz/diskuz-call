@@ -41,10 +41,10 @@ function logError(...args) {
   }
 
   /** True se la connessione sta effettivamente usando un candidato relay (TURN). Verifica in tempo reale via getStats(), nessun dato salvato. */
-  async function isConnectionUsingRelay() {
-    if (!rtcPeer) return false;
+  async function isConnectionUsingRelay(peer) {
+    if (!peer) return false;
     try {
-      const report = await rtcPeer.getStats();
+      const report = await peer.getStats();
       for (const stat of report.values()) {
         if (stat.type !== "candidate-pair") continue;
         if (stat.state !== "succeeded") continue;
@@ -3913,7 +3913,7 @@ export default apiInitializer("0.8", (api) => {
     if (document.visibilityState !== "hidden" || !currentCall.active) return;
     const hasVideo = localVideoOn || remoteVideoActive;
     if (!hasVideo) return;
-    const usingRelay = await isConnectionUsingRelay();
+    const usingRelay = await isConnectionUsingRelay(rtcPeer);
     if (usingRelay) {
       log("[diskuz-call] Page hidden and connection using TURN relay – stopping video stream");
       if (typeof disableVideo === "function" && localVideoOn) disableVideo();
