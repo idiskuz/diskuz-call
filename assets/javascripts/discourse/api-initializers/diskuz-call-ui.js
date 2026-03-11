@@ -1854,16 +1854,17 @@ export default apiInitializer("0.8", (api) => {
     }
   }
 
-  /* --- PROXIMITY OVERLAY (Ear mode): sblocco con 3 tocchi per evitare touch accidentali all'orecchio --- */
+  /* --- PROXIMITY OVERLAY (Ear mode): logo + slogan sopra, Ear mode e indicazione centrati; sblocco con 3 tocchi --- */
   let proximityUnlockTapCount = 0;
   let proximityUnlockTapResetTimer = null;
   let lastProximityTouchTime = 0;
+  let earModeAutoTimerId = null;
   function ensureProximityOverlay() {
     if (!proximityOverlay) {
       const isIt = typeof document !== "undefined" && document.documentElement && document.documentElement.lang === "it";
       proximityOverlay = document.createElement("div");
       proximityOverlay.id = "diskuz-call-proximity-overlay";
-      proximityOverlay.innerHTML = "<div class=\"diskuz-call-proximity-overlay-inner\"><span class=\"diskuz-call-proximity-overlay-title\">Ear mode</span><span class=\"diskuz-call-proximity-overlay-hint\">" + (isIt ? "Tocca lo schermo 3 volte per sbloccarlo." : "Tap the screen 3 times to unlock.") + "</span></div>";
+      proximityOverlay.innerHTML = "<div class=\"diskuz-call-proximity-overlay-inner\"><div class=\"diskuz-call-proximity-overlay-brand\"><span class=\"diskuz-call-proximity-overlay-logo\">diskuz Call</span><span class=\"diskuz-call-proximity-overlay-by\">by diskuz.com</span><span class=\"diskuz-call-proximity-overlay-slogan\">Real Conversations, No Algorithms :-)</span></div><span class=\"diskuz-call-proximity-overlay-title\">Ear mode</span><span class=\"diskuz-call-proximity-overlay-hint\">" + (isIt ? "Tocca lo schermo 3 volte per sbloccarlo." : "Tap the screen 3 times to unlock.") + "</span></div>";
       document.body.appendChild(proximityOverlay);
 
       function onUnlockTap() {
@@ -1966,6 +1967,8 @@ export default apiInitializer("0.8", (api) => {
 
       document.body.appendChild(callUI);
       if (typeof isIOS === "function" && isIOS()) callUI.classList.add("diskuz-call-ios");
+      if (isMobileDevice()) callUI.classList.add("diskuz-call-mobile");
+      if (/Android/i.test(navigator.userAgent)) callUI.classList.add("diskuz-call-android");
 
       /* Mobile (anche orizzontale): impedisce zoom a pinza sull'intera UI chiamata */
       if (isMobileDevice()) {
@@ -2027,7 +2030,12 @@ export default apiInitializer("0.8", (api) => {
       muteBtn.setAttribute("aria-pressed", "false");
       muteBtn.setAttribute("aria-label", "Mute microphone");
       speakerBtn.setAttribute("aria-pressed", "false");
-      speakerBtn.setAttribute("aria-label", "Speaker / audio output");
+      if (isMobileDevice()) {
+        speakerBtn.classList.add("diskuz-call-speaker-mobile");
+        speakerBtn.setAttribute("aria-label", isIt ? "Usa i tasti volume per il volume" : "Use volume keys for call volume");
+      } else {
+        speakerBtn.setAttribute("aria-label", "Speaker / audio output");
+      }
 
       hangupBtn.addEventListener("click", function (e) {
         e.preventDefault();
@@ -2052,12 +2060,13 @@ export default apiInitializer("0.8", (api) => {
 
       speakerBtn.addEventListener("click", async function () {
         ensureRemoteAudio();
+        /* Su mobile il tasto speaker non controlla l'uscita audio: mostra solo il popup che invita a usare i tasti volume */
+        if (isMobileDevice() || isIOS()) {
+          showSpeakerMobileVolumePopup();
+          return;
+        }
         if (!setSinkIdSupported()) {
-          if (isMobileDevice() || isIOS()) {
-            showSpeakerMobileVolumePopup();
-          } else {
-            showToast("Audio output is controlled by your device.");
-          }
+          showToast("Audio output is controlled by your device.");
           return;
         }
         await cycleSpeakerOutput();
@@ -2190,6 +2199,12 @@ export default apiInitializer("0.8", (api) => {
         let dragOffsetX = 0, dragOffsetY = 0, dragStartX = 0, dragStartY = 0, dragStartOffX = 0, dragStartOffY = 0;
         const localPreviewOuter = localPreviewWrap.closest(".diskuz-call-local-preview-outer");
         const callInner = callUI && callUI.querySelector(".call-inner");
+        function resetPreviewPosition() {
+          dragOffsetX = 0;
+          dragOffsetY = 0;
+          if (localPreviewWrap) localPreviewWrap.style.transform = "";
+        }
+        if (callUI) callUI._resetLocalPreviewPosition = resetPreviewPosition;
         function clampPreviewOffset(offX, offY) {
           if (!callInner || !localPreviewOuter) return { x: offX, y: offY };
           const container = callInner.getBoundingClientRect();
@@ -2613,6 +2628,10 @@ export default apiInitializer("0.8", (api) => {
 
   function closeCallUI() {
     if (!callUI) return;
+    if (earModeAutoTimerId) {
+      clearTimeout(earModeAutoTimerId);
+      earModeAutoTimerId = null;
+    }
     setIncomingCallButtonState(false);
     updateFloatingButtonActiveCallState(false);
     callUI.classList.remove("open", "diskuz-call-minimized", "diskuz-call-incoming-ringing", "diskuz-call-outgoing-ringing", "diskuz-call-video-active", "diskuz-call-connected");
@@ -2825,6 +2844,17 @@ export default apiInitializer("0.8", (api) => {
     }
   }
 
+  /** Su mobile/iOS: chiamata solo voce = volume basso (ear), videochiamata = volume massimo (vivavoce). Desktop = sempre 1. */
+  function applyRemoteAudioVolumeForCallType() {
+    if (!rtcRemoteAudio) return;
+    if (isMobileDevice() || isIOS()) {
+      const isVideo = callUI && callUI.classList.contains("diskuz-call-video-active");
+      rtcRemoteAudio.volume = isVideo ? 1 : 0.5;
+    } else {
+      rtcRemoteAudio.volume = 1;
+    }
+  }
+
   async function refreshAudioOutputDevices() {
     if (!navigator.mediaDevices || typeof navigator.mediaDevices.enumerateDevices !== "function")
       return;
@@ -2928,7 +2958,12 @@ export default apiInitializer("0.8", (api) => {
     if (wrap) wrap.style.display = show ? "block" : "none";
     callUI.classList.toggle("diskuz-call-video-active", !!show);
     callUI.classList.toggle("diskuz-call-remote-video-active", !!remoteVideoActive);
+    if (show && earModeAutoTimerId) {
+      clearTimeout(earModeAutoTimerId);
+      earModeAutoTimerId = null;
+    }
     callUI.classList.toggle("diskuz-call-preview-only", !!localVideoOn && !remoteVideoActive);
+    if (typeof applyRemoteAudioVolumeForCallType === "function") applyRemoteAudioVolumeForCallType();
     const remoteVideoEl = callUI.querySelector(".diskuz-call-remote-video");
     if (remoteVideoEl && rtcRemoteVideoStream) {
       remoteVideoEl.srcObject = rtcRemoteVideoStream;
@@ -2938,6 +2973,7 @@ export default apiInitializer("0.8", (api) => {
     }
     const localPreviewOuter = callUI.querySelector(".diskuz-call-local-preview-outer");
     if (localPreviewOuter) localPreviewOuter.style.display = localVideoOn ? "flex" : "none";
+    if (show && typeof callUI._resetLocalPreviewPosition === "function") callUI._resetLocalPreviewPosition();
     if (fsBtn) fsBtn.style.display = show && remoteVideoActive ? "block" : "none";
   }
 
@@ -3399,8 +3435,22 @@ export default apiInitializer("0.8", (api) => {
         if (connState === "connected") {
           callUI.classList.add("diskuz-call-connected");
           callUI.classList.remove("diskuz-call-outgoing-ringing");
+          /* Chiamata solo voce: dopo 1 minuto attiva Ear mode automaticamente */
+          if (!callUI.classList.contains("diskuz-call-video-active")) {
+            if (earModeAutoTimerId) clearTimeout(earModeAutoTimerId);
+            earModeAutoTimerId = setTimeout(function () {
+              earModeAutoTimerId = null;
+              if (callUI && callUI.classList.contains("diskuz-call-connected") && !callUI.classList.contains("diskuz-call-video-active") && typeof activateEarMode === "function") {
+                activateEarMode();
+              }
+            }, 60000);
+          }
         } else {
           callUI.classList.remove("diskuz-call-connected");
+          if (earModeAutoTimerId) {
+            clearTimeout(earModeAutoTimerId);
+            earModeAutoTimerId = null;
+          }
         }
       }
       if (connState === "connected" && !callDurationIntervalId && callConnectedAt == null) {
@@ -3468,7 +3518,7 @@ export default apiInitializer("0.8", (api) => {
     function scheduleRemoteAudioPlayRetries() {
       if (!rtcRemoteAudio || !rtcRemoteAudio.srcObject) return;
       rtcRemoteAudio.muted = false;
-      rtcRemoteAudio.volume = isMobileDevice() ? 0.25 : 1;
+      if (typeof applyRemoteAudioVolumeForCallType === "function") applyRemoteAudioVolumeForCallType();
       const tryPlay = () => {
         if (!rtcRemoteAudio || !rtcRemoteAudio.srcObject) return;
         rtcRemoteAudio.muted = false;
@@ -3485,7 +3535,7 @@ export default apiInitializer("0.8", (api) => {
       if (event.track.kind === "audio" && rtcRemoteAudio) {
         rtcRemoteAudio.srcObject = stream;
         rtcRemoteAudio.muted = false;
-        rtcRemoteAudio.volume = isMobileDevice() ? 0.25 : 1;
+        if (typeof applyRemoteAudioVolumeForCallType === "function") applyRemoteAudioVolumeForCallType();
         applySpeakerSink();
         scheduleRemoteAudioPlayRetries();
         if (callConnectedAt == null && !callDurationIntervalId) {
@@ -4560,7 +4610,7 @@ export default apiInitializer("0.8", (api) => {
         }
         get linkTitle() {
           const d = this._data;
-          if (d.diskuz_call_missed) return missedCallText("title");
+          if (d.diskuz_call_missed || d.diskuzCallMissed) return missedCallText("title");
           return d.customTranslatedTitle || d.customMessage || super.linkTitle;
         }
         get icon() {
@@ -4574,8 +4624,9 @@ export default apiInitializer("0.8", (api) => {
         }
         get description() {
           const d = this._data;
+          const isMissed = d.diskuz_call_missed || d.diskuzCallMissed;
           let msg;
-          if (d.diskuz_call_missed) {
+          if (isMissed) {
             msg = missedCallText("description");
           } else {
             msg = d.customMessage || d.notification_message || d.message || super.description || "";
