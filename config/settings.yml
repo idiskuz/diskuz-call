@@ -1,11 +1,8 @@
-# Admin > Site settings > Plugins
+# Admin > Site settings > Plugins — ordine: più importanti in alto, Log sempre in fondo.
 plugins:
+  # Master e accesso
   diskuz_call_enabled:
     default: true
-    client: true
-  # Colore principale del plugin (pulsante, sfondi, accenti). Default: verde #13c98c.
-  diskuz_call_primary_color:
-    default: "#13c98c"
     client: true
   # Chi può vedere e usare diskuz Call. Default: amministratori (1), moderatori (2), staff (3).
   diskuz_call_allowed_groups:
@@ -18,6 +15,29 @@ plugins:
     default: true
     type: boolean
     client: true
+  # Mostra il pulsante floating diskuz Call sul sito (solo per i gruppi consentiti). Se disattivato, il pulsante floating è nascosto per tutti.
+  diskuz_call_show_floating_button:
+    default: true
+    type: boolean
+    client: true
+  # Mostra il pulsante Call nella chat (composer delle chat 1:1), solo per i gruppi consentiti. Se disattivato, il pulsante non è visibile a nessuno.
+  diskuz_call_show_chat_button:
+    default: true
+    type: boolean
+    client: true
+  # Video
+  # Gruppi che possono abilitare il video durante una chiamata (stesso formato di "Chi può usare diskuz Call"). Solo chi è in questi gruppi vede il tasto Video in chiamata.
+  diskuz_call_video_allowed_groups:
+    default: "1|2|3"
+    type: group_list
+    list_type: compact
+    client: true
+  # Aspetto
+  # Colore principale del plugin (pulsante, sfondi, accenti). Default: verde #13c98c.
+  diskuz_call_primary_color:
+    default: "#13c98c"
+    client: true
+  # Suonerie — gruppo unito, ordine interno invariato
   # Suono per chiamate in arrivo: Discourse chat (none/default/ding/bell/chat), custom (URL sotto), oppure alternative (5 suonerie sotto).
   diskuz_call_incoming_sound:
     default: "default"
@@ -93,16 +113,12 @@ plugins:
       - relax3
       - relax4
       - relax5
-  # Gruppi che possono abilitare il video durante una chiamata (stesso formato di "Chi può usare diskuz Call"). Solo chi è in questi gruppi vede il tasto Video in chiamata.
-  diskuz_call_video_allowed_groups:
-    default: "1|2|3"
-    type: group_list
-    list_type: compact
-    client: true
+  # Tecnico / rete
   # ICE servers per WebRTC (opzionale). JSON array, es: [{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:turn.example.com","username":"user","credential":"pass"}]. Lascia vuoto per usare solo STUN Google.
   diskuz_call_ice_servers:
     default: ""
     client: true
+  # Sempre in fondo: supporto / debug
   # Log di debug in console (F12): se attivo, gli utenti vedranno i messaggi [diskuz-call] durante le chiamate. Utile per supporto; disattivare in produzione.
   diskuz_call_debug_log:
     default: false

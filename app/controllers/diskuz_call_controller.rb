@@ -36,6 +36,8 @@ class DiskuzCallController < ApplicationController
       primary_color: primary,
       primary_color_dark: primary_dark,
       debug_log: SiteSetting.diskuz_call_debug_log,
+      show_floating_button: SiteSetting.diskuz_call_show_floating_button,
+      show_chat_button: SiteSetting.diskuz_call_show_chat_button,
     }
   end
 

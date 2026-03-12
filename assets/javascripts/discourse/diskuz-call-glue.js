@@ -40,6 +40,8 @@ apiInitializer("0.7", (api) => {
       window.DiskuzCallStatusLoaded = true;
       window.DiskuzCallAllowed = data.enabled === true;
       window.DiskuzCallVideoAllowed = data.video_allowed === true;
+      window.DiskuzCallShowFloatingButton = data.show_floating_button !== false;
+      window.DiskuzCallShowChatButton = data.show_chat_button !== false;
       window.DiskuzCallIncomingSound = (data.incoming_sound && data.incoming_sound !== "") ? data.incoming_sound : "default";
       window.DiskuzCallCustomRingtoneUrl = (data.custom_ringtone_url && data.custom_ringtone_url !== "") ? data.custom_ringtone_url : "";
       window.DiskuzCallIceServers = Array.isArray(data.ice_servers) && data.ice_servers.length > 0 ? data.ice_servers : null;

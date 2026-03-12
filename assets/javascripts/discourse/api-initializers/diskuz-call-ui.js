@@ -4543,13 +4543,17 @@ export default apiInitializer("0.8", (api) => {
           document.documentElement.style.setProperty("--diskuz-call-primary-dark", data.primary_color_dark);
         }
         window.DiskuzCallDebugLog = data.debug_log === true;
+        window.DiskuzCallShowFloatingButton = data.show_floating_button !== false;
+        window.DiskuzCallShowChatButton = data.show_chat_button !== false;
         subscribeMessageBus();
         loadHistory();
         try {
           const savedStatus = window.localStorage.getItem(STATUS_KEY);
           if (savedStatus === "busy" || savedStatus === "not_available" || savedStatus === "available") callStatus = savedStatus;
         } catch (e) {}
-        createFloatingButton();
+        if (window.DiskuzCallShowFloatingButton !== false) {
+          createFloatingButton();
+        }
         createWidget();
         if (data.incoming_sound === "custom" && window.DiskuzCallCustomRingtones.length > 0) {
           updateCustomRingtonesUI(window.DiskuzCallCustomRingtones, window.DiskuzCallSelectedCustomRingtoneIndex);
@@ -4677,7 +4681,7 @@ export default apiInitializer("0.8", (api) => {
     log("diskuz-call: notification type renderer registered for custom (campanella)");
   });
 
-  /* Pulsante "Chiamata" nel composer della chat (stesso punto di Jitsi): con withPluginApi come fa Jitsi, così registerChatComposerButton è disponibile */
+  /* Pulsante "Chiamata" nel composer della chat: visibile solo ai gruppi consentiti (stessa logica del pulsante floating). */
   withPluginApi((pluginApi) => {
     if (!pluginApi.registerChatComposerButton) return;
     let chatService;
@@ -4687,47 +4691,62 @@ export default apiInitializer("0.8", (api) => {
       return;
     }
     if (!chatService) return;
-    pluginApi.registerChatComposerButton({
-      id: "diskuz-call-chat-call",
-      group: "insertions",
-      position: "inline",
-      icon: "phone",
-      label: "Call",
-      title: "Call this user (Diskuz Call)",
-      action: () => {
-        const activeChannel = chatService.activeChannel;
-        if (!activeChannel) {
-          log("chat call: no active channel");
-          if (typeof showToast === "function") showToast("Open a direct message to call.");
-          return;
-        }
-        const currentUser = pluginApi.getCurrentUser();
-        if (!currentUser) return;
-        let otherUser = null;
-        const users = activeChannel.chatable?.users || activeChannel.recipients || [];
-        for (const u of users) {
-          const uid = typeof u === "object" && u !== null ? u.id : null;
-          if (uid != null && uid !== currentUser.id) {
-            otherUser = u;
-            break;
+
+    function registerDiskuzChatCallButton() {
+      pluginApi.registerChatComposerButton({
+        id: "diskuz-call-chat-call",
+        group: "insertions",
+        position: "inline",
+        icon: "phone",
+        label: "Call",
+        title: "Call this user (Diskuz Call)",
+        action: () => {
+          const activeChannel = chatService.activeChannel;
+          if (!activeChannel) {
+            log("chat call: no active channel");
+            if (typeof showToast === "function") showToast("Open a direct message to call.");
+            return;
           }
-        }
-        if (!otherUser) {
-          log("chat call: no other user in channel (not a 1:1 DM?)");
-          if (typeof showToast === "function") showToast("Open a direct message with one person to call.");
-          return;
-        }
-        const username = otherUser.username || otherUser.name;
-        const userId = otherUser.id;
-        const avatarTemplate = otherUser.avatar_template ?? null;
-        if (!username || userId == null) return;
-        window.dispatchEvent(
-          new CustomEvent("diskuz-call-start", {
-            detail: { username, userId, avatar_template: avatarTemplate },
-          })
-        );
-      },
-    });
-    log("diskuz-call: chat composer button (smartphone) registered");
+          const currentUser = pluginApi.getCurrentUser();
+          if (!currentUser) return;
+          let otherUser = null;
+          const users = activeChannel.chatable?.users || activeChannel.recipients || [];
+          for (const u of users) {
+            const uid = typeof u === "object" && u !== null ? u.id : null;
+            if (uid != null && uid !== currentUser.id) {
+              otherUser = u;
+              break;
+            }
+          }
+          if (!otherUser) {
+            log("chat call: no other user in channel (not a 1:1 DM?)");
+            if (typeof showToast === "function") showToast("Open a direct message with one person to call.");
+            return;
+          }
+          const username = otherUser.username || otherUser.name;
+          const userId = otherUser.id;
+          const avatarTemplate = otherUser.avatar_template ?? null;
+          if (!username || userId == null) return;
+          window.dispatchEvent(
+            new CustomEvent("diskuz-call-start", {
+              detail: { username, userId, avatar_template: avatarTemplate },
+            })
+          );
+        },
+      });
+      log("diskuz-call: chat composer button registered (allowed groups only)");
+    }
+
+    if (window.DiskuzCallStatusLoaded === true && window.DiskuzCallAllowed === true && window.DiskuzCallShowChatButton !== false) {
+      registerDiskuzChatCallButton();
+      return;
+    }
+    const onAllowedChanged = (ev) => {
+      if (!(ev && ev.detail && ev.detail.allowed)) return;
+      if (window.DiskuzCallShowChatButton === false) return;
+      window.removeEventListener("diskuz-call-allowed-changed", onAllowedChanged);
+      registerDiskuzChatCallButton();
+    };
+    window.addEventListener("diskuz-call-allowed-changed", onAllowedChanged);
   });
 });

@@ -19,13 +19,15 @@ Discourse plugin for **P2P voice and video calls (WebRTC)** with a built-in UI. 
 ## Features
 
 ### Starting a call
-- **Floating button** (bottom right): opens the widget to enter a username and start a call. The button is hidden when the topic composer or **chat** is open; in 1:1 chat a **Call** button in the composer starts a call with the other user.
+- **Floating button** (bottom right): opens the widget to enter a username and start a call. The button is hidden when the topic composer or **chat** is open. **Admin** can turn the floating button **off** for the whole site (then only the chat Call button can start calls, if enabled).
+- **Call button in chat:** in 1:1 chat, a **Call** icon in the composer starts a call with the other user. Visible only to **allowed groups**; **admin** can hide it for everyone (then only the floating button can start calls, if enabled).
 - **User status:** Online, Busy, Offline (stored in the browser). Incoming calls can be auto-rejected when status is Busy or Offline.
 - **Widget errors:** e.g. "You cannot call yourself.", follow/groups reasons; shown at the bottom of the widget and auto-dismiss after 5 seconds.
 - **Outgoing call:** if the callee does not answer within **30 seconds**, the call ends; status and toasts show the outcome (e.g. user not available).
 
 ### During a call
 - **Duration** from connection (MM:SS or HH:MM:SS).
+- **Desktop — other tab / background:** if the user switches to another browser tab or minimizes the window, a **60-second** timer starts; if they do not return within 60 seconds, the call ends automatically. The media stream is not intentionally disconnected while in the background.
 - **Voice and video:** toggle camera on/off; the other side sees a placeholder (avatar + duration) when video is off.
 - **Blur (desktop and Android only):** optional blur of your camera image; not available on iOS (browser limitation).
 - **Mute:** microphone on/off. Each **new call** starts with the mic on (mute state is not carried over).
@@ -60,6 +62,8 @@ Discourse plugin for **P2P voice and video calls (WebRTC)** with a built-in UI. 
 
 ### Permissions
 - **Allowed groups:** only users in the configured groups can see and use diskuz Call.
+- **Show floating button** (Admin): if **ON**, the floating button is shown only to allowed groups; if **OFF**, it is hidden for everyone (allowed users can still start calls from the chat Call button if that is enabled).
+- **Show chat button** (Admin): if **ON**, the Call button in 1:1 chat is shown only to allowed groups; if **OFF**, it is hidden for everyone (allowed users can still start calls from the floating button if that is enabled).
 - **Require follow:** when enabled (with discourse-follow), the **callee must follow the caller** to receive calls.
 - **Video allowed groups:** separate setting for who can use the **Video** button during a call.
 - 403 reasons (e.g. cannot_call_yourself, follow_required, group restrictions) are shown in the UI and in toasts.
@@ -67,6 +71,8 @@ Discourse plugin for **P2P voice and video calls (WebRTC)** with a built-in UI. 
 ### Admin settings
 - **Enable diskuz Call** — master switch.
 - **Who can see and use diskuz Call** — group list (e.g. `1|2|3`).
+- **Show floating button** — if ON, the floating button is visible only to allowed groups; if OFF, hidden for everyone.
+- **Show chat button** — if ON, the Call button in 1:1 chat is visible only to allowed groups; if OFF, hidden for everyone.
 - **Require the callee to follow the caller** — when discourse-follow is enabled.
 - **Primary color** — hex (e.g. `#13c98c`) for button and accents.
 - **Sound for incoming calls** — `none`, `default`, `ding`, `bell`, `chat`, `custom`, `alternative`.
@@ -77,7 +83,7 @@ Discourse plugin for **P2P voice and video calls (WebRTC)** with a built-in UI. 
 - **Debug log** — when enabled, `[diskuz-call]` messages in the browser console (F12).
 
 ### Backend API
-- `GET /diskuz-call/status` — enabled, incoming_sound, primary_color, custom_ringtones, alternative_ringtone, ice_servers, video_allowed, debug_log, etc.
+- `GET /diskuz-call/status` — enabled, incoming_sound, primary_color, custom_ringtones, alternative_ringtone, ice_servers, video_allowed, debug_log, show_floating_button, show_chat_button, etc.
 - `GET /diskuz-call/watermark.png` — logo image for the call UI.
 - `PUT /diskuz-call/preferences` — user preferences (e.g. selected_custom_ringtone_index).
 - `GET /diskuz-call/can-call/:user_id` — whether the current user can call the given user.
@@ -103,7 +109,8 @@ Discourse plugin for **P2P voice and video calls (WebRTC)** with a built-in UI. 
 
 1. **Admin → Settings → Plugins:** ensure **Enable diskuz Call** is on.
 2. **Who can see and use diskuz Call:** your user must be in one of the listed groups.
-3. **Console (F12):** look for `[diskuz-call]` messages; rebuild and hard refresh (Ctrl+F5) if the plugin does not load.
+3. **Show floating button** / **Show chat button:** ensure the button you expect (floating or chat) is enabled in Admin.
+4. **Console (F12):** look for `[diskuz-call]` messages; rebuild and hard refresh (Ctrl+F5) if the plugin does not load.
 
 ### Widget too small on desktop
 
