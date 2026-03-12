@@ -4442,6 +4442,10 @@ export default apiInitializer("0.8", (api) => {
         break;
     }
   });
+  /* Sottoscrizione MessageBus il prima possibile per utenti loggati: la ricezione delle chiamate non deve dipendere da initPage/status (ritardi o opzioni pulsanti on/off). */
+  if (api.getCurrentUser()) {
+    subscribeMessageBus();
+  }
 
   function toggleWidget() {
     if (!widget) return;
