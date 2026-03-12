@@ -13,7 +13,7 @@ Discourse plugin for **P2P voice and video calls (WebRTC)** with a built-in UI. 
 1. On the server where Discourse runs, go to the plugins directory (e.g. Docker: `cd /var/www/discourse`).
 2. Clone: `git clone https://github.com/idiskuz/diskuz-call`
 3. Rebuild (e.g. `./launcher rebuild app`).
-4. **Admin → Plugins** → enable **diskuz.com Call**.
+4. **Admin → Plugins** → enable **diskuz Call**.
 5. **Admin → Settings → Plugins** → enable **Enable diskuz Call**.
 
 ---
@@ -65,7 +65,7 @@ Discourse plugin for **P2P voice and video calls (WebRTC)** with a built-in UI. 
 - **Allowed groups:** only users in the configured groups can see and use diskuz Call.
 - **Show floating button** (Admin): if **ON**, the floating button is shown only to allowed groups; if **OFF**, it is hidden for everyone (allowed users can still start calls from the chat Call button if that is enabled).
 - **Show chat button** (Admin): if **ON**, the Call button in 1:1 chat is shown only to allowed groups; if **OFF**, it is hidden for everyone (allowed users can still start calls from the floating button if that is enabled).
-- **Require follow:** when enabled (with discourse-follow), the **callee must follow the caller** to receive calls.
+- **Require follow:** when enabled (with [Discourse Follow](https://meta.discourse.org/t/discourse-follow/110579)), the **callee must follow the caller** to receive calls.
 - **Video allowed groups:** separate setting for who can use the **Video** button during a call.
 - 403 reasons (e.g. cannot_call_yourself, follow_required, group restrictions) are shown in the UI and in toasts.
 
@@ -74,7 +74,7 @@ Discourse plugin for **P2P voice and video calls (WebRTC)** with a built-in UI. 
 - **Who can see and use diskuz Call** — group list (e.g. `1|2|3`).
 - **Show floating button** — if ON, the floating button is visible only to allowed groups; if OFF, hidden for everyone.
 - **Show chat button** — if ON, the Call button in 1:1 chat is visible only to allowed groups; if OFF, hidden for everyone.
-- **Require the callee to follow the caller** — when discourse-follow is enabled.
+- **Require the callee to follow the caller** — when [Discourse Follow](https://meta.discourse.org/t/discourse-follow/110579) is enabled.
 - **Primary color** — hex (e.g. `#13c98c`) for button and accents.
 - **Sound for incoming calls** — `none`, `default`, `ding`, `bell`, `chat`, `custom`, `alternative`.
 - **Custom ringtones 1–10** — MP3 URLs; user chooses one in the widget when Sound is **custom**.
@@ -115,7 +115,7 @@ Minimum size **360×560** is enforced. To reset: **F12 → Application → Local
 ## Requirements
 
 - **Discourse** (uses the site’s built-in real-time messaging for signaling; no separate setup).
-- Optional: **discourse-follow** for "Require the callee to follow the caller".
+- Optional: [**Discourse Follow**](https://meta.discourse.org/t/discourse-follow/110579) for "Require the callee to follow the caller".
 - Browser with WebRTC support and microphone (and camera for video).
 
 ---
