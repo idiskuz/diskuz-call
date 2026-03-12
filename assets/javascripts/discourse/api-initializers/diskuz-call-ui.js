@@ -4554,6 +4554,63 @@ export default apiInitializer("0.8", (api) => {
         if (window.DiskuzCallShowFloatingButton !== false) {
           createFloatingButton();
         }
+        /* Registra il pulsante Call in chat qui quando abbiamo status certo (evita ordine di caricamento glue/UI). */
+        if (data.show_chat_button !== false && !window.DiskuzCallChatButtonRegistered) {
+          withPluginApi("1.0.0", (pluginApi) => {
+            if (!pluginApi || !pluginApi.registerChatComposerButton) return;
+            if (window.DiskuzCallChatButtonRegistered) return;
+            let chatService;
+            try {
+              chatService = pluginApi.container.lookup("service:chat");
+            } catch (e) {
+              return;
+            }
+            if (!chatService) return;
+            pluginApi.registerChatComposerButton({
+              id: "diskuz-call-chat-call",
+              group: "insertions",
+              position: "inline",
+              icon: "phone",
+              label: "Call",
+              title: "Call this user (Diskuz Call)",
+              action: () => {
+                const activeChannel = chatService.activeChannel;
+                if (!activeChannel) {
+                  log("chat call: no active channel");
+                  if (typeof showToast === "function") showToast("Open a direct message to call.");
+                  return;
+                }
+                const currentUser = pluginApi.getCurrentUser();
+                if (!currentUser) return;
+                let otherUser = null;
+                const users = activeChannel.chatable?.users || activeChannel.recipients || [];
+                for (const u of users) {
+                  const uid = typeof u === "object" && u !== null ? u.id : null;
+                  if (uid != null && uid !== currentUser.id) {
+                    otherUser = u;
+                    break;
+                  }
+                }
+                if (!otherUser) {
+                  log("chat call: no other user in channel (not a 1:1 DM?)");
+                  if (typeof showToast === "function") showToast("Open a direct message with one person to call.");
+                  return;
+                }
+                const username = otherUser.username || otherUser.name;
+                const userId = otherUser.id;
+                const avatarTemplate = otherUser.avatar_template ?? null;
+                if (!username || userId == null) return;
+                window.dispatchEvent(
+                  new CustomEvent("diskuz-call-start", {
+                    detail: { username, userId, avatar_template: avatarTemplate },
+                  })
+                );
+              },
+            });
+            window.DiskuzCallChatButtonRegistered = true;
+            log("diskuz-call: chat composer button registered (from initPage)");
+          });
+        }
         createWidget();
         if (data.incoming_sound === "custom" && window.DiskuzCallCustomRingtones.length > 0) {
           updateCustomRingtonesUI(window.DiskuzCallCustomRingtones, window.DiskuzCallSelectedCustomRingtoneIndex);
@@ -4693,6 +4750,7 @@ export default apiInitializer("0.8", (api) => {
     if (!chatService) return;
 
     function registerDiskuzChatCallButton() {
+      if (window.DiskuzCallChatButtonRegistered) return;
       pluginApi.registerChatComposerButton({
         id: "diskuz-call-chat-call",
         group: "insertions",
@@ -4734,6 +4792,7 @@ export default apiInitializer("0.8", (api) => {
           );
         },
       });
+      window.DiskuzCallChatButtonRegistered = true;
       log("diskuz-call: chat composer button registered (allowed groups only)");
     }
 

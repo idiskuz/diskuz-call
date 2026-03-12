@@ -2,7 +2,9 @@
 
 Discourse plugin for **P2P voice and video calls (WebRTC)** with a built-in UI. One plugin, no theme component. Plugin directory name: **diskuz-call**.
 
-**Authors:** diskuz.com, Cristian Deraco
+**Authors:** diskuz.com, Cristian Deraco  
+
+**Credits:** Concept, features, and design by Cristian Deraco (diskuz.com). Implementation with AI-assisted development.
 
 ---
 
@@ -112,7 +114,7 @@ Minimum size **360×560** is enforced. To reset: **F12 → Application → Local
 
 ## Requirements
 
-- Discourse with MessageBus.
+- **Discourse** (uses the site’s built-in real-time messaging for signaling; no separate setup).
 - Optional: **discourse-follow** for "Require the callee to follow the caller".
 - Browser with WebRTC support and microphone (and camera for video).
 
