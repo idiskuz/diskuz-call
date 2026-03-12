@@ -8,12 +8,15 @@ module DiskuzCallHelpers
     raw = SiteSetting.diskuz_call_allowed_groups
     allowed_ids = case raw
                  when Array
+                   return true if raw.empty?
+                   return true if raw.any? { |v| v.to_s.strip.downcase == "everyone" || v.to_s.strip.downcase == "all" }
                    raw.map(&:to_i).reject(&:zero?)
                  when String
                    s = raw.strip
                    return true if s.blank?
                    return true if s.casecmp("all").zero?
                    return true if s.casecmp("everyone").zero?
+                   return true if s.downcase.include?("everyone")
                    s.split(%r{[|,]}).map(&:to_i).reject(&:zero?)
                  else
                    return true if raw.blank?
@@ -31,12 +34,15 @@ module DiskuzCallHelpers
     raw = SiteSetting.diskuz_call_video_allowed_groups
     allowed_ids = case raw
                   when Array
+                    return true if raw.empty?
+                    return true if raw.any? { |v| v.to_s.strip.downcase == "everyone" || v.to_s.strip.downcase == "all" }
                     raw.map(&:to_i).reject(&:zero?)
                   when String
                     s = raw.to_s.strip
                     return true if s.blank?
                     return true if s.casecmp("all").zero?
                     return true if s.casecmp("everyone").zero?
+                    return true if s.downcase.include?("everyone")
                     s.split(%r{[|,]}).map(&:to_i).reject(&:zero?)
                   else
                     []
