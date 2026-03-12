@@ -13,6 +13,7 @@ module DiskuzCallHelpers
                    s = raw.strip
                    return true if s.blank?
                    return true if s.casecmp("all").zero?
+                   return true if s.casecmp("everyone").zero?
                    s.split(%r{[|,]}).map(&:to_i).reject(&:zero?)
                  else
                    return true if raw.blank?
@@ -35,6 +36,7 @@ module DiskuzCallHelpers
                     s = raw.to_s.strip
                     return true if s.blank?
                     return true if s.casecmp("all").zero?
+                    return true if s.casecmp("everyone").zero?
                     s.split(%r{[|,]}).map(&:to_i).reject(&:zero?)
                   else
                     []
