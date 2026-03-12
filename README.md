@@ -48,7 +48,7 @@ Discourse plugin for **P2P voice and video calls (WebRTC)** with a built-in UI. 
 
 ### Widget
 - **Two pages:** home ("Call a friend") and **Notifications**. Notifications has tabs: Received, Sent, Recent, Missed (up to **10 entries per tab**). Back button returns to home. Usernames in the list are clickable to start a call.
-- **Desktop:** draggable by the top bar; "diskuz Call" and "by diskuz.com" on one line. **Resizable** (min 360×560); position and size saved and restored. Hide button on both pages.
+- **Desktop:** draggable by the top bar; "diskuz Call" and "by diskuz.com" on one line. Hide button on both pages.
 - **Mobile:** when open, the widget is full-page (covers the screen). Hide button to close.
 - **Custom ringtones:** when Sound is **custom**, a Ringtones section in the widget lists admin-configured MP3s with Preview (~12 s) and Select; selection is saved per user.
 
