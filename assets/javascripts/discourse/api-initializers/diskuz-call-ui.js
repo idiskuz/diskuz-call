@@ -1,7 +1,6 @@
 import { apiInitializer } from "discourse/lib/api";
 import { withPluginApi } from "discourse/lib/plugin-api";
 import { ajax } from "discourse/lib/ajax";
-import MessageBus from "message-bus-client";
 
 /* Log e warn/error diskuz-call: attivi solo se Admin ha abilitato "Log di debug" in Impostazioni plugin oppure localStorage diskuz_call_debug === "1". */
 function diskuzCallDebugEnabled() {
@@ -4213,11 +4212,24 @@ export default apiInitializer("0.8", (api) => {
     closeCallUI();
   }
 
+  function getMessageBus() {
+    try {
+      return api.container?.lookup("service:message-bus") || window.MessageBus;
+    } catch (e) {
+      return window.MessageBus;
+    }
+  }
+
   /* --- MESSAGEBUS: sottoscrizione in UI se il glue non ha ancora sottoscritto (es. ordine di caricamento) --- */
   function subscribeMessageBus() {
     if (window.DiskuzCallMessageBusSubscribed) return;
+    const messageBus = getMessageBus();
+    if (!messageBus) {
+      log("MessageBus not available, skip subscribe");
+      return;
+    }
     window.DiskuzCallMessageBusSubscribed = true;
-    MessageBus.subscribe("/diskuz-call/signals", (data) => {
+    messageBus.subscribe("/diskuz-call/signals", (data) => {
       log("[UI] MessageBus message received", data.signal_type, "from_user_id", data.from_user_id);
       const payload = data.payload || {};
       const detail = {

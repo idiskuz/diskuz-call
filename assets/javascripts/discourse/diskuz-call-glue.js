@@ -3,10 +3,17 @@
  * La UI è in diskuz-call-ui.js (stesso plugin).
  */
 import { apiInitializer } from "discourse/lib/api";
-import MessageBus from "message-bus-client";
 import { ajax } from "discourse/lib/ajax";
 
 const LOG = (...args) => console.log("[diskuz-call glue]", ...args);
+
+function getMessageBus(api) {
+  try {
+    return api.container?.lookup("service:message-bus") || window.MessageBus;
+  } catch (e) {
+    return window.MessageBus;
+  }
+}
 
 apiInitializer("0.7", (api) => {
   const currentUser = api.getCurrentUser();
@@ -68,7 +75,13 @@ apiInitializer("0.7", (api) => {
       );
     });
 
-  MessageBus.subscribe("/diskuz-call/signals", (data) => {
+  const messageBus = getMessageBus(api);
+  if (!messageBus) {
+    LOG("glue: MessageBus not available, skip subscribe");
+    return;
+  }
+
+  messageBus.subscribe("/diskuz-call/signals", (data) => {
     LOG("glue: MessageBus message received", data.signal_type, "from_user_id", data.from_user_id, "from_username", data.from_username);
     const payload = data.payload || {};
     const detail = {
