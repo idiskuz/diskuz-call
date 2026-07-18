@@ -2,7 +2,7 @@
  * Plugin diskuz-call: invio segnali (DiskuzCallSend), status, e ricezione via MessageBus.
  * La UI è in diskuz-call-ui.js (stesso plugin).
  */
-import apiInitializer from "discourse/lib/api";
+import { apiInitializer } from "discourse/lib/api";
 import MessageBus from "message-bus-client";
 import { ajax } from "discourse/lib/ajax";
 

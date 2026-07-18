@@ -2,7 +2,7 @@
 
 # name: diskuz-call
 # about: P2P voice calls (WebRTC) with built-in UI. One plugin, no theme component. Signaling via MessageBus; admin can restrict by group and set incoming call sound.
-# version: 0.3.0-beta
+# version: 0.4.0-beta
 # authors: diskuz.com, Cristian Deraco
 # url: https://github.com/idiskuz/diskuz-call
 
